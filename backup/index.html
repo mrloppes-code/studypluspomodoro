@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estude+ - Painel de Estudos</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --warning: #f59e0b;
+            --warning-hover: #d97706;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 20px; 
+            transition: background 0.5s ease;
+        }
+        
+        .app-header-main {
+            text-align: center;
+            margin: 0px auto 5px auto;
+            color: #60a5fa;
+            font-weight: 800;
+            letter-spacing: 2px;
+            font-size: 2.5rem;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .app-nav {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .nav-link:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .nav-link.active {
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .topo-info-container {
+            max-width: 1100px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .streak-badge-btn {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            white-space: nowrap;
+        }
+
+        .secao-topo-pomo {
+            max-width: 1100px;
+            margin: 0 auto 20px auto;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .secao-topo-pomo { grid-template-columns: 1fr; }
+        }
+
+        .container { 
+            max-width: 1100px; 
+            margin: 0 auto; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+        .full-width { grid-column: span 2; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); border: 1px solid var(--border); }
+        h2 { margin-top: 0; color: var(--text-main); font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+        
+        .frase-foco-container {
+            text-align: center;
+            max-width: 650px;
+            margin: 0 auto 15px auto;
+            font-style: italic;
+            color: #a7f3d0;
+            font-size: 1.2rem;
+            line-height: 1.4;
+            display: none;
+        }
+
+        /* Modal Distrações */
+        .modal-distracao {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            z-index: 100000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-conteudo {
+            background: #1e293b;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            max-width: 500px;
+            width: 100%;
+            padding: 25px;
+        }
+        .grade-checkbox-distracao {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 15px 0 20px 0;
+        }
+        .item-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .item-checkbox input { width: auto; margin: 0; }
+
+        /* Perfil de Estatísticas */
+        .perfil-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .perfil-header { display: flex; align-items: center; gap: 25px; }
+        .perfil-avatar {
+            width: 90px; height: 90px;
+            background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.2rem; font-weight: bold; color: white;
+        }
+        .perfil-detalhes h3 { margin: 0 0 5px 0; font-size: 1.6rem; color: #60a5fa; }
+        .perfil-detalhes p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+        
+        .grid-stats-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .card-stat-metrica {
+            background: #131d31; border: 1px solid var(--border);
+            padding: 16px; border-radius: 10px; display: flex; flex-direction: column; gap: 4px;
+        }
+        .stat-metrica-titulo { font-size: 0.78rem; text-transform: uppercase; font-weight: bold; color: var(--text-muted); }
+        .stat-metrica-valor { font-size: 1.5rem; font-weight: 800; color: var(--text-main); }
+        .stat-metrica-detalhe { font-size: 0.75rem; color: #60a5fa; }
+
+        .grid-campos-perfil { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 600px) { .grid-campos-perfil { grid-template-columns: 1fr; } }
+
+        /* Controles Heatmap & Calendário */
+        .calendario-controles { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .controles-grupo { display: flex; gap: 10px; align-items: center; }
+        .controles-label { font-size: 0.8rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; }
+        
+        button.toggle-btn { background: #334155; color: var(--text-muted); padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; }
+        button.toggle-btn:hover { background: #475569; color: white; }
+        button.toggle-btn.active { background: var(--primary); color: white; }
+
+        /* Estilos Modo GitHub */
+        .github-container-layout { display: flex; gap: 8px; padding: 10px 0; overflow-x: auto; align-items: center; }
+        .github-labels-dias { display: grid; grid-template-rows: repeat(7, 16px); gap: 4px; font-size: 0.65rem; color: var(--text-muted); font-weight: bold; }
+        .github-grid-cascata { display: grid; grid-template-rows: repeat(7, 16px); grid-auto-flow: column; gap: 4px; }
+        
+        /* Estilos Modo Calendário */
+        .calendarios-wrapper { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .mes-container { background: #131d31; padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+        .mes-titulo { font-weight: bold; color: #60a5fa; margin-bottom: 8px; font-size: 0.85rem; text-transform: capitalize; text-align: center; }
+        .grid-calendario { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+        .dia-semana-label { font-size: 0.65rem; font-weight: bold; color: var(--text-muted); padding-bottom: 2px; }
+        
+        /* Cubos de Foco */
+        .day-cube, .dia-calendario { width: 16px; height: 16px; background-color: #223147; border-radius: 3px; position: relative; cursor: pointer; box-sizing: border-box; }
+        .dia-calendario { width: 100%; aspect-ratio: 1; height: auto; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; color: rgba(248, 249, 250, 0.25); }
+        .dia-calendario.ativo { color: rgba(248, 249, 250, 0.4); }
+        .dia-calendario.vazio { background-color: transparent; border: none; pointer-events: none; }
+        
+        .day-cube:hover::after, .dia-calendario:hover::after { content: attr(data-info); position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%); background: #000; color: white; padding: 6px 10px; font-size: 0.75rem; border-radius: 4px; white-space: nowrap; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        
+        .lvl-1 { background-color: #1e3a8a !important; border: 1px solid #3b82f6; color: #fff !important; }
+        .lvl-2 { background-color: #3b82f6 !important; border: 1px solid #60a5fa; color: #fff !important; }
+        .lvl-3 { background-color: #60a5fa !important; border: 1px solid #93c5fd; color: #0f172a !important; }
+        .lvl-4 { background-color: #a7f3d0 !important; border: 1px solid #f0fdf4; color: #0f172a !important; }
+
+        /* Pomodoro */
+        .pomodoro { text-align: center; position: relative; z-index: 5; }
+        .timer { font-size: 4.5rem; font-weight: bold; margin: 10px 0; color: #60a5fa; font-variant-numeric: tabular-nums; }
+        .timer.overtime { color: #f43f5e; }
+        
+        .selector-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .selector-group div { flex: 1; min-width: 120px; }
+        .selector-group label { font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-align: left; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+
+        .widget-meta-topo { display: flex; flex-direction: column; justify-content: center; background: #131d31; border: 1px dashed var(--primary); padding: 20px; border-radius: 12px; }
+        .meta-stat-row { margin-bottom: 12px; }
+        .meta-stat-lbl { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; }
+        .meta-stat-val { font-size: 1.15rem; color: var(--text-main); font-weight: 700; margin-top: 2px; }
+        .meta-highlight { color: #a7f3d0; }
+        .meta-countdown { color: #f43f5e; font-size: 1.4rem; font-weight: 800; }
+
+        .pomo-linhas-titulo { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; margin-bottom: 10px; }
+        .pomo-linha-top { font-size: 1.2rem; font-weight: 500; color: var(--text-main); }
+        .pomo-linha-sub { font-size: 1.1rem; font-weight: bold; color: #60a5fa; }
+
+        body.modo-isolamento-ativo { background-color: #020617; overflow: hidden; }
+        body.modo-isolamento-ativo .container,
+        body.modo-isolamento-ativo .app-header-main,
+        body.modo-isolamento-ativo .app-nav,
+        body.modo-isolamento-ativo .topo-info-container,
+        body.modo-isolamento-ativo .widget-meta-topo { filter: blur(15px); opacity: 0.08; pointer-events: none; }
+        body.modo-isolamento-ativo .secao-topo-pomo { grid-template-columns: 1fr; max-width: 100vw; margin: 0; }
+        body.modo-isolamento-ativo .pomodoro { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.75); border: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; z-index: 99999 !important; }
+        body.modo-isolamento-ativo .pomodoro h2 { display: none; }
+        body.modo-isolamento-ativo .frase-foco-container { display: block; }
+        body.modo-isolamento-ativo .pomo-linha-top { font-size: 1.8rem; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase; }
+        body.modo-isolamento-ativo .pomo-linha-sub { font-size: 2rem; color: #60a5fa; margin-top: 3px; }
+        body.modo-isolamento-ativo .timer { font-size: 11rem; margin: 15px 0; color: #60a5fa; text-shadow: 0 0 45px rgba(59, 130, 246, 0.5); }
+        body.modo-isolamento-ativo .selector-group, body.modo-isolamento-ativo .vinculo-materia-container, body.modo-isolamento-ativo .secondary-element { display: none !important; }
+
+        .historico-lista { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-height: 380px; overflow-y: auto; }
+        .historico-dia-card { background: #0f172a; border-radius: 8px; border: 1px solid var(--border); padding: 12px; }
+        .historico-dia-topo { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding-bottom: 6px; margin-bottom: 5px; font-size: 0.95rem; }
+        .historico-dia-topo span.data { font-weight: bold; color: var(--primary); }
+        .historico-dia-topo span.total { font-weight: bold; color: #a7f3d0; }
+        
+        .totais-materias-dia { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .badge-total-materia { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #1e293b; color: var(--text-main); border: 1px solid var(--border); }
+        .sessao-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .sessao-item:last-child { border-bottom: none; }
+        .sessao-item span.materia-nome { color: var(--text-main); }
+        .sessao-item span.detalhes { color: var(--text-muted); font-size: 0.78rem; display: flex; gap: 8px; }
+
+        input, select, textarea { width: 100%; padding: 10px; margin: 6px 0 16px 0; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: white; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; }
+        textarea { resize: vertical; min-height: 80px; }
+        .flex-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .materia-item { background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border); }
+        .chart-wrapper { max-width: 300px; margin: 0 auto; }
+        
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-top: 8px; }
+        .status-foco { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-overtime { background: rgba(239, 68, 68, 0.2); color: #f43f5e; }
+        .status-pausa { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        
+        button { cursor: pointer; border: none; font-weight: bold; border-radius: 6px; transition: all 0.2s; }
+        button:hover { filter: brightness(1.2); }
+    </style>
+</head>
+<body>
+
+<h1 class="app-header-main">⚡ ESTUDE+</h1>
+
+<div class="app-nav">
+    <div id="nav-painel" class="nav-link active" onclick="navegarPara('painel')">📊 Painel de Estudos</div>
+    <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">👤 Perfil Pessoal</div>
+</div>
+
+<!-- MODAL AUDITORIA -->
+<div id="modal-distracao-container" class="modal-distracao">
+    <div class="modal-conteudo">
+        <h2 style="color: #60a5fa; border-bottom: 1px solid var(--border); padding-bottom: 10px;">⚠️ Auditoria de Foco</h2>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0;">Houve algum tipo de distração ou interrupção durante a sessão?</p>
+        
+        <div class="grade-checkbox-distracao">
+            <label class="item-checkbox"><input type="checkbox" value="Celular">📱 Celular / Redes</label>
+            <label class="item-checkbox"><input type="checkbox" value="Filhos">👶 Filhos / Crianças</label>
+            <label class="item-checkbox"><input type="checkbox" value="Barulho">🔊 Barulho Externo</label>
+            <label class="item-checkbox"><input type="checkbox" value="Família">🏡 Família / Parentes</label>
+            <label class="item-checkbox"><input type="checkbox" value="Pets">🐾 Pets / Animais</label>
+            <label class="item-checkbox"><input type="checkbox" value="Televisão">📺 TV / Streaming</label>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button onclick="pularRegistroDistracao()" style="background: #334155; color: white; padding: 10px 15px;">Foco 100% Limpo</button>
+            <button onclick="confirmarRegistroDistracao()" style="background: var(--primary); color: white; padding: 10px 20px;">Computar e Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= PAINEL DE ESTUDOS ================= -->
+<div id="pagina-painel">
+    <div class="topo-info-container">
+        <button class="streak-badge-btn">
+            🔥 Sequência: <span class="numero" id="streak-contador-val">0 dias</span>
+        </button>
+    </div>
+
+    <div class="secao-topo-pomo">
+        <div class="card pomodoro" id="modulo-pomodoro">
+            <h2 id="pomodoro-header-titulo">⏱️ Pomodoro Avançado</h2>
+            <div class="frase-foco-container" id="frase-do-dia"></div>
+
+            <div class="pomo-linhas-titulo" id="pomo-container-titulos" style="display: none;">
+                <div class="pomo-linha-top" id="pomo-texto-top"></div>
+                <div class="pomo-linha-sub" id="pomo-texto-sub"></div>
+            </div>
+
+            <div class="selector-group" id="pomo-configs">
+                <div>
+                    <label>Tempo de Foco</label>
+                    <select id="pomo-foco" onchange="alterarConfiguracaoPomodoro()">
+                        <option value="25">25 minutos</option>
+                        <option value="40">40 minutos</option>
+                        <option value="50">50 minutos</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Tempo de Pausa</label>
+                    <select id="pomo-pausa">
+                        <option value="5">5 minutos</option>
+                        <option value="10">10 minutos</option>
+                        <option value="15">15 minutos</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Alerta Sonoro</label>
+                    <select id="pomo-som">
+                        <option value="sino">🔮 Sino de Cristal</option>
+                        <option value="harpa">🎵 Harpa Dedilhada</option>
+                        <option value="gong">🧘 Sino Zen</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 12px;" class="secondary-element">
+                <button type="button" onclick="testarSomAtual()" style="background: #334155; color: white; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer;">🔔 Testar Alarme</button>
+            </div>
+
+            <div class="timer" id="timer-display">25:00</div>
+            
+            <div class="vinculo-materia-container" style="margin-bottom: 12px; width: 100%; max-width: 280px; margin: 0 auto;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Matéria da Sessão:</label>
+                <select id="pomo-materia"></select>
+            </div>
+
+            <div class="btn-group">
+                <button id="btn-start" onclick="gerenciarBotaoFocoPrincipal()" style="background: var(--primary); color: white; padding: 12px 30px; font-size: 1.05rem;">Iniciar Foco</button>
+                <button id="btn-pause" class="secondary" onclick="pauseTimer()" style="background: #334155; color: white; padding: 8px 15px;">Pausar</button>
+                <button id="btn-salvar-parcial" class="warning" onclick="salvarSessaoIncompleta()" style="display: none; background: var(--warning); color: black; padding: 8px 15px;">Salvar Parcial</button>
+                <button id="btn-reset" class="secondary" onclick="resetTimer()" style="background: #334155; color: white; padding: 8px 15px;">Resetar</button>
+            </div>
+            
+            <div>
+                <span id="pomodoro-status" class="status-badge status-foco">Pronto para iniciar!</span>
+            </div>
+        </div>
+
+        <div class="card widget-meta-topo" id="widget-meta-container">
+            <h2>🎯 Alvo e Meta Recente</h2>
+            <div id="widget-meta-conteudo"></div>
+        </div>
+    </div>
+
+    <div class="container" id="conteudo-painel">
+        
+        <!-- HEATMAP COMPLETO RESTAURADO -->
+        <div class="card full-width">
+            <div class="calendario-controles">
+                <div class="controles-grupo">
+                    <span class="controles-label">Modo:</span>
+                    <button id="btn-mode-github" class="toggle-btn active" onclick="alterarModoVisualizacao('github')">Estilo GitHub</button>
+                    <button id="btn-mode-calendar" class="toggle-btn" onclick="alterarModoVisualizacao('calendar')">Calendário Compacto</button>
+                </div>
+                
+                <div class="controles-grupo">
+                    <span class="controles-label">Período:</span>
+                    <button id="btn-p-1" class="toggle-btn active" onclick="mudarPeriodoVisualizacao(1)">1 Mês</button>
+                    <button id="btn-p-3" class="toggle-btn" onclick="mudarPeriodoVisualizacao(3)">3 Meses</button>
+                    <button id="btn-p-6" class="toggle-btn" onclick="mudarPeriodoVisualizacao(6)">6 Meses</button>
+                    <button id="btn-p-12" class="toggle-btn" onclick="mudarPeriodoVisualizacao(12)">12 Meses</button>
+                </div>
+            </div>
+
+            <!-- Heatmap Cascata -->
+            <div id="visualizacao-github" class="github-container-layout" style="display: flex;">
+                <div class="github-labels-dias">
+                    <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+                </div>
+                <div id="github-grid-dinamico" class="github-grid-cascata"></div>
+            </div>
+            
+            <!-- Calendários Mensais -->
+            <div id="visualizacao-calendar" class="calendarios-wrapper" style="display: none;"></div>
+            
+            <div style="display: flex; gap: 15px; font-size: 0.8rem; margin-top: 15px; color: var(--text-muted); justify-content: center; border-top: 1px solid var(--border); padding-top: 10px;">
+                <span>Escala de Foco:</span>
+                <span><span style="display:inline-block; width:10px; height:10px; background:#223147; border-radius:2px;"></span> 0 min</span>
+                <span><span style="display:inline-block; width:10px; height:10px; background:#1e3a8a; border-radius:2px;"></span> Até 30m</span>
+                <span><span style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:2px;"></span> Até 1h</span>
+                <span><span style="display:inline-block; width:10px; height:10px; background:#60a5fa; border-radius:2px;"></span> Até 2h</span>
+                <span><span style="display:inline-block; width:10px; height:10px; background:#a7f3d0; border-radius:2px;"></span> +2h</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📚 Cadastrar Nova Matéria</h2>
+            <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
+                <label>Nome da Matéria:</label>
+                <input type="text" id="mat-only-nome" placeholder="Ex: Direito Administrativo" required>
+                <label>Vincular a uma Meta:</label>
+                <select id="mat-vinc-meta"><option value="">Matéria Isolada</option></select>
+                <label>Cor da Matéria:</label>
+                <select id="mat-only-cor" required></select>
+                <button type="submit" style="width: 100%; padding: 10px; background: var(--primary); color: white;">Adicionar Matéria</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
+            <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
+                <label>Nome do Objetivo / Meta:</label>
+                <input type="text" id="meta-objetivo-nome" placeholder="Ex: Concurso Nacional" required>
+                <div class="flex-inputs">
+                    <div>
+                        <label>Data da Prova:</label>
+                        <input type="date" id="meta-prova-data" required>
+                    </div>
+                    <div>
+                        <label>Qtd. Tópicos:</label>
+                        <input type="number" id="meta-qtd-materias" min="1" placeholder="Ex: 40" required>
+                    </div>
+                </div>
+                <button type="submit" style="width: 100%; padding: 10px; background: var(--success); color: white;">Fixar Nova Meta</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>📊 Histórico Recente (7 Dias)</h2>
+            <div class="historico-lista" id="historico-7-dias"></div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Distribuição de Tempo</h2>
+            <div class="chart-wrapper"><canvas id="chartMaterias"></canvas></div>
+        </div>
+
+        <div class="card full-width">
+            <h2>📋 Registro de Metas Fixadas</h2>
+            <div id="lista-materias"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= PERFIL PESSOAL ================= -->
+<div id="pagina-perfil" style="display: none;">
+    <div class="perfil-container">
+        <div class="card">
+            <div class="perfil-header">
+                <div class="perfil-avatar" id="avatar-letras">U</div>
+                <div class="perfil-detalhes">
+                    <h3 id="lbl-nome-usuario">Estudante</h3>
+                    <p id="lbl-cargo-usuario">Foco em Aprovação</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-stats-dashboard">
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">⏱️ Horas Focadas</span>
+                <span class="stat-metrica-valor" id="stat-horas-focadas">0h 00m</span>
+                <span class="stat-metrica-detalhe">Total acumulado</span>
+            </div>
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">📈 Pico de Produtividade</span>
+                <span class="stat-metrica-valor" id="stat-pico-horario" style="font-size:1.3rem;">Nenhum</span>
+                <span class="stat-metrica-detalhe">Turno mais frequente</span>
+            </div>
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">📚 Matéria Líder</span>
+                <span class="stat-metrica-valor" id="stat-materia-lider" style="font-size:1.2rem;">Nenhuma</span>
+                <span class="stat-metrica-detalhe" id="stat-materia-lider-tempo">0 min</span>
+            </div>
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">🔥 Sequência Diária</span>
+                <span class="stat-metrica-valor" id="stat-dias-consecutivos">0 dias</span>
+                <span class="stat-metrica-detalhe">Dias seguidos de foco</span>
+            </div>
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">⏳ Tempo Extra</span>
+                <span class="stat-metrica-valor" id="stat-tempo-extra" style="color:#fb7185;">0 min</span>
+                <span class="stat-metrica-detalhe">Overtime pós-bloco</span>
+            </div>
+            <div class="card-stat-metrica" style="border: 1px dashed var(--danger);">
+                <span class="stat-metrica-titulo" style="color: #f43f5e;">⚡ Maior Vilão</span>
+                <span class="stat-metrica-valor" id="stat-maior-distracao" style="color:#fb7185; font-size:1.3rem;">Nenhum</span>
+                <span class="stat-metrica-detalhe" id="stat-maior-distracao-sub">0 mapeadas</span>
+            </div>
+            <div class="card-stat-metrica">
+                <span class="stat-metrica-titulo">🎯 Eficiência</span>
+                <span class="stat-metrica-valor" id="stat-eficiencia-semanal">0%</span>
+                <span class="stat-metrica-detalhe">Baseado nos últimos 7 dias</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>👤 Alterar Informações Cadastrais</h2>
+            <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
+                <div class="grid-campos-perfil">
+                    <div>
+                        <label>Nome Completo:</label>
+                        <input type="text" id="perf-nome" placeholder="Nome atual...">
+                    </div>
+                    <div>
+                        <label>Foco Principal / Cargo:</label>
+                        <input type="text" id="perf-cargo" placeholder="Foco atual...">
+                    </div>
+                </div>
+                <label>Minha Biografia / Notas de Motivação:</label>
+                <textarea id="perf-bio" placeholder="Notas e biografia atuais..."></textarea>
+                <button type="submit" style="padding: 10px 20px; background: var(--primary); color: white; width: 100%;">Salvar e Limpar Formulário</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- VARIÁVEIS DE ESTADO (LOCALSTORAGE) ---
+    let historicoEstudos = JSON.parse(localStorage.getItem('historicoEstudos')) || {};
+    let materias = JSON.parse(localStorage.getItem('materias')) || [];
+    let metas = JSON.parse(localStorage.getItem('metas')) || [];
+    let tempoPorMateria = JSON.parse(localStorage.getItem('tempoPorMateria')) || {};
+    let logsSessoes = JSON.parse(localStorage.getItem('logsSessoes')) || [];
+    let dadosPerfil = JSON.parse(localStorage.getItem('dadosPerfil')) || { nome: "Estudante", cargo: "Foco em Aprovação", bio: "" };
+    let totalOvertimeGeralMinutos = parseInt(localStorage.getItem('totalOvertimeGeralMinutos')) || 0;
+    let bancoDistracoes = JSON.parse(localStorage.getItem('bancoDistracoes')) || { Celular: 0, Filhos: 0, Barulho: 0, Família: 0, Pets: 0, Televisão: 0 };
+    
+    // --- VARIÁVEIS GLOBAIS DE EXECUÇÃO ---
+    let cacheMinutosSessaoAtual = 0; 
+    let cacheMateriaSessaoAtual = "";
+    let emEstadoDeFocoAtivo = false; 
+    let timer = null;
+    let tempoRestante = 25 * 60;
+    let emPausaConfig = false; 
+    let emOvertime = false;    
+    let tempoOvertimeAcumulado = 0; 
+    let tempoBaseEscolhidoMinutos = 25;
+    let meuGrafico = null;
+    let audioCtx = null;
+    
+    // Variáveis Heatmap & Calendário
+    let modoAtual = 'github'; 
+    let mesesParaExibir = 1;
+
+    const paletaCores = [
+        { nome: "🔵 Azul", hex: "#3b82f6" }, { nome: "🟢 Verde", hex: "#10b981" },
+        { nome: "🟠 Laranja", hex: "#f97316" }, { nome: "🔴 Vermelho", hex: "#ef4444" },
+        { nome: "🔮 Roxo", hex: "#8b5cf6" }, { nome: "🐳 Ciano", hex: "#06b6d4" },
+        { nome: "🌸 Rosa", hex: "#ec4899" }, { nome: "🍯 Amarelo", hex: "#f59e0b" }
+    ];
+
+    // --- NAVEGAÇÃO ---
+    function navegarPara(pagina) {
+        document.getElementById('pagina-painel').style.display = (pagina === 'painel') ? 'block' : 'none';
+        document.getElementById('pagina-perfil').style.display = (pagina === 'perfil') ? 'block' : 'none';
+        document.getElementById('nav-painel').classList.toggle('active', pagina === 'painel');
+        document.getElementById('nav-perfil').classList.toggle('active', pagina === 'perfil');
+        if(pagina === 'painel') {
+            renderizarTodoOPainel();
+        } else {
+            calcularEMostrarEstatisticas();
+            carregarDadosPerfil();
+        }
+    }
+
+    // --- ÁUDIO (ALARME) ---
+    function iniciarAudioContext() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) audioCtx = new AudioContext();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function ticarSom(tipo) {
+        iniciarAudioContext();
+        if (!audioCtx) return;
+        
+        function dispararNota(freq, inicio, duracao, oscType = 'sine', volume = 0.15) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = oscType;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + inicio);
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime + inicio);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + inicio + duracao);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + inicio);
+            osc.stop(audioCtx.currentTime + inicio + duracao);
+        }
+
+        if (tipo === 'sino') {
+            for (let r = 0; r < 3; r++) {
+                let atrasoLoop = r * 1.2;
+                dispararNota(880, atrasoLoop + 0.00, 1.0, 'sine', 0.15);
+                dispararNota(1320, atrasoLoop + 0.05, 1.0, 'sine', 0.12);
+            }
+        } else if (tipo === 'harpa') {
+            const notasHarpa = [523.25, 659.25, 783.99, 1046.50];
+            for (let r = 0; r < 3; r++) {
+                let atrasoLoop = r * 1.5;
+                notasHarpa.forEach((freq, i) => { dispararNota(freq, atrasoLoop + (i * 0.08), 1.0, 'triangle', 0.12); });
+            }
+        } else if (tipo === 'gong') {
+            for (let r = 0; r < 2; r++) {
+                let atrasoLoop = r * 2.5;
+                dispararNota(220, atrasoLoop, 2.2, 'sine', 0.22);
+                dispararNota(440, atrasoLoop, 1.6, 'sine', 0.06);
+            }
+        }
+    }
+
+    function testarSomAtual() { 
+        const somEscolhido = document.getElementById('pomo-som').value; 
+        ticarSom(somEscolhido); 
+    }
+
+    // --- TIMING / POMODORO ---
+    function gerenciarBotaoFocoPrincipal() {
+        if (!emEstadoDeFocoAtivo && !emPausaConfig) {
+            startTimer();
+        } else {
+            finalizarSessao();
+        }
+    }
+
+    function startTimer() {
+        iniciarAudioContext();
+        clearInterval(timer);
+        emEstadoDeFocoAtivo = true;
+
+        const btnPrincipal = document.getElementById('btn-start');
+        btnPrincipal.innerText = "Finalizar";
+        btnPrincipal.style.background = "var(--danger)";
+
+        document.getElementById('pomo-foco').disabled = true;
+        document.getElementById('pomo-pausa').disabled = true;
+
+        if(!emPausaConfig) {
+            document.body.classList.add('modo-isolamento-ativo');
+            document.getElementById('pomodoro-header-titulo').style.display = 'none';
+            let mSel = document.getElementById('pomo-materia').value || "Estudo Geral";
+            document.getElementById('pomo-texto-top').innerText = "Foco absoluto";
+            document.getElementById('pomo-texto-sub').innerText = mSel;
+            document.getElementById('pomo-container-titulos').style.display = 'flex';
+        }
+
+        timer = setInterval(() => {
+            if (!emOvertime && !emPausaConfig) {
+                if (tempoRestante > 0) {
+                    tempoRestante--;
+                    atualizarDisplay(tempoRestante);
+                } else {
+                    testarSomAtual();
+                    emOvertime = true;
+                    tempoOvertimeAcumulado = 0;
+                    document.getElementById('timer-display').classList.add('overtime');
+                }
+            } else if (emOvertime) {
+                tempoOvertimeAcumulado++;
+                atualizarDisplay(tempoOvertimeAcumulado);
+            } else if (emPausaConfig) {
+                if (tempoRestante > 0) {
+                    tempoRestante--;
+                    atualizarDisplay(tempoRestante);
+                } else {
+                    clearInterval(timer);
+                    ticarSom('sino');
+                    emPausaConfig = false;
+                    resetTimer();
+                }
+            }
+        }, 1000);
+    }
+
+    function finalizarSessao() {
+        clearInterval(timer);
+        if (emPausaConfig) { emPausaConfig = false; resetTimer(); return; }
+
+        let minOver = Math.floor(tempoOvertimeAcumulado / 60);
+        if (minOver > 0) {
+            totalOvertimeGeralMinutos += minOver;
+            localStorage.setItem('totalOvertimeGeralMinutos', totalOvertimeGeralMinutos);
+        }
+
+        let calculoLíquido = emOvertime ? tempoBaseEscolhidoMinutos : Math.floor(((tempoBaseEscolhidoMinutos * 60) - tempoRestante) / 60);
+        let minutosEstudadosTotais = calculoLíquido + minOver;
+        if (minutosEstudadosTotais < 1) minutosEstudadosTotais = 1;
+
+        cacheMinutosSessaoAtual = minutosEstudadosTotais;
+        cacheMateriaSessaoAtual = document.getElementById('pomo-materia').value;
+
+        document.body.classList.remove('modo-isolamento-ativo');
+        document.getElementById('pomo-container-titulos').style.display = 'none';
+        document.getElementById('pomodoro-header-titulo').style.display = 'block';
+        document.getElementById('timer-display').classList.remove('overtime');
+
+        abrirModalDistracao();
+    }
+
+    function abrirModalDistracao() {
+        const checkboxes = document.querySelectorAll('#modal-distracao-container input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        document.getElementById('modal-distracao-container').style.display = 'flex';
+    }
+
+    function fecharModalDistracao() {
+        document.getElementById('modal-distracao-container').style.display = 'none';
+        tempoRestante = parseInt(document.getElementById('pomo-pausa').value) * 60;
+        emOvertime = false; emPausaConfig = true; tempoOvertimeAcumulado = 0;
+        startTimer();
+    }
+
+    function pularRegistroDistracao() {
+        salvarProgressoGeral(cacheMateriaSessaoAtual, cacheMinutosSessaoAtual);
+        fecharModalDistracao();
+    }
+
+    function confirmarRegistroDistracao() {
+        const checkboxes = document.querySelectorAll('#modal-distracao-container input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (cb.checked) { bancoDistracoes[cb.value] = (bancoDistracoes[cb.value] || 0) + 1; }
+        });
+        localStorage.setItem('bancoDistracoes', JSON.stringify(bancoDistracoes));
+        salvarProgressoGeral(cacheMateriaSessaoAtual, cacheMinutosSessaoAtual);
+        fecharModalDistracao();
+    }
+
+    function resetTimer() {
+        if (timer) clearInterval(timer);
+        timer = null; emOvertime = false; emPausaConfig = false; tempoOvertimeAcumulado = 0; emEstadoDeFocoAtivo = false;
+        const btnPrincipal = document.getElementById('btn-start');
+        btnPrincipal.innerText = "Iniciar Foco";
+        btnPrincipal.style.background = "var(--primary)";
+        document.body.classList.remove('modo-isolamento-ativo');
+        document.getElementById('pomo-container-titulos').style.display = 'none';
+        document.getElementById('pomodoro-header-titulo').style.display = 'block';
+        document.getElementById('timer-display').classList.remove('overtime');
+        document.getElementById('pomo-foco').disabled = false; document.getElementById('pomo-pausa').disabled = false;
+        alterarConfiguracaoPomodoro();
+    }
+
+    function pauseTimer() { clearInterval(timer); timer = null; }
+    function salvarSessaoIncompleta() { resetTimer(); }
+    function obterDataLocalString(d) { return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`; }
+
+    function alterarConfiguracaoPomodoro() {
+        tempoBaseEscolhidoMinutos = parseInt(document.getElementById('pomo-foco').value);
+        tempoRestante = tempoBaseEscolhidoMinutos * 60;
+        atualizarDisplay(tempoRestante);
+    }
+    
+    function atualizarDisplay(s) {
+        document.getElementById('timer-display').innerText = `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+    }
+
+    // --- FORMULARIOS DO PERFIL E ESTATISTICAS ---
+    function salvarDadosPerfil(e) {
+        e.preventDefault();
+        let n = document.getElementById('perf-nome').value.trim();
+        let c = document.getElementById('perf-cargo').value.trim();
+        let b = document.getElementById('perf-bio').value.trim();
+
+        if (n) dadosPerfil.nome = n;
+        if (c) dadosPerfil.cargo = c;
+        if (b) dadosPerfil.bio = b;
+
+        localStorage.setItem('dadosPerfil', JSON.stringify(dadosPerfil));
+        document.getElementById('perfil-form').reset();
+        carregarDadosPerfil();
+        calcularEMostrarEstatisticas();
+        alert("Informações salvas e campos limpos com sucesso!");
+    }
+
+    function carregarDadosPerfil() {
+        document.getElementById('lbl-nome-usuario').innerText = dadosPerfil.nome;
+        document.getElementById('lbl-cargo-usuario').innerText = dadosPerfil.cargo;
+        document.getElementById('perf-nome').placeholder = "Nome atual: " + dadosPerfil.nome;
+        document.getElementById('perf-cargo').placeholder = "Cargo atual: " + dadosPerfil.cargo;
+        document.getElementById('perf-bio').placeholder = dadosPerfil.bio || "Escreva suas notas de motivação aqui...";
+        let inc = dadosPerfil.nome.substring(0,2).toUpperCase();
+        document.getElementById('avatar-letras').innerText = inc || "ST";
+    }
+
+    function calcularEMostrarEstatisticas() {
+        // 1. Horas focadas totais
+        let minTot = 0;
+        Object.values(historicoEstudos).forEach(v => minTot += v);
+        document.getElementById('stat-horas-focadas').innerText = `${Math.floor(minTot/60)}h ${(minTot%60).toString().padStart(2,'0')}m`;
+
+        // 2. Maior Distração
+        let mSabotador = "Nenhum"; let maxOco = 0; let totInt = 0;
+        Object.keys(bancoDistracoes).forEach(k => {
+            totInt += bancoDistracoes[k];
+            if(bancoDistracoes[k] > maxOco) { maxOco = bancoDistracoes[k]; mSabotador = k; }
+        });
+        document.getElementById('stat-maior-distracao').innerText = maxOco > 0 ? mSabotador : "Nenhum";
+        document.getElementById('stat-maior-distracao-sub').innerText = `${totInt} interrupções salvas`;
+
+        // 3. Matéria Líder
+        let matLider = "Nenhuma"; let maxMat = 0;
+        Object.keys(tempoPorMateria).forEach(k => {
+            if(tempoPorMateria[k] > maxMat) { maxMat = tempoPorMateria[k]; matLider = k; }
+        });
+        document.getElementById('stat-materia-lider').innerText = matLider;
+        document.getElementById('stat-materia-lider-tempo').innerText = `${maxMat} min`;
+
+        // 4. Dias Consecutivos
+        document.getElementById('stat-dias-consecutivos').innerText = document.getElementById('streak-contador-val').innerText;
+
+        // 5. Pico de Produtividade (NOVO)
+        let turnos = { '🌅 Manhã': 0, '☀️ Tarde': 0, '🌙 Noite': 0, '🦉 Madrugada': 0 };
+        logsSessoes.forEach(log => {
+            if (log.hora) {
+                let horaStr = log.hora.split(':')[0];
+                let h = parseInt(horaStr);
+                if (h >= 5 && h < 12) turnos['🌅 Manhã'] += log.duracao;
+                else if (h >= 12 && h < 18) turnos['☀️ Tarde'] += log.duracao;
+                else if (h >= 18 && h < 24) turnos['🌙 Noite'] += log.duracao;
+                else turnos['🦉 Madrugada'] += log.duracao;
+            }
+        });
+        let turnoPico = "Nenhum";
+        let maxMinTurno = 0;
+        Object.keys(turnos).forEach(t => {
+            if (turnos[t] > maxMinTurno) { maxMinTurno = turnos[t]; turnoPico = t; }
+        });
+        document.getElementById('stat-pico-horario').innerText = maxMinTurno > 0 ? turnoPico : "Nenhum";
+
+        // 6. Tempo Extra (NOVO E CORRIGIDO)
+        document.getElementById('stat-tempo-extra').innerText = `${totalOvertimeGeralMinutos} min`;
+
+        // 7. Eficiência Semanal (NOVO)
+        let minUltimos7 = 0;
+        for(let i=0; i<7; i++) {
+            let d = new Date(); d.setDate(new Date().getDate() - i);
+            minUltimos7 += (historicoEstudos[obterDataLocalString(d)] || 0);
+        }
+        // Base de cálculo para 100%: Mínimo de 30 min focados por dia na semana (210 min no total)
+        let eficiencia = (minUltimos7 > 0) ? Math.min(100, Math.round((minUltimos7 / 210) * 100)) : 0;
+        document.getElementById('stat-eficiencia-semanal').innerText = eficiencia + "%";
+    }
+
+    function atualizarCalculoStreak() {
+        let hoje = new Date();
+        let streak = 0;
+        let verificandoData = new Date(hoje);
+        let dataStrHoje = obterDataLocalString(verificandoData);
+        verificandoData.setDate(verificandoData.getDate() - 1);
+        let dataStrOntem = obterDataLocalString(verificandoData);
+
+        if (!(historicoEstudos[dataStrHoje] > 0) && !(historicoEstudos[dataStrOntem] > 0)) {
+            document.getElementById('streak-contador-val').innerText = `0 dias`;
+            return;
+        }
+        verificandoData = (historicoEstudos[dataStrHoje] > 0) ? new Date(hoje) : verificandoData;
+        while (true) {
+            let dataCheckStr = obterDataLocalString(verificandoData);
+            if (historicoEstudos[dataCheckStr] > 0) {
+                streak++;
+                verificandoData.setDate(verificandoData.getDate() - 1);
+            } else { break; }
+        }
+        document.getElementById('streak-contador-val').innerText = `${streak} ${streak === 1 ? 'dia' : 'dias'}`;
+    }
+
+    function salvarProgressoGeral(materia, minutos) {
+        if (minutos <= 0) return;
+        let agora = new Date();
+        let hojeStr = obterDataLocalString(agora);
+        let horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        let nomeMateriaFinal = materia || "Estudo Geral";
+
+        historicoEstudos[hojeStr] = (historicoEstudos[hojeStr] || 0) + minutos;
+        localStorage.setItem('historicoEstudos', JSON.stringify(historicoEstudos));
+        
+        if(materia) {
+            tempoPorMateria[materia] = (tempoPorMateria[materia] || 0) + minutos;
+            localStorage.setItem('tempoPorMateria', JSON.stringify(tempoPorMateria));
+        }
+        
+        logsSessoes.push({ data: hojeStr, hora: horaStr, materia: nomeMateriaFinal, duracao: minutos });
+        localStorage.setItem('logsSessoes', JSON.stringify(logsSessoes));
+
+        renderizarTodoOPainel();
+    }
+
+    function adicionarNovaMateria(e) {
+        e.preventDefault();
+        let nome = document.getElementById('mat-only-nome').value.trim();
+        let metaVinculada = document.getElementById('mat-vinc-meta').value;
+        let cor = document.getElementById('mat-only-cor').value;
+        
+        materias.push({ nome, metaVinculada, cor }); 
+        localStorage.setItem('materias', JSON.stringify(materias));
+        if(!tempoPorMateria[nome]) tempoPorMateria[nome] = 0;
+        localStorage.setItem('tempoPorMateria', JSON.stringify(tempoPorMateria));
+
+        document.getElementById('materia-only-form').reset();
+        renderizarTodoOPainel();
+    }
+
+    function adicionarNovaMeta(e) {
+        e.preventDefault();
+        let objetivoNome = document.getElementById('meta-objetivo-nome').value.trim();
+        let dataLimite = document.getElementById('meta-prova-data').value;
+        let qtdMaterias = parseInt(document.getElementById('meta-qtd-materias').value);
+        
+        metas.push({ objetivoNome, dataLimite, qtdMaterias }); 
+        localStorage.setItem('metas', JSON.stringify(metas));
+        
+        document.getElementById('meta-only-form').reset();
+        renderizarTodoOPainel();
+    }
+
+    function atualizarDropdowns() {
+        const selectPomo = document.getElementById('pomo-materia');
+        const selectVincMeta = document.getElementById('mat-vinc-meta');
+        if(selectPomo && selectVincMeta) {
+            selectPomo.innerHTML = '<option value="">Estudo Geral</option>';
+            selectVincMeta.innerHTML = '<option value="">Matéria Isolada</option>';
+            materias.forEach(m => { selectPomo.innerHTML += `<option value="${m.nome}">${m.nome}</option>`; });
+            metas.forEach(m => { selectVincMeta.innerHTML += `<option value="${m.objetivoNome}">${m.objetivoNome}</option>`; });
+        }
+    }
+
+    // --- RENDERIZADORES DE TELA (METAS, HISTÓRICO, HEATMAP E GRÁFICOS) ---
+    function renderizarMetasEGraficos() {
+        const lista = document.getElementById('lista-materias'); if(!lista) return;
+        lista.innerHTML = '';
+        const widgetConteudo = document.getElementById('widget-meta-conteudo');
+        
+        if(metas.length === 0) {
+            lista.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Nenhuma meta ativa cadastrada.</p>';
+            if(widgetConteudo) widgetConteudo.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin: 0;">Nenhuma meta ativa cadastrada.</p>';
+            return;
+        }
+
+        metas.forEach(meta => {
+            let dataFormatada = new Date(meta.dataLimite + 'T23:59:59').toLocaleDateString('pt-BR');
+            lista.innerHTML += `<div class="materia-item" style="border-left:5px solid var(--success);"><strong>🎯 ${meta.objetivoNome}</strong> - Prova planejada para: ${dataFormatada} (Tópicos do edital: ${meta.qtdMaterias})</div>`;
+        });
+
+        let metaAtiva = metas[metas.length - 1];
+        if(widgetConteudo) {
+            let hoje = new Date();
+            let prazo = new Date(metaAtiva.dataLimite + 'T23:59:59');
+            let dRestantes = Math.ceil((prazo - hoje) / (1000*60*60*24));
+            
+            widgetConteudo.innerHTML = `
+                <div class="meta-stat-row"><div class="meta-stat-lbl">Meta Principal Ativa</div><div class="meta-stat-val" style="color:#60a5fa;">${metaAtiva.objetivoNome}</div></div>
+                <div class="meta-stat-row"><div class="meta-stat-lbl">Tópicos Totais</div><div class="meta-stat-val"><span class="meta-highlight">${metaAtiva.qtdMaterias}</span> conteúdos no edital</div></div>
+                <div class="meta-stat-row"><div class="meta-stat-lbl">Dias para a Prova</div><div class="meta-countdown" style="font-size:1.4rem;">${dRestantes > 0 ? dRestantes : 0} dias restantes</div></div>`;
+        }
+    }
+
+    function renderizarHistorico7Dias() {
+        const container = document.getElementById('historico-7-dias'); if(!container) return;
+        container.innerHTML = ''; 
+        let hoje = new Date();
+        
+        for (let i = 0; i < 7; i++) {
+            let dt = new Date(); dt.setDate(hoje.getDate() - i);
+            let dataStr = obterDataLocalString(dt);
+            let totalMinutosDia = historicoEstudos[dataStr] || 0;
+            let sessoesDesseDia = logsSessoes.filter(log => log.data === dataStr);
+
+            let HTMLDia = `
+                <div class="historico-dia-card">
+                    <div class="historico-dia-topo">
+                        <span class="data">${dt.toLocaleDateString('pt-BR')}</span>
+                        <span class="total">${totalMinutosDia > 0 ? totalMinutosDia + ' min focados' : 'Sem registros'}</span>
+                    </div>`;
+
+            if(sessoesDesseDia.length > 0) {
+                [...sessoesDesseDia].reverse().forEach(s => {
+                    let matObjeto = materias.find(m => m.nome === s.materia);
+                    let corMat = matObjeto ? matObjeto.cor : '#64748b';
+                    HTMLDia += `
+                        <div class="sessao-item">
+                            <span class="materia-nome"><span style="display:inline-block; width:8px; height:8px; background:${corMat}; border-radius:50%; margin-right:6px;"></span>${s.materia}</span>
+                            <span class="detalhes"><span>+${s.duracao} min</span> <span style="color:#64748b;">🕒 ${s.hora}</span></span>
+                        </div>`;
+                });
+            } else {
+                 HTMLDia += `<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding: 6px 0;">Nenhuma sessão gravada</div>`;
+            }
+            HTMLDia += `</div>`; 
+            container.innerHTML += HTMLDia;
+        }
+    }
+
+    // --- CÓDIGO DO CALENDÁRIO / HEATMAP ---
+    function alterarModoVisualizacao(modo) {
+        modoAtual = modo;
+        document.getElementById('btn-mode-github').classList.toggle('active', modo === 'github');
+        document.getElementById('btn-mode-calendar').classList.toggle('active', modo === 'calendar');
+        document.getElementById('visualizacao-github').style.display = modo === 'github' ? 'flex' : 'none';
+        document.getElementById('visualizacao-calendar').style.display = modo === 'calendar' ? 'grid' : 'none';
+        renderizarPainelFoco();
+    }
+
+    function mudarPeriodoVisualizacao(m) {
+        mesesParaExibir = m;
+        document.getElementById('btn-p-1').classList.remove('active');
+        document.getElementById('btn-p-3').classList.remove('active');
+        document.getElementById('btn-p-6').classList.remove('active');
+        document.getElementById('btn-p-12').classList.remove('active');
+        document.getElementById('btn-p-' + m).classList.add('active');
+        renderizarPainelFoco();
+    }
+
+    function renderizarPainelFoco() {
+        atualizarCalculoStreak();
+        let hoje = new Date();
+        let totalDias = mesesParaExibir * 30;
+
+        // 1. HEATMAP GITHUB
+        const gridGitHub = document.getElementById('github-grid-dinamico');
+        if(gridGitHub) {
+            gridGitHub.innerHTML = ''; 
+            let offsetFim = 6 - hoje.getDay(); 
+            let totalCelulas = totalDias + offsetFim;
+
+            let arrayDias = [];
+            for (let i = totalCelulas - 1; i >= 0; i--) {
+                let dt = new Date(); dt.setDate(hoje.getDate() - i + offsetFim);
+                arrayDias.push(dt);
+            }
+
+            arrayDias.forEach(dt => {
+                let cubo = document.createElement('div'); 
+                cubo.className = 'day-cube';
+                if (dt > hoje) { 
+                    cubo.style.opacity = "0"; cubo.style.pointerEvents = "none"; 
+                } else {
+                    let dataStr = obterDataLocalString(dt);
+                    let minutos = historicoEstudos[dataStr] || 0;
+                    if (minutos > 0 && minutos <= 30) cubo.classList.add('lvl-1');
+                    else if (minutos > 30 && minutos <= 60) cubo.classList.add('lvl-2');
+                    else if (minutos > 60 && minutos <= 120) cubo.classList.add('lvl-3');
+                    else if (minutos > 120) cubo.classList.add('lvl-4');
+                    cubo.setAttribute('data-info', `${dt.toLocaleDateString('pt-BR')}: ${minutos} min`);
+                }
+                gridGitHub.appendChild(cubo);
+            });
+        }
+
+        // 2. CALENDÁRIO COMPACTO
+        const wrapperCal = document.getElementById('visualizacao-calendar');
+        if(wrapperCal) {
+            wrapperCal.innerHTML = '';
+            let mesesArray = [];
+            for (let i = mesesParaExibir - 1; i >= 0; i--) {
+                let d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+                mesesArray.push(d);
+            }
+
+            mesesArray.forEach(dataMes => {
+                let mesAnoStr = dataMes.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                
+                let containerMes = document.createElement('div');
+                containerMes.className = 'mes-container';
+                
+                let divTitulo = document.createElement('div');
+                divTitulo.className = 'mes-titulo';
+                divTitulo.innerText = mesAnoStr;
+                containerMes.appendChild(divTitulo);
+
+                let gridDias = document.createElement('div');
+                gridDias.className = 'grid-calendario';
+                
+                ['D','S','T','Q','Q','S','S'].forEach(ds => {
+                    let spanDs = document.createElement('div');
+                    spanDs.className = 'dia-semana-label';
+                    spanDs.innerText = ds;
+                    gridDias.appendChild(spanDs);
+                });
+
+                let numDiasNoMes = new Date(dataMes.getFullYear(), dataMes.getMonth() + 1, 0).getDate();
+                let primeiroDiaSemana = new Date(dataMes.getFullYear(), dataMes.getMonth(), 1).getDay();
+
+                for (let i = 0; i < primeiroDiaSemana; i++) {
+                    let vazio = document.createElement('div');
+                    vazio.className = 'dia-calendario vazio';
+                    gridDias.appendChild(vazio);
+                }
+
+                for (let d = 1; d <= numDiasNoMes; d++) {
+                    let dataLoop = new Date(dataMes.getFullYear(), dataMes.getMonth(), d);
+                    let celula = document.createElement('div');
+                    celula.className = 'dia-calendario';
+                    celula.innerText = d;
+
+                    if (dataLoop > hoje) {
+                        celula.style.opacity = "0.3";
+                        celula.style.pointerEvents = "none";
+                    } else {
+                        let dtStr = obterDataLocalString(dataLoop);
+                        let min = historicoEstudos[dtStr] || 0;
+                        if (min > 0) celula.classList.add('ativo');
+                        if (min > 0 && min <= 30) celula.classList.add('lvl-1');
+                        else if (min > 30 && min <= 60) celula.classList.add('lvl-2');
+                        else if (min > 60 && min <= 120) celula.classList.add('lvl-3');
+                        else if (min > 120) celula.classList.add('lvl-4');
+                        
+                        celula.setAttribute('data-info', `${dataLoop.toLocaleDateString('pt-BR')}: ${min} min`);
+                    }
+                    gridDias.appendChild(celula);
+                }
+
+                containerMes.appendChild(gridDias);
+                wrapperCal.appendChild(containerMes);
+            });
+        }
+    }
+
+    function renderizarGrafico() {
+        const canvas = document.getElementById('chartMaterias'); if(!canvas) return;
+        let labels = materias.map(m => m.nome); if(labels.length === 0) return;
+        if(meuGrafico) meuGrafico.destroy();
+        
+        let cores = labels.map(l => {
+            let mEncontrada = materias.find(mat => mat.nome === l);
+            return mEncontrada ? mEncontrada.cor : '#3b82f6';
+        });
+
+        meuGrafico = new Chart(canvas.getContext('2d'), {
+            type: 'pie', 
+            data: { 
+                labels: labels, 
+                datasets: [{ data: labels.map(l => tempoPorMateria[l] || 1), backgroundColor: cores }] 
+            },
+            options: { plugins: { legend: { labels: { color: '#f8fafc' } } } }
+        });
+    }
+
+    function renderizarTodoOPainel() {
+        atualizarDropdowns();
+        renderizarPainelFoco();
+        renderizarHistorico7Dias();
+        renderizarMetasEGraficos();
+        renderizarGrafico();
+    }
+
+    // Inicialização da paleta de cores
+    const boxCor = document.getElementById('mat-only-cor');
+    if(boxCor) {
+        paletaCores.forEach(c => { boxCor.innerHTML += `<option value="${c.hex}">${c.nome}</option>`; });
+    }
+
+    // Carga Geral Inicial
+    carregarDadosPerfil();
+    renderizarTodoOPainel();
+</script>
+</body>
+</html>

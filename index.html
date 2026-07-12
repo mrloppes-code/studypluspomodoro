@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estude+ - Painel de Estudos</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1 class="app-header-main">⚡ ESTUDE+</h1>
+
+    <div class="app-nav">
+      <div
+        id="nav-painel"
+        class="nav-link active"
+        onclick="navegarPara('painel')"
+      >
+        📊 Painel de Estudos
+      </div>
+      <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
+        👤 Perfil Pessoal
+      </div>
+    </div>
+
+    <!-- MODAL AUDITORIA -->
+    <div id="modal-distracao-container" class="modal-distracao">
+      <div class="modal-conteudo">
+        <h2
+          style="
+            color: #60a5fa;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+          "
+        >
+          ⚠️ Auditoria de Foco
+        </h2>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0">
+          Houve algum tipo de distração ou interrupção durante a sessão?
+        </p>
+
+        <div class="grade-checkbox-distracao">
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Celular" />📱 Celular / Redes</label
+          >
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Filhos" />👶 Filhos / Crianças</label
+          >
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Barulho" />🔊 Barulho Externo</label
+          >
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Família" />🏡 Família /
+            Parentes</label
+          >
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Pets" />🐾 Pets / Animais</label
+          >
+          <label class="item-checkbox"
+            ><input type="checkbox" value="Televisão" />📺 TV / Streaming</label
+          >
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end">
+          <button
+            onclick="pularRegistroDistracao()"
+            style="background: #334155; color: white; padding: 10px 15px"
+          >
+            Foco 100% Limpo
+          </button>
+          <button
+            onclick="confirmarRegistroDistracao()"
+            style="background: var(--primary); color: white; padding: 10px 20px"
+          >
+            Computar e Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PAINEL DE ESTUDOS ================= -->
+    <div id="pagina-painel">
+      <div class="topo-info-container">
+        <button class="streak-badge-btn">
+          🔥 Sequência:
+          <span class="numero" id="streak-contador-val">0 dias</span>
+        </button>
+      </div>
+
+      <div class="secao-topo-pomo">
+        <div class="card pomodoro" id="modulo-pomodoro">
+          <h2 id="pomodoro-header-titulo">⏱️ Pomodoro Avançado</h2>
+          <div class="frase-foco-container" id="frase-do-dia"></div>
+
+          <div
+            class="pomo-linhas-titulo"
+            id="pomo-container-titulos"
+            style="display: none"
+          >
+            <div class="pomo-linha-top" id="pomo-texto-top"></div>
+            <div class="pomo-linha-sub" id="pomo-texto-sub"></div>
+          </div>
+
+          <div class="selector-group" id="pomo-configs">
+            <div>
+              <label>Tempo de Foco</label>
+              <select id="pomo-foco" onchange="alterarConfiguracaoPomodoro()">
+                <option value="25">25 minutos</option>
+                <option value="40">40 minutos</option>
+                <option value="50">50 minutos</option>
+              </select>
+            </div>
+            <div>
+              <label>Tempo de Pausa</label>
+              <select id="pomo-pausa">
+                <option value="5">5 minutos</option>
+                <option value="10">10 minutos</option>
+                <option value="15">15 minutos</option>
+              </select>
+            </div>
+            <div>
+              <label>Alerta Sonoro</label>
+              <select id="pomo-som">
+                <option value="sino">🔮 Sino de Cristal</option>
+                <option value="harpa">🎵 Harpa Dedilhada</option>
+                <option value="gong">🧘 Sino Zen</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px" class="secondary-element">
+            <button
+              type="button"
+              onclick="testarSomAtual()"
+              style="
+                background: #334155;
+                color: white;
+                padding: 6px 12px;
+                font-size: 0.8rem;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+              "
+            >
+              🔔 Testar Alarme
+            </button>
+          </div>
+
+          <div class="timer" id="timer-display">25:00</div>
+
+          <div
+            class="vinculo-materia-container"
+            style="
+              margin-bottom: 12px;
+              width: 100%;
+              max-width: 280px;
+              margin: 0 auto;
+            "
+          >
+            <label
+              style="
+                font-size: 0.85rem;
+                color: var(--text-muted);
+                display: block;
+                margin-bottom: 4px;
+              "
+              >Matéria da Sessão:</label
+            >
+            <select id="pomo-materia"></select>
+          </div>
+
+          <div class="btn-group">
+            <button
+              id="btn-start"
+              onclick="gerenciarBotaoFocoPrincipal()"
+              style="
+                background: var(--primary);
+                color: white;
+                padding: 12px 30px;
+                font-size: 1.05rem;
+              "
+            >
+              Iniciar Foco
+            </button>
+            <button
+              id="btn-pause"
+              class="secondary"
+              onclick="pauseTimer()"
+              style="background: #334155; color: white; padding: 8px 15px"
+            >
+              Pausar
+            </button>
+            <button
+              id="btn-salvar-parcial"
+              class="warning"
+              onclick="salvarSessaoIncompleta()"
+              style="
+                display: none;
+                background: var(--warning);
+                color: black;
+                padding: 8px 15px;
+              "
+            >
+              Salvar Parcial
+            </button>
+            <button
+              id="btn-reset"
+              class="secondary"
+              onclick="resetTimer()"
+              style="background: #334155; color: white; padding: 8px 15px"
+            >
+              Resetar
+            </button>
+          </div>
+
+          <div>
+            <span id="pomodoro-status" class="status-badge status-foco"
+              >Pronto para iniciar!</span
+            >
+          </div>
+        </div>
+
+        <div class="card widget-meta-topo" id="widget-meta-container">
+          <h2>🎯 Alvo e Meta Recente</h2>
+          <div id="widget-meta-conteudo"></div>
+        </div>
+      </div>
+
+      <div class="container" id="conteudo-painel">
+        <!-- HEATMAP COMPLETO RESTAURADO -->
+        <div class="card full-width">
+          <div class="calendario-controles">
+            <div class="controles-grupo">
+              <span class="controles-label">Modo:</span>
+              <button
+                id="btn-mode-github"
+                class="toggle-btn active"
+                onclick="alterarModoVisualizacao('github')"
+              >
+                Estilo GitHub
+              </button>
+              <button
+                id="btn-mode-calendar"
+                class="toggle-btn"
+                onclick="alterarModoVisualizacao('calendar')"
+              >
+                Calendário Compacto
+              </button>
+            </div>
+
+            <div class="controles-grupo">
+              <span class="controles-label">Período:</span>
+              <button
+                id="btn-p-1"
+                class="toggle-btn active"
+                onclick="mudarPeriodoVisualizacao(1)"
+              >
+                1 Mês
+              </button>
+              <button
+                id="btn-p-3"
+                class="toggle-btn"
+                onclick="mudarPeriodoVisualizacao(3)"
+              >
+                3 Meses
+              </button>
+              <button
+                id="btn-p-6"
+                class="toggle-btn"
+                onclick="mudarPeriodoVisualizacao(6)"
+              >
+                6 Meses
+              </button>
+              <button
+                id="btn-p-12"
+                class="toggle-btn"
+                onclick="mudarPeriodoVisualizacao(12)"
+              >
+                12 Meses
+              </button>
+            </div>
+          </div>
+
+          <!-- Heatmap Cascata -->
+          <div
+            id="visualizacao-github"
+            class="github-container-layout"
+            style="display: flex"
+          >
+            <div class="github-labels-dias">
+              <div>D</div>
+              <div>S</div>
+              <div>T</div>
+              <div>Q</div>
+              <div>Q</div>
+              <div>S</div>
+              <div>S</div>
+            </div>
+            <div id="github-grid-dinamico" class="github-grid-cascata"></div>
+          </div>
+
+          <!-- Calendários Mensais -->
+          <div
+            id="visualizacao-calendar"
+            class="calendarios-wrapper"
+            style="display: none"
+          ></div>
+
+          <div
+            style="
+              display: flex;
+              gap: 15px;
+              font-size: 0.8rem;
+              margin-top: 15px;
+              color: var(--text-muted);
+              justify-content: center;
+              border-top: 1px solid var(--border);
+              padding-top: 10px;
+            "
+          >
+            <span>Escala de Foco:</span>
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  background: #223147;
+                  border-radius: 2px;
+                "
+              ></span>
+              0 min</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  background: #1e3a8a;
+                  border-radius: 2px;
+                "
+              ></span>
+              Até 30m</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  background: #3b82f6;
+                  border-radius: 2px;
+                "
+              ></span>
+              Até 1h</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  background: #60a5fa;
+                  border-radius: 2px;
+                "
+              ></span>
+              Até 2h</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  background: #a7f3d0;
+                  border-radius: 2px;
+                "
+              ></span>
+              +2h</span
+            >
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>📚 Cadastrar Nova Matéria</h2>
+          <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
+            <label>Nome da Matéria:</label>
+            <input
+              type="text"
+              id="mat-only-nome"
+              placeholder="Ex: Direito Administrativo"
+              required
+            />
+            <label>Vincular a uma Meta:</label>
+            <select id="mat-vinc-meta">
+              <option value="">Matéria Isolada</option>
+            </select>
+            <label>Cor da Matéria:</label>
+            <select id="mat-only-cor" required></select>
+            <button
+              type="submit"
+              style="
+                width: 100%;
+                padding: 10px;
+                background: var(--primary);
+                color: white;
+              "
+            >
+              Adicionar Matéria
+            </button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
+          <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
+            <label>Nome do Objetivo / Meta:</label>
+            <input
+              type="text"
+              id="meta-objetivo-nome"
+              placeholder="Ex: Concurso Nacional"
+              required
+            />
+            <div class="flex-inputs">
+              <div>
+                <label>Data da Prova:</label>
+                <input type="date" id="meta-prova-data" required />
+              </div>
+              <div>
+                <label>Qtd. Tópicos:</label>
+                <input
+                  type="number"
+                  id="meta-qtd-materias"
+                  min="1"
+                  placeholder="Ex: 40"
+                  required
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              style="
+                width: 100%;
+                padding: 10px;
+                background: var(--success);
+                color: white;
+              "
+            >
+              Fixar Nova Meta
+            </button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>📊 Histórico Recente (7 Dias)</h2>
+          <div class="historico-lista" id="historico-7-dias"></div>
+        </div>
+
+        <div class="card">
+          <h2>📊 Distribuição de Tempo</h2>
+          <div class="chart-wrapper"><canvas id="chartMaterias"></canvas></div>
+        </div>
+
+        <div class="card full-width">
+          <h2>📋 Registro de Metas Fixadas</h2>
+          <div id="lista-materias"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PERFIL PESSOAL ================= -->
+    <div id="pagina-perfil" style="display: none">
+      <div class="perfil-container">
+        <div class="card">
+          <div class="perfil-header">
+            <div class="perfil-avatar" id="avatar-letras">U</div>
+            <div class="perfil-detalhes">
+              <h3 id="lbl-nome-usuario">Estudante</h3>
+              <p id="lbl-cargo-usuario">Foco em Aprovação</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-stats-dashboard">
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">⏱️ Horas Focadas</span>
+            <span class="stat-metrica-valor" id="stat-horas-focadas"
+              >0h 00m</span
+            >
+            <span class="stat-metrica-detalhe">Total acumulado</span>
+          </div>
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">📈 Pico de Produtividade</span>
+            <span
+              class="stat-metrica-valor"
+              id="stat-pico-horario"
+              style="font-size: 1.3rem"
+              >Nenhum</span
+            >
+            <span class="stat-metrica-detalhe">Turno mais frequente</span>
+          </div>
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">📚 Matéria Líder</span>
+            <span
+              class="stat-metrica-valor"
+              id="stat-materia-lider"
+              style="font-size: 1.2rem"
+              >Nenhuma</span
+            >
+            <span class="stat-metrica-detalhe" id="stat-materia-lider-tempo"
+              >0 min</span
+            >
+          </div>
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">🔥 Sequência Diária</span>
+            <span class="stat-metrica-valor" id="stat-dias-consecutivos"
+              >0 dias</span
+            >
+            <span class="stat-metrica-detalhe">Dias seguidos de foco</span>
+          </div>
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">⏳ Tempo Extra</span>
+            <span
+              class="stat-metrica-valor"
+              id="stat-tempo-extra"
+              style="color: #fb7185"
+              >0 min</span
+            >
+            <span class="stat-metrica-detalhe">Overtime pós-bloco</span>
+          </div>
+          <div
+            class="card-stat-metrica"
+            style="border: 1px dashed var(--danger)"
+          >
+            <span class="stat-metrica-titulo" style="color: #f43f5e"
+              >⚡ Maior Vilão</span
+            >
+            <span
+              class="stat-metrica-valor"
+              id="stat-maior-distracao"
+              style="color: #fb7185; font-size: 1.3rem"
+              >Nenhum</span
+            >
+            <span class="stat-metrica-detalhe" id="stat-maior-distracao-sub"
+              >0 mapeadas</span
+            >
+          </div>
+          <div class="card-stat-metrica">
+            <span class="stat-metrica-titulo">🎯 Eficiência</span>
+            <span class="stat-metrica-valor" id="stat-eficiencia-semanal"
+              >0%</span
+            >
+            <span class="stat-metrica-detalhe">Baseado nos últimos 7 dias</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>👤 Alterar Informações Cadastrais</h2>
+          <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
+            <div class="grid-campos-perfil">
+              <div>
+                <label>Nome Completo:</label>
+                <input type="text" id="perf-nome" placeholder="Nome atual..." />
+              </div>
+              <div>
+                <label>Foco Principal / Cargo:</label>
+                <input
+                  type="text"
+                  id="perf-cargo"
+                  placeholder="Foco atual..."
+                />
+              </div>
+            </div>
+            <label>Minha Biografia / Notas de Motivação:</label>
+            <textarea
+              id="perf-bio"
+              placeholder="Notas e biografia atuais..."
+            ></textarea>
+            <button
+              type="submit"
+              style="
+                padding: 10px 20px;
+                background: var(--primary);
+                color: white;
+                width: 100%;
+              "
+            >
+              Salvar e Limpar Formulário
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
