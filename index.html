@@ -4,595 +4,1558 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Estude+ - Painel de Estudos</title>
-    <link rel="stylesheet" href="css/style.css" />
-    <script src="js/script.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      // Aplica o tema salvo (ou dark, padrão) antes do CSS pintar a tela,
+      // pra não piscar tema errado por uma fração de segundo ao carregar.
+      (function () {
+        var temaSalvo = localStorage.getItem("temaApp") || "dark";
+        document.documentElement.setAttribute("data-theme", temaSalvo);
+      })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=27" />
   </head>
   <body>
-    <h1 class="app-header-main">⚡ ESTUDE+</h1>
+    <button
+      type="button"
+      class="btn-sair-modo-foco"
+      id="btn-sair-modo-foco"
+      onclick="sairDoModoFoco()"
+      title="Sair da tela cheia (o pomodoro continua contando)"
+    >
+      ✕ Sair da tela cheia
+    </button>
 
-    <div class="app-nav">
-      <div
-        id="nav-painel"
-        class="nav-link active"
-        onclick="navegarPara('painel')"
-      >
-        📊 Painel de Estudos
-      </div>
-      <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
-        👤 Perfil Pessoal
-      </div>
-    </div>
+    <button
+      type="button"
+      class="btn-alternar-tema"
+      id="btn-alternar-tema"
+      onclick="alternarTema()"
+      title="Alternar entre tema claro e escuro"
+    >
+      🌙 Escuro
+    </button>
 
-    <!-- MODAL AUDITORIA -->
-    <div id="modal-distracao-container" class="modal-distracao">
-      <div class="modal-conteudo">
-        <h2
-          style="
-            color: #60a5fa;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-          "
-        >
-          ⚠️ Auditoria de Foco
-        </h2>
-        <p style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0">
-          Houve algum tipo de distração ou interrupção durante a sessão?
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login" class="tela-login" style="display: none">
+      <div class="tela-login-card">
+        <h1 class="tela-login-logo">⚡ ESTUDE+</h1>
+        <p class="tela-login-subtitulo">
+          Entre para acessar seus estudos em qualquer dispositivo
         </p>
 
-        <div class="grade-checkbox-distracao">
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Celular" />📱 Celular / Redes</label
-          >
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Filhos" />👶 Filhos / Crianças</label
-          >
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Barulho" />🔊 Barulho Externo</label
-          >
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Família" />🏡 Família /
-            Parentes</label
-          >
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Pets" />🐾 Pets / Animais</label
-          >
-          <label class="item-checkbox"
-            ><input type="checkbox" value="Televisão" />📺 TV / Streaming</label
-          >
-        </div>
+        <form id="form-login" onsubmit="fazerLogin(event)">
+          <label for="login-email">E-mail</label>
+          <input
+            type="email"
+            id="login-email"
+            required
+            autocomplete="email"
+            placeholder="voce@email.com"
+          />
 
-        <div style="display: flex; gap: 10px; justify-content: flex-end">
+          <label for="login-senha">Senha</label>
+          <input
+            type="password"
+            id="login-senha"
+            required
+            minlength="6"
+            autocomplete="current-password"
+            placeholder="Mínimo 6 caracteres"
+          />
+
+          <div
+            id="login-erro"
+            class="tela-login-erro"
+            style="display: none"
+          ></div>
+
           <button
-            onclick="pularRegistroDistracao()"
-            style="background: #334155; color: white; padding: 10px 15px"
+            type="submit"
+            id="btn-login-entrar"
+            class="tela-login-btn-primario"
           >
-            Foco 100% Limpo
+            Entrar
           </button>
           <button
-            onclick="confirmarRegistroDistracao()"
-            style="background: var(--primary); color: white; padding: 10px 20px"
+            type="button"
+            class="tela-login-btn-secundario"
+            onclick="fazerCadastro(event)"
           >
-            Computar e Fechar
+            Criar conta nova
           </button>
-        </div>
+
+          <div
+            id="login-carregando"
+            class="tela-login-carregando"
+            style="display: none"
+          >
+            Carregando seus dados...
+          </div>
+        </form>
+
+        <p class="tela-login-nota">
+          Seus dados ficam salvos na nuvem e disponíveis em qualquer aparelho em
+          que você entrar com essa conta.
+        </p>
       </div>
     </div>
 
-    <!-- ================= PAINEL DE ESTUDOS ================= -->
-    <div id="pagina-painel">
-      <div class="topo-info-container">
-        <button class="streak-badge-btn">
-          🔥 Sequência:
-          <span class="numero" id="streak-contador-val">0 dias</span>
-        </button>
+    <div id="app-conteudo" style="display: none">
+      <h1 class="app-header-main">⚡ ESTUDE+</h1>
+
+      <div class="app-nav">
+        <div
+          id="nav-painel"
+          class="nav-link active"
+          onclick="navegarPara('painel')"
+        >
+          📊 Painel de Estudos
+        </div>
+        <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
+          👤 Perfil Pessoal
+        </div>
+        <div
+          id="conta-usuario-badge"
+          class="conta-usuario-badge"
+          style="display: none"
+        >
+          <span id="usuario-logado-email"></span>
+          <button type="button" onclick="fazerLogout()" title="Sair da conta">
+            🚪 Sair
+          </button>
+        </div>
       </div>
 
-      <div class="secao-topo-pomo">
-        <div class="card pomodoro" id="modulo-pomodoro">
-          <h2 id="pomodoro-header-titulo">⏱️ Pomodoro Avançado</h2>
-          <div class="frase-foco-container" id="frase-do-dia"></div>
-
-          <div
-            class="pomo-linhas-titulo"
-            id="pomo-container-titulos"
-            style="display: none"
-          >
-            <div class="pomo-linha-top" id="pomo-texto-top"></div>
-            <div class="pomo-linha-sub" id="pomo-texto-sub"></div>
-          </div>
-
-          <div class="selector-group" id="pomo-configs">
-            <div>
-              <label>Tempo de Foco</label>
-              <select id="pomo-foco" onchange="alterarConfiguracaoPomodoro()">
-                <option value="25">25 minutos</option>
-                <option value="40">40 minutos</option>
-                <option value="50">50 minutos</option>
-              </select>
-            </div>
-            <div>
-              <label>Tempo de Pausa</label>
-              <select id="pomo-pausa">
-                <option value="5">5 minutos</option>
-                <option value="10">10 minutos</option>
-                <option value="15">15 minutos</option>
-              </select>
-            </div>
-            <div>
-              <label>Alerta Sonoro</label>
-              <select id="pomo-som">
-                <option value="sino">🔮 Sino de Cristal</option>
-                <option value="harpa">🎵 Harpa Dedilhada</option>
-                <option value="gong">🧘 Sino Zen</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 12px" class="secondary-element">
-            <button
-              type="button"
-              onclick="testarSomAtual()"
-              style="
-                background: #334155;
-                color: white;
-                padding: 6px 12px;
-                font-size: 0.8rem;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-              "
-            >
-              🔔 Testar Alarme
-            </button>
-          </div>
-
-          <div class="timer" id="timer-display">25:00</div>
-
-          <div
-            class="vinculo-materia-container"
+      <!-- MODAL AUDITORIA -->
+      <div id="modal-distracao-container" class="modal-distracao">
+        <div class="modal-conteudo">
+          <h2
             style="
-              margin-bottom: 12px;
-              width: 100%;
-              max-width: 280px;
-              margin: 0 auto;
+              color: var(--accent-text);
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 10px;
             "
           >
-            <label
-              style="
-                font-size: 0.85rem;
-                color: var(--text-muted);
-                display: block;
-                margin-bottom: 4px;
-              "
-              >Matéria da Sessão:</label
+            ⚠️ Auditoria de Foco
+          </h2>
+          <p
+            style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0"
+          >
+            Houve algum tipo de distração ou interrupção durante a sessão?
+          </p>
+
+          <div class="grade-checkbox-distracao">
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Celular" />📱 Celular /
+              Redes</label
             >
-            <select id="pomo-materia"></select>
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Filhos" />👶 Filhos /
+              Crianças</label
+            >
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Barulho" />🔊 Barulho
+              Externo</label
+            >
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Família" />🏡 Família /
+              Parentes</label
+            >
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Pets" />🐾 Pets / Animais</label
+            >
+            <label class="item-checkbox"
+              ><input type="checkbox" value="Televisão" />📺 TV /
+              Streaming</label
+            >
           </div>
 
-          <div class="btn-group">
+          <div style="display: flex; gap: 10px; justify-content: flex-end">
             <button
-              id="btn-start"
-              onclick="gerenciarBotaoFocoPrincipal()"
+              onclick="pularRegistroDistracao()"
+              style="background: #334155; color: white; padding: 10px 15px"
+            >
+              Foco 100% Limpo
+            </button>
+            <button
+              onclick="confirmarRegistroDistracao()"
               style="
                 background: var(--primary);
                 color: white;
-                padding: 12px 30px;
-                font-size: 1.05rem;
+                padding: 10px 20px;
               "
             >
-              Iniciar Foco
-            </button>
-            <button
-              id="btn-pause"
-              class="secondary"
-              onclick="pauseTimer()"
-              style="background: #334155; color: white; padding: 8px 15px"
-            >
-              Pausar
-            </button>
-            <button
-              id="btn-salvar-parcial"
-              class="warning"
-              onclick="salvarSessaoIncompleta()"
-              style="
-                display: none;
-                background: var(--warning);
-                color: black;
-                padding: 8px 15px;
-              "
-            >
-              Salvar Parcial
-            </button>
-            <button
-              id="btn-reset"
-              class="secondary"
-              onclick="resetTimer()"
-              style="background: #334155; color: white; padding: 8px 15px"
-            >
-              Resetar
+              Computar e Fechar
             </button>
           </div>
-
-          <div>
-            <span id="pomodoro-status" class="status-badge status-foco"
-              >Pronto para iniciar!</span
-            >
-          </div>
-        </div>
-
-        <div class="card widget-meta-topo" id="widget-meta-container">
-          <h2>🎯 Alvo e Meta Recente</h2>
-          <div id="widget-meta-conteudo"></div>
         </div>
       </div>
 
-      <div class="container" id="conteudo-painel">
-        <!-- HEATMAP COMPLETO RESTAURADO -->
-        <div class="card full-width">
-          <div class="calendario-controles">
-            <div class="controles-grupo">
-              <span class="controles-label">Modo:</span>
-              <button
-                id="btn-mode-github"
-                class="toggle-btn active"
-                onclick="alterarModoVisualizacao('github')"
-              >
-                Estilo GitHub
-              </button>
-              <button
-                id="btn-mode-calendar"
-                class="toggle-btn"
-                onclick="alterarModoVisualizacao('calendar')"
-              >
-                Calendário Compacto
-              </button>
-            </div>
-
-            <div class="controles-grupo">
-              <span class="controles-label">Período:</span>
-              <button
-                id="btn-p-1"
-                class="toggle-btn active"
-                onclick="mudarPeriodoVisualizacao(1)"
-              >
-                1 Mês
-              </button>
-              <button
-                id="btn-p-3"
-                class="toggle-btn"
-                onclick="mudarPeriodoVisualizacao(3)"
-              >
-                3 Meses
-              </button>
-              <button
-                id="btn-p-6"
-                class="toggle-btn"
-                onclick="mudarPeriodoVisualizacao(6)"
-              >
-                6 Meses
-              </button>
-              <button
-                id="btn-p-12"
-                class="toggle-btn"
-                onclick="mudarPeriodoVisualizacao(12)"
-              >
-                12 Meses
-              </button>
-            </div>
-          </div>
-
-          <!-- Heatmap Cascata -->
-          <div
-            id="visualizacao-github"
-            class="github-container-layout"
-            style="display: flex"
+      <!-- MODAL PAUSA SUGERIDA -->
+      <div
+        id="modal-pausa-sugerida"
+        class="modal-distracao modal-pausa-sugerida"
+      >
+        <div class="modal-conteudo modal-pausa-conteudo">
+          <h2
+            style="
+              color: var(--accent-text);
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 10px;
+            "
           >
-            <div class="github-labels-dias">
-              <div>D</div>
-              <div>S</div>
-              <div>T</div>
-              <div>Q</div>
-              <div>Q</div>
-              <div>S</div>
-              <div>S</div>
-            </div>
-            <div id="github-grid-dinamico" class="github-grid-cascata"></div>
-          </div>
+            ☕ Hora da Pausa!
+          </h2>
+          <p
+            style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0"
+          >
+            Quanto tempo você quer descansar antes do próximo ciclo?
+          </p>
 
-          <!-- Calendários Mensais -->
-          <div
-            id="visualizacao-calendar"
-            class="calendarios-wrapper"
+          <p
+            id="pausa-longa-aviso"
+            class="pausa-longa-aviso"
             style="display: none"
+          >
+            🎉 4 pomodoros completos! Que tal uma pausa mais longa dessa vez?
+          </p>
+
+          <div class="grade-opcoes-pausa">
+            <button id="btn-pausa-5" onclick="iniciarPausaComDuracao(5)">
+              5 min
+            </button>
+            <button id="btn-pausa-10" onclick="iniciarPausaComDuracao(10)">
+              10 min
+            </button>
+            <button id="btn-pausa-15" onclick="iniciarPausaComDuracao(15)">
+              15 min
+            </button>
+            <button id="btn-pausa-20" onclick="iniciarPausaComDuracao(20)">
+              20 min
+            </button>
+            <button id="btn-pausa-30" onclick="iniciarPausaComDuracao(30)">
+              30 min
+            </button>
+            <button id="btn-pausa-45" onclick="iniciarPausaComDuracao(45)">
+              45 min
+            </button>
+            <button id="btn-pausa-60" onclick="iniciarPausaComDuracao(60)">
+              60 min
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL SESSÃO DE ESTUDO PLANEJADA (BLOCO DE ESTUDOS) -->
+      <div id="modal-bloco-estudos" class="modal-distracao">
+        <div class="modal-conteudo modal-bloco-conteudo">
+          <h2
+            style="
+              color: var(--accent-text);
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 10px;
+            "
+          >
+            📚 Montar Sessão de Estudo Planejada
+          </h2>
+          <p class="bloco-estudos-explicacao">
+            Monte a sequência de matérias e quantos pomodoros de cada uma.
+            Escolha a pausa entre eles uma única vez — o app toca a fila inteira
+            sozinho, sem precisar escolher a pausa a cada intervalo. Se houver
+            um Timer de Preparação selecionado no card do Pomodoro, ele conta
+            antes do primeiro pomodoro deste bloco também.
+          </p>
+
+          <div
+            id="bloco-estudos-itens-lista"
+            class="bloco-estudos-itens-lista"
           ></div>
+
+          <button
+            type="button"
+            class="btn-add-item-bloco"
+            onclick="adicionarItemBloco()"
+          >
+            + Adicionar Matéria ao Bloco
+          </button>
+
+          <div class="bloco-estudos-pausa-config">
+            <label for="bloco-pausa-select"
+              >Pausa entre pomodoros do bloco:</label
+            >
+            <select id="bloco-pausa-select">
+              <option value="5">5 minutos</option>
+              <option value="10" selected>10 minutos</option>
+              <option value="15">15 minutos</option>
+              <option value="20">20 minutos</option>
+              <option value="30">30 minutos</option>
+            </select>
+          </div>
 
           <div
             style="
               display: flex;
-              gap: 15px;
-              font-size: 0.8rem;
-              margin-top: 15px;
-              color: var(--text-muted);
-              justify-content: center;
-              border-top: 1px solid var(--border);
-              padding-top: 10px;
+              gap: 10px;
+              justify-content: flex-end;
+              margin-top: 18px;
             "
           >
-            <span>Escala de Foco:</span>
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  background: #223147;
-                  border-radius: 2px;
-                "
-              ></span>
-              0 min</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  background: #1e3a8a;
-                  border-radius: 2px;
-                "
-              ></span>
-              Até 30m</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  background: #3b82f6;
-                  border-radius: 2px;
-                "
-              ></span>
-              Até 1h</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  background: #60a5fa;
-                  border-radius: 2px;
-                "
-              ></span>
-              Até 2h</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  background: #a7f3d0;
-                  border-radius: 2px;
-                "
-              ></span>
-              +2h</span
-            >
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>📚 Cadastrar Nova Matéria</h2>
-          <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
-            <label>Nome da Matéria:</label>
-            <input
-              type="text"
-              id="mat-only-nome"
-              placeholder="Ex: Direito Administrativo"
-              required
-            />
-            <label>Vincular a uma Meta:</label>
-            <select id="mat-vinc-meta">
-              <option value="">Matéria Isolada</option>
-            </select>
-            <label>Cor da Matéria:</label>
-            <select id="mat-only-cor" required></select>
             <button
-              type="submit"
+              onclick="fecharModalBlocoEstudos()"
+              style="background: #334155; color: white; padding: 10px 15px"
+            >
+              Cancelar
+            </button>
+            <button
+              onclick="iniciarBlocoEstudos()"
               style="
-                width: 100%;
-                padding: 10px;
                 background: var(--primary);
                 color: white;
+                padding: 10px 20px;
               "
             >
-              Adicionar Matéria
+              🚀 Iniciar Bloco
             </button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
-          <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
-            <label>Nome do Objetivo / Meta:</label>
-            <input
-              type="text"
-              id="meta-objetivo-nome"
-              placeholder="Ex: Concurso Nacional"
-              required
-            />
-            <div class="flex-inputs">
-              <div>
-                <label>Data da Prova:</label>
-                <input type="date" id="meta-prova-data" required />
-              </div>
-              <div>
-                <label>Qtd. Tópicos:</label>
-                <input
-                  type="number"
-                  id="meta-qtd-materias"
-                  min="1"
-                  placeholder="Ex: 40"
-                  required
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              style="
-                width: 100%;
-                padding: 10px;
-                background: var(--success);
-                color: white;
-              "
-            >
-              Fixar Nova Meta
-            </button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>📊 Histórico Recente (7 Dias)</h2>
-          <div class="historico-lista" id="historico-7-dias"></div>
-        </div>
-
-        <div class="card">
-          <h2>📊 Distribuição de Tempo</h2>
-          <div class="chart-wrapper"><canvas id="chartMaterias"></canvas></div>
-        </div>
-
-        <div class="card full-width">
-          <h2>📋 Registro de Metas Fixadas</h2>
-          <div id="lista-materias"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ================= PERFIL PESSOAL ================= -->
-    <div id="pagina-perfil" style="display: none">
-      <div class="perfil-container">
-        <div class="card">
-          <div class="perfil-header">
-            <div class="perfil-avatar" id="avatar-letras">U</div>
-            <div class="perfil-detalhes">
-              <h3 id="lbl-nome-usuario">Estudante</h3>
-              <p id="lbl-cargo-usuario">Foco em Aprovação</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid-stats-dashboard">
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">⏱️ Horas Focadas</span>
-            <span class="stat-metrica-valor" id="stat-horas-focadas"
-              >0h 00m</span
-            >
-            <span class="stat-metrica-detalhe">Total acumulado</span>
-          </div>
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">📈 Pico de Produtividade</span>
-            <span
-              class="stat-metrica-valor"
-              id="stat-pico-horario"
-              style="font-size: 1.3rem"
-              >Nenhum</span
-            >
-            <span class="stat-metrica-detalhe">Turno mais frequente</span>
-          </div>
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">📚 Matéria Líder</span>
-            <span
-              class="stat-metrica-valor"
-              id="stat-materia-lider"
-              style="font-size: 1.2rem"
-              >Nenhuma</span
-            >
-            <span class="stat-metrica-detalhe" id="stat-materia-lider-tempo"
-              >0 min</span
-            >
-          </div>
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">🔥 Sequência Diária</span>
-            <span class="stat-metrica-valor" id="stat-dias-consecutivos"
-              >0 dias</span
-            >
-            <span class="stat-metrica-detalhe">Dias seguidos de foco</span>
-          </div>
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">⏳ Tempo Extra</span>
-            <span
-              class="stat-metrica-valor"
-              id="stat-tempo-extra"
-              style="color: #fb7185"
-              >0 min</span
-            >
-            <span class="stat-metrica-detalhe">Overtime pós-bloco</span>
-          </div>
-          <div
-            class="card-stat-metrica"
-            style="border: 1px dashed var(--danger)"
+      <!-- MODAL SONS AMBIENTE -->
+      <div id="modal-sons-ambiente" class="modal-distracao">
+        <div class="modal-conteudo modal-sons-conteudo">
+          <h2
+            style="
+              color: var(--accent-text);
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 10px;
+            "
           >
-            <span class="stat-metrica-titulo" style="color: #f43f5e"
-              >⚡ Maior Vilão</span
-            >
-            <span
-              class="stat-metrica-valor"
-              id="stat-maior-distracao"
-              style="color: #fb7185; font-size: 1.3rem"
-              >Nenhum</span
-            >
-            <span class="stat-metrica-detalhe" id="stat-maior-distracao-sub"
-              >0 mapeadas</span
-            >
+            🎧 Sons Ambiente para Foco
+          </h2>
+          <p class="sons-ambiente-explicacao">
+            Sons gerados aqui mesmo no navegador — funcionam sem internet e
+            continuam tocando mesmo com esta janela fechada. Pode ligar mais de
+            um ao mesmo tempo e ajustar o volume de cada um.
+          </p>
+
+          <div class="grade-sons-ambiente" id="grade-sons-ambiente"></div>
+
+          <div class="som-neural-bloco">
+            <div class="som-neural-header">
+              <button
+                type="button"
+                id="btn-som-neural"
+                class="btn-som-ambiente"
+                onclick="alternarSomNeural()"
+              >
+                🧠 Sons Neurais (Binaural)
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value="30"
+                id="volume-som-neural"
+                oninput="ajustarVolumeSomNeural(this.value)"
+                title="Volume"
+              />
+            </div>
+            <div class="abas-tempo abas-binaural" id="abas-binaural">
+              <button
+                type="button"
+                class="aba-tempo aba-binaural"
+                data-preset="relaxado"
+                onclick="trocarPresetBinaural('relaxado')"
+              >
+                🌊 Alerta Relaxado
+              </button>
+              <button
+                type="button"
+                class="aba-tempo aba-binaural aba-ativa"
+                data-preset="foco"
+                onclick="trocarPresetBinaural('foco')"
+              >
+                🎯 Foco
+              </button>
+              <button
+                type="button"
+                class="aba-tempo aba-binaural"
+                data-preset="concentracao"
+                onclick="trocarPresetBinaural('concentracao')"
+              >
+                🧠 Concentração Profunda
+              </button>
+            </div>
+            <p class="som-neural-aviso">
+              🎧 Use fones de ouvido — o efeito binaural depende de um som
+              ligeiramente diferente em cada ouvido.
+            </p>
           </div>
-          <div class="card-stat-metrica">
-            <span class="stat-metrica-titulo">🎯 Eficiência</span>
-            <span class="stat-metrica-valor" id="stat-eficiencia-semanal"
-              >0%</span
+
+          <div class="sons-ambiente-divisor"></div>
+
+          <div class="lofi-bloco">
+            <h3
+              style="margin: 0 0 8px; font-size: 1rem; color: var(--text-main)"
             >
-            <span class="stat-metrica-detalhe">Baseado nos últimos 7 dias</span>
+              🎵 Lofi / Jazz / Instrumental
+            </h3>
+            <p class="sons-ambiente-explicacao">
+              Isso aqui é música de verdade, então toca por streaming direto do
+              YouTube (precisa de internet) — o app só incorpora o player
+              oficial, sem gravar nem redistribuir nada.
+            </p>
+            <div class="lofi-botoes">
+              <button
+                type="button"
+                class="btn-lofi-preset"
+                onclick="tocarRadioLofi('jfKfPfyJRdk')"
+              >
+                📻 Lofi Hip Hop Radio
+              </button>
+              <button
+                type="button"
+                class="btn-lofi-parar"
+                onclick="fecharRadioLofi()"
+              >
+                ✕ Parar Rádio
+              </button>
+            </div>
+            <div class="lofi-custom">
+              <input
+                type="text"
+                id="lofi-url-custom"
+                placeholder="Ou cole um link do YouTube (jazz, game lofi, playlist, etc.)"
+              />
+              <button
+                type="button"
+                class="btn-lofi-tocar-custom"
+                onclick="tocarRadioLofiPorUrl()"
+              >
+                ▶ Tocar
+              </button>
+            </div>
+            <div
+              id="lofi-player-container"
+              class="lofi-player-container"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div
+            style="display: flex; justify-content: flex-end; margin-top: 18px"
+          >
+            <button
+              onclick="fecharModalSonsAmbiente()"
+              style="
+                background: var(--primary);
+                color: white;
+                padding: 10px 20px;
+              "
+            >
+              Fechar
+            </button>
           </div>
         </div>
+      </div>
 
-        <div class="card">
-          <h2>👤 Alterar Informações Cadastrais</h2>
-          <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
-            <div class="grid-campos-perfil">
+      <!-- ================= PAINEL DE ESTUDOS ================= -->
+      <div id="pagina-painel">
+        <div class="topo-info-container">
+          <button class="streak-badge-btn">
+            🔥 Sequência:
+            <span class="numero" id="streak-contador-val">0 dias</span>
+          </button>
+        </div>
+
+        <div class="secao-topo-pomo">
+          <div
+            class="card pomodoro"
+            id="modulo-pomodoro"
+            onclick="cliqueForaDoConteudoModoFoco(event)"
+          >
+            <h2 id="pomodoro-header-titulo">⏱️ Pomodoro Avançado</h2>
+            <div class="frase-foco-container" id="frase-do-dia"></div>
+
+            <div
+              class="pomo-linhas-titulo"
+              id="pomo-container-titulos"
+              style="display: none"
+            >
+              <div class="pomo-linha-top" id="pomo-texto-top"></div>
+              <div class="pomo-linha-sub" id="pomo-texto-sub"></div>
+            </div>
+
+            <div class="config-abas-container" id="config-abas-tempo">
+              <div class="config-aba-grupo">
+                <label>⏱️ Tempo de Foco</label>
+                <div class="abas-tempo" id="abas-tempo-foco">
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-foco aba-ativa"
+                    data-min="25"
+                    onclick="selecionarTempoFoco(25)"
+                  >
+                    25 min
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-foco"
+                    data-min="30"
+                    onclick="selecionarTempoFoco(30)"
+                  >
+                    30 min
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-foco"
+                    data-min="40"
+                    onclick="selecionarTempoFoco(40)"
+                  >
+                    40 min
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-foco"
+                    data-min="50"
+                    onclick="selecionarTempoFoco(50)"
+                  >
+                    50 min
+                  </button>
+                </div>
+              </div>
+              <div class="config-aba-grupo">
+                <label>🧘 Timer de Preparação</label>
+                <div class="abas-tempo" id="abas-tempo-preparo">
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-preparo aba-ativa"
+                    data-min="0"
+                    onclick="selecionarTempoPreparo(0)"
+                  >
+                    Sem preparo
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-preparo"
+                    data-min="5"
+                    onclick="selecionarTempoPreparo(5)"
+                  >
+                    5 min
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-preparo"
+                    data-min="10"
+                    onclick="selecionarTempoPreparo(10)"
+                  >
+                    10 min
+                  </button>
+                  <button
+                    type="button"
+                    class="aba-tempo aba-tempo-preparo"
+                    data-min="15"
+                    onclick="selecionarTempoPreparo(15)"
+                  >
+                    15 min
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="selector-group" id="pomo-configs">
               <div>
-                <label>Nome Completo:</label>
-                <input type="text" id="perf-nome" placeholder="Nome atual..." />
+                <label for="pomo-pausa">Tempo de Pausa</label>
+                <select id="pomo-pausa">
+                  <option value="5">5 minutos</option>
+                  <option value="10">10 minutos</option>
+                  <option value="15">15 minutos</option>
+                </select>
               </div>
               <div>
-                <label>Foco Principal / Cargo:</label>
+                <label for="pomo-som">Alerta Sonoro</label>
+                <select id="pomo-som">
+                  <option value="sino">🔮 Sino de Cristal</option>
+                  <option value="harpa">🎵 Harpa Dedilhada</option>
+                  <option value="gong">🧘 Sino Zen</option>
+                </select>
+              </div>
+            </div>
+
+            <div
+              style="
+                margin-bottom: 12px;
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+              "
+              class="secondary-element"
+            >
+              <button
+                type="button"
+                onclick="testarSomAtual()"
+                style="
+                  background: #334155;
+                  color: white;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                  border-radius: 6px;
+                  border: none;
+                  cursor: pointer;
+                "
+              >
+                🔔 Testar Alarme
+              </button>
+              <button
+                type="button"
+                onclick="abrirModalBlocoEstudos()"
+                title="Monte uma sequência de matérias e pomodoros com pausas automáticas"
+                style="
+                  background: #334155;
+                  color: white;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                  border-radius: 6px;
+                  border: none;
+                  cursor: pointer;
+                "
+              >
+                📚 Sessão Planejada
+              </button>
+              <button
+                type="button"
+                onclick="abrirModalSonsAmbiente()"
+                title="Sons de fundo para ajudar na concentração (chuva, ruídos, binaural, lofi...)"
+                style="
+                  background: #334155;
+                  color: white;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                  border-radius: 6px;
+                  border: none;
+                  cursor: pointer;
+                "
+              >
+                🎧 Sons Ambiente
+              </button>
+            </div>
+
+            <div class="timer-layout">
+              <!-- TIMER -->
+              <div class="timer-area">
+                <!-- PAINEL DE PREPARAÇÃO: mostrado antes do foco começar de fato,
+                   tanto no pomodoro comum quanto no primeiro pomodoro de uma
+                   Sessão Planejada, quando um Timer de Preparação está selecionado. -->
+                <div
+                  id="painel-preparacao"
+                  class="painel-preparacao"
+                  style="display: none"
+                >
+                  <div class="preparacao-titulo">🧘 Prepare-se...</div>
+                  <div class="timer timer-preparacao" id="preparacao-display">
+                    05:00
+                  </div>
+                  <div
+                    class="preparacao-materia"
+                    id="preparacao-materia-texto"
+                  ></div>
+                  <p class="preparacao-sub">
+                    O foco começa sozinho assim que o tempo zerar.
+                  </p>
+                  <div class="preparacao-botoes">
+                    <button
+                      type="button"
+                      class="btn-preparacao-pular"
+                      onclick="pularPreparacao()"
+                    >
+                      ⏭️ Começar agora
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-preparacao-cancelar"
+                      onclick="cancelarPreparacao()"
+                    >
+                      ✕ Cancelar
+                    </button>
+                  </div>
+                </div>
+
+                <div id="conteudo-foco-normal">
+                  <div class="timer" id="timer-display">25:00</div>
+
+                  <span
+                    id="legenda-tempo-concluido"
+                    class="legenda-tempo-concluido"
+                    style="display: none"
+                  ></span>
+
+                  <div
+                    id="bloco-estudos-status"
+                    class="bloco-estudos-status"
+                    style="display: none"
+                  >
+                    <div class="bloco-estudos-titulo">
+                      📚 Sessão Planejada em andamento
+                    </div>
+                    <div
+                      class="bloco-estudos-atual"
+                      id="bloco-estudos-atual-texto"
+                    ></div>
+                    <div
+                      class="bloco-estudos-fila"
+                      id="bloco-estudos-fila-texto"
+                    ></div>
+                    <button
+                      type="button"
+                      class="bloco-estudos-cancelar"
+                      onclick="cancelarBlocoEstudos()"
+                    >
+                      Cancelar Bloco
+                    </button>
+                  </div>
+
+                  <div class="vinculo-materia-container">
+                    <label for="pomo-materia">Matéria da Sessão:</label>
+                    <select id="pomo-materia"></select>
+
+                    <label for="pomo-nota" style="margin-top: 10px"
+                      >Nota da sessão (opcional):</label
+                    >
+                    <input
+                      type="text"
+                      id="pomo-nota"
+                      placeholder="Ex: Capítulo 3, questões de fixação..."
+                      maxlength="120"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- META -->
+              <div class="meta-side">
+                <div class="meta-side-header">
+                  <h3>Meta de Pomodoros</h3>
+                  <button
+                    type="button"
+                    class="btn-config-meta"
+                    onclick="toggleConfigMetaPomodoros()"
+                    title="Configurar meta diária de pomodoros"
+                  >
+                    ⚙️
+                  </button>
+                </div>
+
+                <div
+                  class="config-meta-box"
+                  id="config-meta-pomodoros-box"
+                  style="display: none"
+                >
+                  <label for="select-meta-pomodoros"
+                    >Pomodoros no ciclo do dia:</label
+                  >
+                  <select
+                    id="select-meta-pomodoros"
+                    onchange="definirMetaPomodorosDiaria(this.value)"
+                  >
+                    <option value="0">Livre (sem meta)</option>
+                    <option value="2">2 pomodoros</option>
+                    <option value="4">4 pomodoros</option>
+                    <option value="6">6 pomodoros</option>
+                    <option value="8">8 pomodoros</option>
+                    <option value="10">10 pomodoros</option>
+                    <option value="12">12 pomodoros</option>
+                  </select>
+                </div>
+
+                <div class="circular-progress" id="circulo-meta">
+                  <div class="progress-text">
+                    <span class="meta-fracao">
+                      <span id="pomo-atual">0</span>/<span id="pomo-meta"
+                        >8</span
+                      >
+                    </span>
+                    <small id="pomo-meta-label">Pomodoros</small>
+                  </div>
+                </div>
+
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="barra-progresso"></div>
+                </div>
+
+                <span class="meta-percentual" id="meta-percentual-texto"
+                  >0% concluído</span
+                >
+              </div>
+            </div>
+
+            <div class="btn-group">
+              <button
+                id="btn-start"
+                onclick="gerenciarBotaoFocoPrincipal()"
+                style="
+                  background: var(--primary);
+                  color: white;
+                  padding: 12px 30px;
+                  font-size: 1.05rem;
+                "
+              >
+                Iniciar Foco
+              </button>
+              <button
+                id="btn-completar-sessao"
+                onclick="abrirSeletorPausa()"
+                style="
+                  display: none;
+                  background: #16a34a;
+                  color: white;
+                  padding: 12px 24px;
+                  font-size: 1.05rem;
+                "
+              >
+                ✅ Completar Sessão
+              </button>
+              <button
+                id="btn-pause"
+                class="secondary"
+                onclick="pauseTimer()"
+                style="background: #334155; color: white; padding: 8px 15px"
+              >
+                Pausar
+              </button>
+              <button
+                id="btn-salvar-parcial"
+                class="warning"
+                onclick="salvarSessaoIncompleta()"
+                style="
+                  display: none;
+                  background: var(--warning);
+                  color: black;
+                  padding: 8px 15px;
+                "
+              >
+                Salvar Parcial
+              </button>
+              <button
+                id="btn-reset"
+                class="secondary"
+                onclick="confirmarEResetar()"
+                style="background: #334155; color: white; padding: 8px 15px"
+              >
+                Resetar
+              </button>
+            </div>
+
+            <div>
+              <span id="pomodoro-status" class="status-badge status-foco"
+                >Pronto para iniciar!</span
+              >
+              <button
+                type="button"
+                id="btn-voltar-modo-foco"
+                class="btn-voltar-modo-foco"
+                onclick="entrarNoModoFoco()"
+                style="display: none"
+                title="Voltar para a tela cheia do modo foco"
+              >
+                ⛶ Modo Foco
+              </button>
+            </div>
+          </div>
+
+          <div class="coluna-lateral-pomo">
+            <div
+              class="card widget-meta-topo compacto"
+              id="widget-meta-container"
+            >
+              <h2>🎯 Alvo e Meta Recente</h2>
+              <div id="widget-meta-conteudo"></div>
+            </div>
+
+            <div class="card card-tarefas" id="widget-tarefas">
+              <h2>📋 Tarefas</h2>
+              <div class="tarefas-input-row">
                 <input
                   type="text"
-                  id="perf-cargo"
-                  placeholder="Foco atual..."
+                  id="input-nova-tarefa"
+                  placeholder="Adicionar nova tarefa"
+                  onkeydown="if (event.key === 'Enter') adicionarTarefa();"
                 />
+                <button type="button" onclick="adicionarTarefa()">Add</button>
+              </div>
+              <div class="tarefas-lista" id="lista-tarefas"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="container" id="conteudo-painel">
+          <!-- HEATMAP COMPLETO RESTAURADO -->
+          <div class="card full-width">
+            <div class="calendario-controles">
+              <div class="controles-grupo">
+                <span class="controles-label">Modo:</span>
+                <button
+                  id="btn-mode-github"
+                  class="toggle-btn active"
+                  onclick="alterarModoVisualizacao('github')"
+                >
+                  Estilo GitHub
+                </button>
+                <button
+                  id="btn-mode-calendar"
+                  class="toggle-btn"
+                  onclick="alterarModoVisualizacao('calendar')"
+                >
+                  Calendário Compacto
+                </button>
+              </div>
+
+              <div class="controles-grupo">
+                <span class="controles-label">Período:</span>
+                <button
+                  id="btn-p-1"
+                  class="toggle-btn active"
+                  onclick="mudarPeriodoVisualizacao(1)"
+                >
+                  1 Mês
+                </button>
+                <button
+                  id="btn-p-3"
+                  class="toggle-btn"
+                  onclick="mudarPeriodoVisualizacao(3)"
+                >
+                  3 Meses
+                </button>
+                <button
+                  id="btn-p-6"
+                  class="toggle-btn"
+                  onclick="mudarPeriodoVisualizacao(6)"
+                >
+                  6 Meses
+                </button>
+                <button
+                  id="btn-p-12"
+                  class="toggle-btn"
+                  onclick="mudarPeriodoVisualizacao(12)"
+                >
+                  12 Meses
+                </button>
               </div>
             </div>
-            <label>Minha Biografia / Notas de Motivação:</label>
-            <textarea
-              id="perf-bio"
-              placeholder="Notas e biografia atuais..."
-            ></textarea>
-            <button
-              type="submit"
+
+            <!-- Heatmap Cascata -->
+            <div
+              id="visualizacao-github"
+              class="github-container-layout"
+              style="display: flex"
+            >
+              <div class="github-labels-dias">
+                <div>D</div>
+                <div>S</div>
+                <div>T</div>
+                <div>Q</div>
+                <div>Q</div>
+                <div>S</div>
+                <div>S</div>
+              </div>
+              <div id="github-grid-dinamico" class="github-grid-cascata"></div>
+            </div>
+
+            <!-- Calendários Mensais -->
+            <div
+              id="visualizacao-calendar"
+              class="calendarios-wrapper"
+              style="display: none"
+            ></div>
+
+            <div
               style="
-                padding: 10px 20px;
-                background: var(--primary);
-                color: white;
-                width: 100%;
+                display: flex;
+                gap: 15px;
+                font-size: 0.8rem;
+                margin-top: 15px;
+                color: var(--text-muted);
+                justify-content: center;
+                border-top: 1px solid var(--border);
+                padding-top: 10px;
               "
             >
-              Salvar e Limpar Formulário
-            </button>
-          </form>
+              <span>Escala de Foco:</span>
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    background: #223147;
+                    border-radius: 2px;
+                  "
+                ></span>
+                0 min</span
+              >
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    background: #1e3a8a;
+                    border-radius: 2px;
+                  "
+                ></span>
+                Até 30m</span
+              >
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    background: #3b82f6;
+                    border-radius: 2px;
+                  "
+                ></span>
+                Até 1h</span
+              >
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    background: #60a5fa;
+                    border-radius: 2px;
+                  "
+                ></span>
+                Até 2h</span
+              >
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    background: #a7f3d0;
+                    border-radius: 2px;
+                  "
+                ></span>
+                +2h</span
+              >
+              <span
+                ><span
+                  style="
+                    display: inline-block;
+                    width: 8px;
+                    height: 8px;
+                    background: #f97316;
+                    border-radius: 50%;
+                  "
+                ></span>
+                = teve pomodoro concluído</span
+              >
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>📚 Cadastrar Nova Matéria</h2>
+            <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
+              <label>Peso da Matéria:</label>
+              <div class="peso-estrelas" id="peso-estrelas-container"></div>
+              <input type="hidden" id="mat-only-peso" value="1" />
+
+              <label for="mat-only-nome">Nome da Matéria:</label>
+              <input
+                type="text"
+                id="mat-only-nome"
+                placeholder="Ex: Direito Administrativo"
+                maxlength="40"
+                required
+                oninput="
+                  atualizarContadorNomeMateria();
+                  validarFormularioMateria();
+                "
+              />
+              <span class="contador-caracteres" id="contador-nome-materia"
+                >0 / 40</span
+              >
+
+              <label for="mat-vinc-meta">Vincular a uma Meta:</label>
+              <select id="mat-vinc-meta">
+                <option value="">Matéria Isolada</option>
+              </select>
+              <span class="campo-ajuda">
+                Vincular liga essa matéria a uma meta com prazo (ela passa a
+                contar como um dos tópicos daquele objetivo). "Matéria Isolada"
+                é só pra estudo livre, sem vínculo com nenhuma meta.
+              </span>
+
+              <label>Cor da Matéria:</label>
+              <div class="cor-swatches" id="cor-swatches-container"></div>
+              <input type="hidden" id="mat-only-cor" />
+
+              <button
+                type="submit"
+                id="btn-adicionar-materia"
+                disabled
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                "
+              >
+                Adicionar Matéria
+              </button>
+            </form>
+
+            <div class="materias-cadastradas-header">
+              <span>Matérias cadastradas</span>
+            </div>
+            <div
+              class="materias-cadastradas-lista"
+              id="materias-cadastradas-lista"
+            ></div>
+          </div>
+
+          <!-- MODAL EDITAR MATÉRIA -->
+          <div id="modal-editar-materia" class="modal-distracao">
+            <div class="modal-conteudo modal-pausa-conteudo">
+              <h2
+                style="
+                  color: var(--accent-text);
+                  border-bottom: 1px solid var(--border);
+                  padding-bottom: 10px;
+                "
+              >
+                ✏️ Editar Matéria
+              </h2>
+
+              <label for="edit-mat-nome" style="margin-top: 10px"
+                >Nome da Matéria:</label
+              >
+              <input type="text" id="edit-mat-nome" maxlength="40" />
+
+              <label>Peso da Matéria:</label>
+              <div
+                class="peso-estrelas"
+                id="edit-peso-estrelas-container"
+              ></div>
+              <input type="hidden" id="edit-mat-peso" />
+
+              <label for="edit-mat-vinc-meta">Vincular a uma Meta:</label>
+              <select id="edit-mat-vinc-meta">
+                <option value="">Matéria Isolada</option>
+              </select>
+
+              <label>Cor da Matéria:</label>
+              <div class="cor-swatches" id="edit-cor-swatches-container"></div>
+              <input type="hidden" id="edit-mat-cor" />
+              <input type="hidden" id="edit-mat-indice" />
+
+              <div style="display: flex; gap: 10px; margin-top: 16px">
+                <button
+                  type="button"
+                  onclick="fecharModalEditarMateria()"
+                  style="
+                    flex: 1;
+                    background: #334155;
+                    color: white;
+                    padding: 10px;
+                  "
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onclick="salvarEdicaoMateria()"
+                  style="
+                    flex: 1;
+                    background: var(--primary);
+                    color: white;
+                    padding: 10px;
+                  "
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
+            <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
+              <label for="meta-objetivo-nome">Nome do Objetivo / Meta:</label>
+              <input
+                type="text"
+                id="meta-objetivo-nome"
+                placeholder="Ex: Concurso Nacional"
+                required
+              />
+              <div class="flex-inputs">
+                <div>
+                  <label for="meta-prova-data">Data da Prova:</label>
+                  <input type="date" id="meta-prova-data" required />
+                </div>
+                <div>
+                  <label for="meta-qtd-materias">Qtd. Tópicos:</label>
+                  <input
+                    type="number"
+                    id="meta-qtd-materias"
+                    min="1"
+                    placeholder="Ex: 40"
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--success);
+                  color: white;
+                "
+              >
+                Fixar Nova Meta
+              </button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>📝 Sessões de Hoje</h2>
+            <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
+          </div>
+
+          <div class="card">
+            <h2>📊 Histórico Recente (7 Dias)</h2>
+            <div class="historico-lista" id="historico-7-dias"></div>
+          </div>
+
+          <div class="card">
+            <h2>📊 Distribuição de Tempo</h2>
+            <div class="chart-wrapper">
+              <canvas id="chartMaterias"></canvas>
+            </div>
+          </div>
+
+          <div class="card full-width">
+            <h2>📋 Registro de Metas Fixadas</h2>
+            <div id="lista-materias"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PERFIL PESSOAL ================= -->
+      <div id="pagina-perfil" style="display: none">
+        <div class="perfil-container">
+          <div class="card">
+            <div class="perfil-header">
+              <div class="perfil-avatar" id="avatar-letras">U</div>
+              <div class="perfil-detalhes">
+                <div class="perfil-nome-linha">
+                  <h3 id="lbl-nome-usuario">Estudante</h3>
+                  <span class="perfil-nivel-badge" id="perfil-nivel-badge"
+                    >Nível 1</span
+                  >
+                </div>
+                <p id="lbl-cargo-usuario">Foco em Aprovação</p>
+                <p class="perfil-titulo-rpg" id="perfil-titulo-rpg">Aprendiz</p>
+
+                <div class="perfil-xp-barra-container">
+                  <div class="perfil-xp-barra-fundo">
+                    <div
+                      class="perfil-xp-barra-fill"
+                      id="perfil-xp-barra-fill"
+                      style="width: 0%"
+                    ></div>
+                  </div>
+                  <span class="perfil-xp-texto" id="perfil-xp-texto"
+                    >0 / 100 XP</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <p class="perfil-bio-exibicao" id="perfil-bio-exibicao"></p>
+          </div>
+
+          <div class="card card-conquistas">
+            <h2>🏆 Conquistas</h2>
+            <div id="grid-conquistas" class="grid-conquistas"></div>
+          </div>
+
+          <div class="card card-analise-estudos">
+            <div class="analise-header">
+              <div class="analise-titulo-bloco">
+                <span class="analise-icone">📊</span>
+                <div>
+                  <h2 style="margin: 0">Análise de Estudos</h2>
+                  <p class="analise-subtitulo">Distribuição por matéria</p>
+                </div>
+              </div>
+
+              <div class="analise-controles">
+                <div class="analise-periodo-toggle" id="analise-periodo-toggle">
+                  <button
+                    type="button"
+                    class="active"
+                    data-periodo="7dias"
+                    onclick="mudarPeriodoAnalise('7dias')"
+                  >
+                    Últimos 7 dias
+                  </button>
+                  <button
+                    type="button"
+                    data-periodo="semanal"
+                    onclick="mudarPeriodoAnalise('semanal')"
+                  >
+                    Semanal
+                  </button>
+                  <button
+                    type="button"
+                    data-periodo="mensal"
+                    onclick="mudarPeriodoAnalise('mensal')"
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    type="button"
+                    data-periodo="anual"
+                    onclick="mudarPeriodoAnalise('anual')"
+                  >
+                    Anual
+                  </button>
+                </div>
+
+                <div class="analise-navegacao">
+                  <button
+                    type="button"
+                    onclick="navegarAnalise(-1)"
+                    title="Período anterior"
+                  >
+                    ‹
+                  </button>
+                  <span id="analise-intervalo-label">—</span>
+                  <button
+                    type="button"
+                    onclick="navegarAnalise(1)"
+                    title="Próximo período"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="analise-corpo">
+              <div class="analise-coluna-donut">
+                <div class="analise-donut-wrapper">
+                  <canvas id="chartAnaliseDonut"></canvas>
+                </div>
+                <div
+                  class="analise-legenda-materias"
+                  id="analise-legenda-materias"
+                ></div>
+              </div>
+
+              <div class="analise-coluna-principal">
+                <div class="analise-stats-row">
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Horas</span>
+                    <span class="analise-stat-valor" id="analise-stat-horas"
+                      >0</span
+                    >
+                  </div>
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Sessões</span>
+                    <span class="analise-stat-valor" id="analise-stat-sessoes"
+                      >0</span
+                    >
+                  </div>
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Tempo Médio</span>
+                    <span class="analise-stat-valor" id="analise-stat-media"
+                      >0h</span
+                    >
+                  </div>
+                </div>
+
+                <div class="analise-barras-wrapper">
+                  <canvas id="chartAnaliseBarras"></canvas>
+                </div>
+
+                <div
+                  class="analise-legenda-barras"
+                  id="analise-legenda-barras"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-stats-dashboard">
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">⏱️ Horas Focadas</span>
+              <span class="stat-metrica-valor" id="stat-horas-focadas"
+                >0h 00m</span
+              >
+              <span class="stat-metrica-detalhe">Total acumulado</span>
+            </div>
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">📈 Pico de Produtividade</span>
+              <span
+                class="stat-metrica-valor"
+                id="stat-pico-horario"
+                style="font-size: 1.3rem"
+                >Nenhum</span
+              >
+              <span class="stat-metrica-detalhe">Turno mais frequente</span>
+            </div>
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">📚 Matéria Líder</span>
+              <span
+                class="stat-metrica-valor"
+                id="stat-materia-lider"
+                style="font-size: 1.2rem"
+                >Nenhuma</span
+              >
+              <span class="stat-metrica-detalhe" id="stat-materia-lider-tempo"
+                >0 min</span
+              >
+            </div>
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">🔥 Sequência Diária</span>
+              <span class="stat-metrica-valor" id="stat-dias-consecutivos"
+                >0 dias</span
+              >
+              <span class="stat-metrica-detalhe">Dias seguidos de foco</span>
+            </div>
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">⏳ Tempo Extra</span>
+              <span
+                class="stat-metrica-valor"
+                id="stat-tempo-extra"
+                style="color: #fb7185"
+                >0 min</span
+              >
+              <span class="stat-metrica-detalhe">Overtime pós-bloco</span>
+            </div>
+            <div
+              class="card-stat-metrica"
+              style="border: 1px dashed var(--danger)"
+            >
+              <span class="stat-metrica-titulo" style="color: #f43f5e"
+                >⚡ Maior Vilão</span
+              >
+              <span
+                class="stat-metrica-valor"
+                id="stat-maior-distracao"
+                style="color: #fb7185; font-size: 1.3rem"
+                >Nenhum</span
+              >
+              <span class="stat-metrica-detalhe" id="stat-maior-distracao-sub"
+                >0 mapeadas</span
+              >
+            </div>
+            <div class="card-stat-metrica">
+              <span class="stat-metrica-titulo">🎯 Eficiência</span>
+              <span class="stat-metrica-valor" id="stat-eficiencia-semanal"
+                >0%</span
+              >
+              <span class="stat-metrica-detalhe"
+                >Baseado nos últimos 7 dias</span
+              >
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>👤 Alterar Informações Cadastrais</h2>
+            <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
+              <div class="grid-campos-perfil">
+                <div>
+                  <label for="perf-nome">Nome Completo:</label>
+                  <input
+                    type="text"
+                    id="perf-nome"
+                    placeholder="Nome atual..."
+                  />
+                </div>
+                <div>
+                  <label for="perf-cargo">Foco Principal / Cargo:</label>
+                  <input
+                    type="text"
+                    id="perf-cargo"
+                    placeholder="Foco atual..."
+                  />
+                </div>
+              </div>
+              <label for="perf-bio"
+                >Minha Biografia / Notas de Motivação:</label
+              >
+              <textarea
+                id="perf-bio"
+                placeholder="Notas e biografia atuais..."
+              ></textarea>
+              <button
+                type="submit"
+                style="
+                  padding: 10px 20px;
+                  background: var(--primary);
+                  color: white;
+                  width: 100%;
+                "
+              >
+                Salvar e Limpar Formulário
+              </button>
+            </form>
+          </div>
+
+          <div class="card card-backup">
+            <h2>💾 Backup dos Dados</h2>
+            <p class="backup-aviso" id="texto-aviso-backup">
+              Todos os seus dados (matérias, histórico, XP, conquistas, tarefas)
+              ficam salvos só neste navegador. Se limpar o cache, trocar de
+              navegador ou reinstalar o sistema, tudo se perde — exporte um
+              backup de vez em quando pra se proteger.
+            </p>
+            <div class="backup-botoes">
+              <button
+                type="button"
+                class="btn-exportar"
+                onclick="exportarDados()"
+              >
+                ⬇️ Exportar Dados
+              </button>
+              <button
+                type="button"
+                class="btn-importar"
+                onclick="acionarImportacao()"
+              >
+                ⬆️ Importar Dados
+              </button>
+              <input
+                type="file"
+                id="input-importar-dados"
+                accept="application/json"
+                style="display: none"
+                onchange="importarDados(event)"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
+    <!-- fecha #app-conteudo -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="js/auth-sync.js?v=1"></script>
+    <script src="js/script.js?v=23"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        console.log("App carregado — aguardando autenticação...");
+      });
+    </script>
   </body>
-  <script src="js/script.js"></script>
 </html>
