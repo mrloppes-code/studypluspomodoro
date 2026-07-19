@@ -12,7 +12,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=29" />
+    <link rel="stylesheet" href="css/style.css?v=31" />
   </head>
   <body>
     <button
@@ -413,13 +413,23 @@
             class="bloco-estudos-itens-lista"
           ></div>
 
-          <button
-            type="button"
-            class="btn-add-item-bloco"
-            onclick="adicionarItemBloco()"
-          >
-            + Adicionar Matéria ao Bloco
-          </button>
+          <div class="bloco-estudos-botoes-topo">
+            <button
+              type="button"
+              class="btn-add-item-bloco"
+              onclick="adicionarItemBloco()"
+            >
+              + Adicionar Matéria ao Bloco
+            </button>
+            <button
+              type="button"
+              class="btn-prioridade-bloco"
+              onclick="preencherBlocoPorPrioridade()"
+              title="Preenche a fila usando o peso (prioridade) de cada matéria cadastrada: mais estrelas, mais pomodoros"
+            >
+              🎯 Preencher por Prioridade
+            </button>
+          </div>
 
           <div class="bloco-estudos-pausa-config">
             <label for="bloco-pausa-select"
@@ -1258,6 +1268,74 @@
             ></div>
           </div>
 
+          <!-- REVISÃO ESPAÇADA -->
+          <div class="card" id="card-revisao-pendente" style="display: none">
+            <h2>📖 Revisão Pendente</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Baseado em quando você estudou cada matéria pela última vez e no
+              peso de prioridade dela: matérias de peso mais alto pedem revisão
+              mais cedo.
+            </p>
+            <div
+              id="revisao-pendente-lista"
+              class="revisao-pendente-lista"
+            ></div>
+          </div>
+
+          <!-- QUESTÕES RESOLVIDAS -->
+          <div class="card">
+            <h2>📝 Questões Resolvidas</h2>
+            <form id="form-questoes" onsubmit="registrarQuestoes(event)">
+              <label for="questoes-materia">Matéria:</label>
+              <select id="questoes-materia">
+                <option value="Estudo Geral">Estudo Geral</option>
+              </select>
+
+              <div class="questoes-form-linha">
+                <div>
+                  <label for="questoes-total">Total de questões:</label>
+                  <input type="number" id="questoes-total" min="1" required />
+                </div>
+                <div>
+                  <label for="questoes-acertos">Acertos:</label>
+                  <input type="number" id="questoes-acertos" min="0" required />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                  margin-top: 12px;
+                "
+              >
+                Registrar
+              </button>
+            </form>
+
+            <div class="questoes-stats-resumo">
+              <div>
+                <span class="questoes-stats-label">Hoje</span>
+                <span id="questoes-stat-hoje">Nenhuma hoje ainda</span>
+              </div>
+              <div>
+                <span class="questoes-stats-label">No total</span>
+                <span id="questoes-stat-geral">Nenhuma registrada ainda</span>
+              </div>
+            </div>
+
+            <div
+              id="questoes-lista-recente"
+              class="questoes-lista-recente"
+            ></div>
+          </div>
+
           <!-- MODAL EDITAR MATÉRIA -->
           <div id="modal-editar-materia" class="modal-distracao">
             <div class="modal-conteudo modal-pausa-conteudo">
@@ -1292,6 +1370,26 @@
               <div class="cor-swatches" id="edit-cor-swatches-container"></div>
               <input type="hidden" id="edit-mat-cor" />
               <input type="hidden" id="edit-mat-indice" />
+
+              <label style="margin-top: 14px">📋 Tópicos do Edital:</label>
+              <div class="edit-topico-add-row">
+                <input
+                  type="text"
+                  id="edit-topico-novo-nome"
+                  maxlength="60"
+                  placeholder="Ex: Atos Administrativos"
+                  onkeydown="
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      adicionarTopicoMateria();
+                    }
+                  "
+                />
+                <button type="button" onclick="adicionarTopicoMateria()">
+                  + Adicionar
+                </button>
+              </div>
+              <div class="edit-topicos-lista" id="edit-topicos-lista"></div>
 
               <div style="display: flex; gap: 10px; margin-top: 16px">
                 <button
@@ -1690,7 +1788,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=2"></script>
-    <script src="js/script.js?v=23"></script>
+    <script src="js/script.js?v=25"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

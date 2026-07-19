@@ -387,8 +387,15 @@ h2 {
 .bloco-item-remover:hover {
   color: var(--danger);
 }
+.bloco-estudos-botoes-topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
 .btn-add-item-bloco {
-  width: 100%;
+  flex: 1;
+  width: auto;
   background: transparent;
   border: 1px dashed var(--border);
   color: var(--text-muted);
@@ -396,11 +403,25 @@ h2 {
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.85rem;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 .btn-add-item-bloco:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+.btn-prioridade-bloco {
+  flex: 1;
+  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.btn-prioridade-bloco:hover {
+  filter: brightness(1.08);
 }
 .bloco-estudos-pausa-config {
   border-top: 1px solid var(--border);
@@ -2526,5 +2547,264 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   .conta-usuario-badge button {
     padding: 5px 10px;
     font-size: 0.72rem;
+  }
+}
+
+/* ===== Sub-tópicos da matéria (checklist do edital) ===== */
+.edit-topico-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.edit-topico-add-row input {
+  flex: 1;
+  margin: 0;
+}
+.edit-topico-add-row button {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 0 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.edit-topico-add-row button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.edit-topicos-lista {
+  margin-top: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.edit-topicos-vazio {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.edit-topicos-progresso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.edit-topicos-progresso-fundo {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-inset);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.edit-topicos-progresso-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.edit-topico-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.edit-topico-item:last-child {
+  border-bottom: none;
+}
+.edit-topico-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  cursor: pointer;
+  margin: 0;
+  text-transform: none;
+  font-weight: normal;
+  letter-spacing: normal;
+}
+.edit-topico-item input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+.edit-topico-concluido {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.edit-topico-item button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+.edit-topico-item button:hover {
+  color: var(--danger);
+}
+
+/* Progresso de tópicos exibido na lista "Matérias cadastradas" */
+.materia-cadastrada-topicos {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--accent-text);
+  margin-top: 2px;
+}
+
+/* ===== Revisão Espaçada ===== */
+.revisao-pendente-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.revisao-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.revisao-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.revisao-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.revisao-nome {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.revisao-dias {
+  font-size: 0.78rem;
+  color: var(--warning);
+}
+.revisao-btn-estudar {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.revisao-btn-estudar:hover {
+  background: var(--primary-hover);
+}
+
+/* ===== Questões Resolvidas ===== */
+.questoes-form-linha {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.questoes-form-linha > div {
+  flex: 1;
+}
+.questoes-form-linha label {
+  display: block;
+  margin-top: 0;
+}
+.questoes-stats-resumo {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.questoes-stats-resumo > div {
+  flex: 1;
+  background: var(--surface-inset);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.questoes-stats-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: bold;
+}
+.questoes-stats-resumo span:last-child {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  font-weight: 600;
+}
+.questoes-lista-recente {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.questoes-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.questoes-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.questoes-item-materia {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.87rem;
+}
+.questoes-item-detalhe {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.questoes-item button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+.questoes-item button:hover {
+  color: var(--danger);
+}
+@media (max-width: 500px) {
+  .questoes-form-linha {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .questoes-stats-resumo {
+    flex-direction: column;
   }
 }

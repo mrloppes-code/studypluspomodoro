@@ -70,6 +70,14 @@ const paletaCores = [
   { nome: "🐳 Ciano", hex: "#06b6d4" },
   { nome: "🌸 Rosa", hex: "#ec4899" },
   { nome: "🍯 Amarelo", hex: "#f59e0b" },
+  { nome: "🟣 Índigo", hex: "#6366f1" },
+  { nome: "🍏 Lima", hex: "#84cc16" },
+  { nome: "🌊 Turquesa", hex: "#14b8a6" },
+  { nome: "🟤 Marrom", hex: "#92400e" },
+  { nome: "⚪ Cinza", hex: "#64748b" },
+  { nome: "🍷 Vinho", hex: "#be123c" },
+  { nome: "⚓ Marinho", hex: "#1e40af" },
+  { nome: "🌿 Musgo", hex: "#4d7c0f" },
 ];
 
 // --- FRASES MOTIVACIONAIS E PROVÉRBIOS (exibidas no modo foco) ---
@@ -680,11 +688,19 @@ function fecharModalSonsAmbiente() {
 
 // --- SESSÃO DE ESTUDO PLANEJADA (BLOCO DE ESTUDOS) ---
 
+// O peso (1 a 5 estrelas) definido no cadastro da matéria vira prioridade
+// de verdade em vários pontos do app: as matérias de maior peso aparecem
+// primeiro nos seletores e na lista, e servem de base para o preenchimento
+// automático do Bloco de Estudos (mais abaixo).
+function obterMateriasOrdenadasPorPeso() {
+  return [...materias].sort((a, b) => (b.peso || 1) - (a.peso || 1));
+}
+
 // Monta as <option> de matéria para uma linha do bloco, com "Estudo Geral"
 // como opção padrão (igual ao seletor principal de matéria da sessão).
 function opcoesMateriaBlocoHTML(valorSelecionado) {
   let html = `<option value="Estudo Geral">Estudo Geral</option>`;
-  materias.forEach((m) => {
+  obterMateriasOrdenadasPorPeso().forEach((m) => {
     const selecionado = m.nome === valorSelecionado ? "selected" : "";
     html += `<option value="${escapeHtml(m.nome)}" ${selecionado}>${escapeHtml(m.nome)}</option>`;
   });
@@ -709,9 +725,10 @@ function fecharModalBlocoEstudos() {
 }
 
 // Adiciona uma linha (matéria + quantidade de pomodoros) ao formulário do
-// bloco. quantidadeInicial permite pré-preencher (usado pelos 2 itens de
-// exemplo abertos junto com o modal).
-function adicionarItemBloco(quantidadeInicial) {
+// bloco. quantidadeInicial e materiaPreselecionada permitem pré-preencher
+// (usado pelos 2 itens de exemplo abertos junto com o modal, e pelo
+// preenchimento automático por prioridade, logo abaixo).
+function adicionarItemBloco(quantidadeInicial, materiaPreselecionada) {
   const lista = document.getElementById("bloco-estudos-itens-lista");
   if (!lista) return;
   const idx = contadorItensBloco++;
@@ -719,12 +736,47 @@ function adicionarItemBloco(quantidadeInicial) {
   linha.className = "bloco-item-row";
   linha.dataset.idx = idx;
   linha.innerHTML = `
-    <select class="bloco-item-materia">${opcoesMateriaBlocoHTML()}</select>
+    <select class="bloco-item-materia">${opcoesMateriaBlocoHTML(materiaPreselecionada)}</select>
     <input type="number" class="bloco-item-qtd" min="1" max="10" value="${quantidadeInicial || 1}" title="Quantidade de pomodoros" />
     <span class="bloco-item-label">pomodoro(s)</span>
     <button type="button" class="bloco-item-remover" onclick="removerItemBloco(${idx})" title="Remover matéria do bloco">✕</button>
   `;
   lista.appendChild(linha);
+}
+
+// Preenche o bloco sozinho, usando o peso (prioridade) de cada matéria
+// cadastrada: quanto maior o peso, mais pomodoros seguidos ela recebe.
+// Essa é a principal utilidade prática do campo "Peso da Matéria" no app —
+// ele deixa de ser só uma informação guardada e passa a decidir quanto
+// tempo de estudo cada matéria puxa pra si quando você pede uma sugestão.
+function preencherBlocoPorPrioridade() {
+  if (materias.length === 0) {
+    alert(
+      "Cadastre pelo menos uma matéria (com o peso de prioridade que preferir) antes de usar o preenchimento automático.",
+    );
+    return;
+  }
+
+  // No máximo 5 matérias no bloco sugerido, pra não virar uma maratona
+  // absurda — as de maior prioridade entram primeiro.
+  const prioritarias = obterMateriasOrdenadasPorPeso().slice(0, 5);
+
+  const lista = document.getElementById("bloco-estudos-itens-lista");
+  lista.innerHTML = "";
+  contadorItensBloco = 0;
+
+  prioritarias.forEach((m) => {
+    const peso = m.peso || 1;
+    // peso 1-2 → 1 pomodoro | peso 3-4 → 2 pomodoros | peso 5 → 3 pomodoros
+    const pomodorosSugeridos = Math.ceil(peso / 2);
+    adicionarItemBloco(pomodorosSugeridos, m.nome);
+  });
+
+  mostrarToastGamificacao(
+    "🎯",
+    "Bloco preenchido por prioridade",
+    "Ajuste as quantidades se quiser antes de iniciar",
+  );
 }
 
 function removerItemBloco(idx) {
@@ -2030,23 +2082,248 @@ function renderizarMateriasCadastradas() {
   }
 
   container.innerHTML = materias
-    .map((m, i) => {
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => (b.m.peso || 1) - (a.m.peso || 1))
+    .map(({ m, i }) => {
       const peso = m.peso || 1;
       const estrelas = "★".repeat(peso) + "☆".repeat(5 - peso);
       const vinculo = m.metaVinculada
         ? `🎯 ${escapeHtml(m.metaVinculada)}`
         : "Isolada";
+      const topicos = m.topicos || [];
+      const progressoTopicos =
+        topicos.length > 0
+          ? `<span class="materia-cadastrada-topicos">📋 ${topicos.filter((t) => t.concluido).length}/${topicos.length} tópicos</span>`
+          : "";
       return `
         <div class="materia-cadastrada-card">
           <span class="materia-cadastrada-dot" style="background:${m.cor || "#64748b"}"></span>
           <div class="materia-cadastrada-info">
             <span class="materia-cadastrada-nome">${escapeHtml(m.nome)}</span>
             <span class="materia-cadastrada-meta">${estrelas} • ${vinculo}</span>
+            ${progressoTopicos}
           </div>
           <div class="materia-cadastrada-acoes">
             <button type="button" title="Editar" onclick="abrirModalEditarMateria(${i})">✏️</button>
             <button type="button" title="Excluir" onclick="excluirMateria(${i})">✕</button>
           </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+// --- REVISÃO ESPAÇADA ---
+// Usa o peso (prioridade) de cada matéria, já reaproveitado em outros
+// pontos do app, pra decidir de quanto em quanto tempo ela "vence" pra
+// revisão: matérias de prioridade alta pedem revisão mais frequente. A
+// data de referência é a sessão mais recente registrada pra cada matéria.
+function calcularRevisoesPendentes() {
+  const hoje = new Date();
+  const resultado = [];
+
+  materias.forEach((m) => {
+    const sessoesDaMateria = logsSessoes.filter((l) => l.materia === m.nome);
+    if (sessoesDaMateria.length === 0) return; // nunca estudada: não é "revisão", é primeira vez
+
+    const dataMaisRecente = sessoesDaMateria.reduce(
+      (max, l) => (l.data > max ? l.data : max),
+      sessoesDaMateria[0].data,
+    );
+    const dataUltima = new Date(dataMaisRecente + "T00:00:00");
+    const diasDesde = Math.floor((hoje - dataUltima) / 86400000);
+
+    const peso = m.peso || 1;
+    let limiteDias;
+    if (peso >= 4) limiteDias = 3;
+    else if (peso === 3) limiteDias = 7;
+    else limiteDias = 14;
+
+    if (diasDesde >= limiteDias) {
+      resultado.push({ materia: m, diasDesde, limiteDias });
+    }
+  });
+
+  // Mais atrasada em relação ao próprio limite primeiro (uma matéria de
+  // prioridade alta 1 dia atrasada aparece antes de uma de baixa 2 dias
+  // atrasada, porque a urgência relativa dela é maior).
+  resultado.sort(
+    (a, b) => b.diasDesde - b.limiteDias - (a.diasDesde - a.limiteDias),
+  );
+  return resultado;
+}
+
+function renderizarRevisaoPendente() {
+  const card = document.getElementById("card-revisao-pendente");
+  const container = document.getElementById("revisao-pendente-lista");
+  if (!card || !container) return;
+
+  const algumaMateriaJaEstudada = materias.some((m) =>
+    logsSessoes.some((l) => l.materia === m.nome),
+  );
+
+  if (!algumaMateriaJaEstudada) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const pendentes = calcularRevisoesPendentes();
+
+  if (pendentes.length === 0) {
+    container.innerHTML =
+      '<p class="sessoes-hoje-vazio">Tudo em dia! Nenhuma matéria precisa de revisão agora. 🎉</p>';
+    return;
+  }
+
+  container.innerHTML = pendentes
+    .map(({ materia, diasDesde }) => {
+      const nomeEscapado = escapeHtml(materia.nome).replace(/'/g, "\\'");
+      return `
+        <div class="revisao-item">
+          <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
+          <div class="revisao-info">
+            <span class="revisao-nome">${escapeHtml(materia.nome)}</span>
+            <span class="revisao-dias">Sem revisão há ${diasDesde} dia${diasDesde === 1 ? "" : "s"}</span>
+          </div>
+          <button
+            type="button"
+            class="revisao-btn-estudar"
+            onclick="iniciarRevisaoRapida('${nomeEscapado}')"
+          >
+            ▶️ Revisar
+          </button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+// Atalho de um clique: já seleciona a matéria no timer e começa o foco.
+function iniciarRevisaoRapida(nomeMateria) {
+  if (emEstadoDeFocoAtivo || emPausaConfig) {
+    alert(
+      "Finalize ou resete a sessão atual antes de iniciar uma revisão rápida.",
+    );
+    return;
+  }
+  const select = document.getElementById("pomo-materia");
+  if (select) select.value = nomeMateria;
+
+  const cardPomodoro = document.getElementById("modulo-pomodoro");
+  if (cardPomodoro) {
+    cardPomodoro.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  startTimer();
+}
+
+// --- QUESTÕES RESOLVIDAS ---
+function registrarQuestoes(event) {
+  event.preventDefault();
+
+  const materia =
+    document.getElementById("questoes-materia").value || "Estudo Geral";
+  const total = parseInt(document.getElementById("questoes-total").value, 10);
+  const acertos = parseInt(
+    document.getElementById("questoes-acertos").value,
+    10,
+  );
+
+  if (!total || total <= 0) {
+    alert("Informe a quantidade total de questões (maior que zero).");
+    return;
+  }
+  if (isNaN(acertos) || acertos < 0) {
+    alert("Informe quantas você acertou (0 ou mais).");
+    return;
+  }
+  if (acertos > total) {
+    alert("Acertos não pode ser maior que o total de questões.");
+    return;
+  }
+
+  registrosQuestoes.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    data: obterDataLocalString(new Date()),
+    materia,
+    total,
+    acertos,
+  });
+  localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
+
+  document.getElementById("form-questoes").reset();
+  mostrarToastGamificacao(
+    "📝",
+    "Questões registradas",
+    `${acertos}/${total} acertos em ${materia}`,
+  );
+  renderizarQuestoesResolvidas();
+}
+
+function excluirRegistroQuestoes(id) {
+  registrosQuestoes = registrosQuestoes.filter((r) => r.id !== id);
+  localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
+  renderizarQuestoesResolvidas();
+}
+
+function renderizarQuestoesResolvidas() {
+  const seletorMateria = document.getElementById("questoes-materia");
+  if (seletorMateria) {
+    const valorAtual = seletorMateria.value;
+    seletorMateria.innerHTML =
+      '<option value="Estudo Geral">Estudo Geral</option>';
+    obterMateriasOrdenadasPorPeso().forEach((m) => {
+      seletorMateria.innerHTML += `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`;
+    });
+    if ([...seletorMateria.options].some((o) => o.value === valorAtual)) {
+      seletorMateria.value = valorAtual;
+    }
+  }
+
+  const hoje = obterDataLocalString(new Date());
+  const registrosHoje = registrosQuestoes.filter((r) => r.data === hoje);
+  const totalHoje = registrosHoje.reduce((s, r) => s + r.total, 0);
+  const acertosHoje = registrosHoje.reduce((s, r) => s + r.acertos, 0);
+  const totalGeral = registrosQuestoes.reduce((s, r) => s + r.total, 0);
+  const acertosGeral = registrosQuestoes.reduce((s, r) => s + r.acertos, 0);
+
+  const elHoje = document.getElementById("questoes-stat-hoje");
+  if (elHoje) {
+    elHoje.innerText =
+      totalHoje > 0
+        ? `${totalHoje} hoje · ${Math.round((acertosHoje / totalHoje) * 100)}% de acerto`
+        : "Nenhuma hoje ainda";
+  }
+
+  const elGeral = document.getElementById("questoes-stat-geral");
+  if (elGeral) {
+    elGeral.innerText =
+      totalGeral > 0
+        ? `${totalGeral} no total · ${Math.round((acertosGeral / totalGeral) * 100)}% de acerto`
+        : "Nenhuma registrada ainda";
+  }
+
+  const lista = document.getElementById("questoes-lista-recente");
+  if (!lista) return;
+
+  const recentes = [...registrosQuestoes].reverse().slice(0, 8);
+  if (recentes.length === 0) {
+    lista.innerHTML =
+      '<p class="sessoes-hoje-vazio">Nenhuma questão registrada ainda.</p>';
+    return;
+  }
+
+  lista.innerHTML = recentes
+    .map((r) => {
+      const pct = Math.round((r.acertos / r.total) * 100);
+      return `
+        <div class="questoes-item">
+          <div class="questoes-item-info">
+            <span class="questoes-item-materia">${escapeHtml(r.materia)}</span>
+            <span class="questoes-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${r.data.split("-").reverse().join("/")}</span>
+          </div>
+          <button type="button" onclick="excluirRegistroQuestoes('${r.id}')" title="Excluir registro">✕</button>
         </div>
       `;
     })
@@ -2083,11 +2360,107 @@ function abrirModalEditarMateria(indice) {
   });
   selectMeta.value = m.metaVinculada || "";
 
+  renderizarTopicosEdicao();
+
   document.getElementById("modal-editar-materia").style.display = "flex";
 }
 
 function fecharModalEditarMateria() {
   document.getElementById("modal-editar-materia").style.display = "none";
+}
+
+// --- SUB-TÓPICOS DA MATÉRIA (checklist do edital dentro de cada matéria) ---
+// As alterações de tópico (adicionar/marcar/remover) já salvam direto no
+// localStorage assim que acontecem, sem precisar clicar em "Salvar
+// Alterações" do formulário — igual o padrão usado nas tarefas do app.
+function renderizarTopicosEdicao() {
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  const lista = document.getElementById("edit-topicos-lista");
+  if (!m || !lista) return;
+
+  const topicos = m.topicos || [];
+
+  if (topicos.length === 0) {
+    lista.innerHTML =
+      '<p class="edit-topicos-vazio">Nenhum tópico cadastrado ainda. Adicione os tópicos do edital pra acompanhar o progresso dentro dessa matéria.</p>';
+    return;
+  }
+
+  const concluidos = topicos.filter((t) => t.concluido).length;
+  const pct = Math.round((concluidos / topicos.length) * 100);
+
+  const barraHtml = `
+    <div class="edit-topicos-progresso">
+      <div class="edit-topicos-progresso-fundo">
+        <div class="edit-topicos-progresso-fill" style="width:${pct}%"></div>
+      </div>
+      <span>${concluidos}/${topicos.length} concluídos</span>
+    </div>
+  `;
+
+  const itensHtml = topicos
+    .map(
+      (t) => `
+    <div class="edit-topico-item">
+      <label>
+        <input type="checkbox" ${t.concluido ? "checked" : ""} onchange="alternarTopicoMateria('${t.id}')" />
+        <span class="${t.concluido ? "edit-topico-concluido" : ""}">${escapeHtml(t.nome)}</span>
+      </label>
+      <button type="button" onclick="removerTopicoMateria('${t.id}')" title="Remover tópico">✕</button>
+    </div>
+  `,
+    )
+    .join("");
+
+  lista.innerHTML = barraHtml + itensHtml;
+}
+
+function adicionarTopicoMateria(event) {
+  if (event) event.preventDefault();
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  if (!m) return;
+
+  const input = document.getElementById("edit-topico-novo-nome");
+  const nome = input.value.trim();
+  if (!nome) return;
+
+  if (!m.topicos) m.topicos = [];
+  m.topicos.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    nome,
+    concluido: false,
+  });
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  input.value = "";
+  renderizarTopicosEdicao();
+}
+
+function alternarTopicoMateria(topicoId) {
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  if (!m || !m.topicos) return;
+
+  const topico = m.topicos.find((t) => t.id === topicoId);
+  if (!topico) return;
+  topico.concluido = !topico.concluido;
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  renderizarTopicosEdicao();
+  renderizarMateriasCadastradas();
+}
+
+function removerTopicoMateria(topicoId) {
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  if (!m || !m.topicos) return;
+
+  m.topicos = m.topicos.filter((t) => t.id !== topicoId);
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  renderizarTopicosEdicao();
 }
 
 function salvarEdicaoMateria() {
@@ -2134,6 +2507,7 @@ function salvarEdicaoMateria() {
   }
 
   materias[indice] = {
+    ...m,
     nome: novoNome,
     metaVinculada: novaMeta,
     cor: novaCor,
@@ -2188,7 +2562,7 @@ function atualizarDropdowns() {
 
     selectPomo.innerHTML = '<option value="">Estudo Geral</option>';
     selectVincMeta.innerHTML = '<option value="">Matéria Isolada</option>';
-    materias.forEach((m) => {
+    obterMateriasOrdenadasPorPeso().forEach((m) => {
       selectPomo.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
     });
     metas.forEach((m) => {
@@ -2653,6 +3027,8 @@ function renderizarTodoOPainel() {
   atualizarProgressoPomodoros();
   renderizarGamificacao();
   renderizarMateriasCadastradas();
+  renderizarRevisaoPendente();
+  renderizarQuestoesResolvidas();
 }
 
 // Inicialização do formulário de cadastro de matéria (estrelas + swatches)
@@ -2754,6 +3130,9 @@ function registrarPomodoroConcluido() {
 
 // --- TAREFAS (widget lateral) ---
 let tarefas = JSON.parse(localStorage.getItem("tarefas")) || [];
+// Registros de questões resolvidas: {id, data, materia, total, acertos}
+let registrosQuestoes =
+  JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
 
 function salvarTarefas() {
   localStorage.setItem("tarefas", JSON.stringify(tarefas));
@@ -3541,6 +3920,7 @@ const CHAVES_BACKUP = [
   "metaPomodorosDiaria",
   "metas",
   "pomosPorDia",
+  "registrosQuestoes",
   "tarefas",
   "tempoPorMateria",
   "totalOvertimeGeralMinutos",
@@ -3653,6 +4033,8 @@ function recarregarEstadoDoLocalStorage() {
     JSON.parse(localStorage.getItem("sonsAmbienteVolumes")) || {};
   presetBinauralAtual = localStorage.getItem("presetBinauralAtual") || "foco";
   tarefas = JSON.parse(localStorage.getItem("tarefas")) || [];
+  registrosQuestoes =
+    JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
 }
 
 // Carga Geral Inicial
