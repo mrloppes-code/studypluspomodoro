@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Estude+ - Painel de Estudos</title>
+
+    <!-- PWA: instalação como app + ícones -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Estude+" />
+
     <script>
       // Aplica o tema salvo (ou dark, padrão) antes do CSS pintar a tela,
       // pra não piscar tema errado por uma fração de segundo ao carregar.
@@ -12,7 +26,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=31" />
+    <link rel="stylesheet" href="css/style.css?v=35" />
   </head>
   <body>
     <button
@@ -33,6 +47,17 @@
       title="Alternar entre tema claro e escuro"
     >
       🌙 Escuro
+    </button>
+
+    <button
+      type="button"
+      class="btn-instalar-app"
+      id="btn-instalar-app"
+      onclick="instalarApp()"
+      title="Instalar o Estude+ como aplicativo"
+      style="display: none"
+    >
+      ⬇️ Instalar App
     </button>
 
     <div
@@ -261,11 +286,27 @@
           class="nav-link active"
           onclick="navegarPara('painel')"
         >
-          📊 Painel de Estudos
+          ⏱️ Foco
+        </div>
+        <div id="nav-estudos" class="nav-link" onclick="navegarPara('estudos')">
+          📚 Estudos
         </div>
         <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
-          👤 Perfil Pessoal
+          👤 Perfil
         </div>
+      </div>
+
+      <!-- SELETOR DE PROVA/EXAME ATIVO: aparece em qualquer aba assim que
+           existir pelo menos uma meta cadastrada, e filtra as matérias e
+           estatísticas mostradas (gráfico, matérias cadastradas, revisão
+           pendente, questões) pra prova escolhida. -->
+      <div
+        class="seletor-provas-container"
+        id="seletor-provas-container"
+        style="display: none"
+      >
+        <span class="seletor-provas-rotulo">Prova em foco:</span>
+        <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
       </div>
 
       <!-- MODAL AUDITORIA -->
@@ -1038,7 +1079,11 @@
             </div>
           </div>
         </div>
+      </div>
+      <!-- fecha #pagina-painel -->
 
+      <!-- ================= ESTUDOS (MATÉRIAS, HEATMAP, METAS, HISTÓRICO) ================= -->
+      <div id="pagina-estudos" style="display: none">
         <div class="container" id="conteudo-painel">
           <!-- HEATMAP COMPLETO RESTAURADO -->
           <div class="card full-width">
@@ -1275,14 +1320,36 @@
               class="campo-ajuda"
               style="margin-top: -4px; margin-bottom: 14px"
             >
-              Baseado em quando você estudou cada matéria pela última vez e no
-              peso de prioridade dela: matérias de peso mais alto pedem revisão
-              mais cedo.
+              Cada tópico concluído vira um "cartão" de revisão espaçada (igual
+              Anki): avalie como lembrou e o intervalo até a próxima revisão
+              aumenta ou volta pro início — 😵 não lembrei, 😐 foi difícil, 😄
+              lembrei bem.
             </p>
             <div
-              id="revisao-pendente-lista"
+              id="revisao-topicos-lista"
               class="revisao-pendente-lista"
             ></div>
+            <div
+              id="revisao-pendente-lista"
+              class="revisao-pendente-lista revisao-fallback-lista"
+            ></div>
+          </div>
+
+          <!-- RITMO SUGERIDO POR MATÉRIA -->
+          <div class="card" id="card-ritmo-sugerido" style="display: none">
+            <h2>⏳ Ritmo Sugerido por Matéria</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cruza os tópicos que faltam em cada matéria vinculada a uma prova
+              com os dias restantes até ela, e sugere quanto tempo por dia
+              dedicar pra não deixar nada acumulado pra última hora. A
+              estimativa usa seu próprio ritmo (tempo já estudado ÷ tópicos já
+              concluídos naquela matéria) assim que você tiver alguns
+              concluídos.
+            </p>
+            <div id="ritmo-sugerido-lista" class="ritmo-sugerido-lista"></div>
           </div>
 
           <!-- QUESTÕES RESOLVIDAS -->
@@ -1477,12 +1544,45 @@
             </div>
           </div>
 
+          <div
+            class="card full-width"
+            id="card-comparativo-provas"
+            style="display: none"
+          >
+            <h2>📊 Comparativo entre Provas</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Com "Todas as Provas" selecionada no topo da página, veja lado a
+              lado como cada prova está indo.
+            </p>
+            <div class="comparativo-provas-tabela-wrapper">
+              <table class="comparativo-provas-tabela">
+                <thead>
+                  <tr>
+                    <th>Prova</th>
+                    <th>Tempo Estudado</th>
+                    <th>Tópicos Concluídos</th>
+                    <th>% Acerto (Questões)</th>
+                    <th>Prazo</th>
+                  </tr>
+                </thead>
+                <tbody id="comparativo-provas-corpo"></tbody>
+              </table>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartComparativoProvas"></canvas>
+            </div>
+          </div>
+
           <div class="card full-width">
             <h2>📋 Registro de Metas Fixadas</h2>
             <div id="lista-materias"></div>
           </div>
         </div>
       </div>
+      <!-- fecha #pagina-estudos -->
 
       <!-- ================= PERFIL PESSOAL ================= -->
       <div id="pagina-perfil" style="display: none">
@@ -1583,6 +1683,15 @@
                     ›
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  class="btn-exportar-relatorio"
+                  onclick="exportarRelatorioPDF()"
+                  title="Gera um relatório do período atual pra salvar como PDF ou imprimir"
+                >
+                  🖨️ Exportar Relatório
+                </button>
               </div>
             </div>
 
@@ -1629,6 +1738,19 @@
                 ></div>
               </div>
             </div>
+          </div>
+
+          <!-- INSIGHTS: comparação semanal e previsão de conclusão -->
+          <div class="card">
+            <h2>🔮 Insights</h2>
+            <div
+              id="insight-comparacao-semanal"
+              class="insight-comparacao-semanal"
+            ></div>
+            <div
+              id="insight-previsao-conclusao"
+              class="insight-previsao-conclusao"
+            ></div>
           </div>
 
           <div class="grid-stats-dashboard">
@@ -1785,10 +1907,15 @@
     </div>
     <!-- fecha #app-conteudo -->
 
+    <!-- Conteúdo do relatório exportável em PDF: fica escondido na tela
+         normal e só aparece quando a página é impressa (window.print),
+         via a regra @media print no CSS. -->
+    <div id="relatorio-impressao"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=2"></script>
-    <script src="js/script.js?v=25"></script>
+    <script src="js/script.js?v=30"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

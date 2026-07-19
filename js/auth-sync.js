@@ -30,6 +30,7 @@ function obterChavesSincronizaveis() {
     "presetBinauralAtual",
     "volumeSomNeural",
     "tempoPreparoMinutos",
+    "metaFiltroAtivo",
   ];
   const base = typeof CHAVES_BACKUP !== "undefined" ? CHAVES_BACKUP : [];
   return Array.from(new Set([...base, ...extras]));

@@ -98,6 +98,46 @@ body.modo-isolamento-ativo .btn-alternar-tema {
     font-size: 0.75rem;
   }
 }
+
+/* Botão de instalar o app como PWA (some sozinho se o navegador não
+   oferecer instalação, ou depois de já instalado) */
+.btn-instalar-app {
+  position: fixed;
+  top: 68px;
+  left: 20px;
+  z-index: 500;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow-card);
+  transition:
+    background 0.2s,
+    transform 0.15s;
+}
+.btn-instalar-app:hover {
+  background: var(--primary-hover);
+}
+.btn-instalar-app:active {
+  transform: scale(0.97);
+}
+body.modo-isolamento-ativo .btn-instalar-app {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-instalar-app {
+    top: 54px;
+    left: 12px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+}
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background: var(--bg-color);
@@ -118,11 +158,75 @@ body {
   text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
+.seletor-provas-container {
+  max-width: 1100px;
+  margin: 0 auto 20px auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.seletor-provas-rotulo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.seletor-provas-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.prova-pill {
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.prova-pill:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+.prova-pill-ativa {
+  color: var(--accent-text);
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+@media (max-width: 480px) {
+  .seletor-provas-container {
+    padding: 8px 10px;
+  }
+  .prova-pill {
+    padding: 5px 11px;
+    font-size: 0.8rem;
+  }
+}
+
 .app-nav {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 20px;
   margin-bottom: 25px;
+}
+@media (max-width: 480px) {
+  .app-nav {
+    gap: 8px;
+  }
+  .nav-link {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
 }
 .nav-link {
   color: var(--text-muted);
@@ -2714,6 +2818,62 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   background: var(--primary-hover);
 }
 
+/* Linha de tópico com avaliação SM-2 (😵/😐/😄) */
+.revisao-item-topico {
+  align-items: center;
+}
+.revisao-avaliacao {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.revisao-btn-sm2 {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition:
+    transform 0.1s,
+    border-color 0.15s;
+}
+.revisao-btn-sm2:hover {
+  transform: scale(1.12);
+}
+.revisao-btn-ruim:hover {
+  border-color: var(--danger);
+}
+.revisao-btn-medio:hover {
+  border-color: var(--warning);
+}
+.revisao-btn-bom:hover {
+  border-color: var(--success);
+}
+
+/* Separa visualmente a lista de tópicos (SM-2) da lista de reserva
+   (matérias sem tópicos cadastrados ainda), quando as duas aparecem juntas. */
+.revisao-fallback-lista:not(:empty) {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+@media (max-width: 480px) {
+  .revisao-item-topico {
+    flex-wrap: wrap;
+  }
+  .revisao-avaliacao {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 /* ===== Questões Resolvidas ===== */
 .questoes-form-linha {
   display: flex;
@@ -2806,5 +2966,161 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   }
   .questoes-stats-resumo {
     flex-direction: column;
+  }
+}
+
+/* ===== Exportar Relatório (botão) ===== */
+.btn-exportar-relatorio {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn-exportar-relatorio:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ===== Insights (comparação semanal + previsão de conclusão) ===== */
+.insight-vazio {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  background: var(--surface-inset);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.insight-comparacao-semanal {
+  margin-bottom: 16px;
+}
+.insight-comparacao-card {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.insight-comparacao-numeros {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.insight-comparacao-vs {
+  font-size: 0.78rem;
+  font-weight: normal;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.insight-comparacao-positivo {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.insight-comparacao-negativo {
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.insight-comparacao-neutro {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.insight-previsao-conclusao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.insight-previsao-card {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.insight-previsao-card strong {
+  color: var(--accent-text);
+  font-size: 0.92rem;
+}
+.insight-previsao-card p {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+.insight-previsao-ok {
+  border-color: var(--success);
+}
+.insight-previsao-positivo {
+  color: var(--success) !important;
+  font-weight: 600;
+}
+.insight-previsao-negativo {
+  color: var(--warning) !important;
+  font-weight: 600;
+}
+
+/* ===== Relatório de impressão (Exportar Relatório em PDF) ===== */
+/* Escondido na tela normal — só aparece quando a página é impressa. */
+#relatorio-impressao {
+  display: none;
+}
+
+@media print {
+  /* Esconde tudo que normalmente aparece na tela... */
+  body > *:not(#relatorio-impressao) {
+    display: none !important;
+  }
+  /* ...e mostra só o relatório, formatado pra papel (fundo branco, texto
+     preto, sem depender das variáveis de tema — impressão sempre clara). */
+  #relatorio-impressao {
+    display: block !important;
+    background: #ffffff;
+    color: #0f172a;
+    padding: 0;
+    font-family: Arial, sans-serif;
+  }
+  #relatorio-impressao h1 {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+  }
+  #relatorio-impressao h2 {
+    font-size: 1.05rem;
+    margin: 20px 0 8px;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+  }
+  .relatorio-meta-info {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 10px;
+  }
+  .relatorio-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    margin-bottom: 10px;
+  }
+  .relatorio-tabela td,
+  .relatorio-tabela th {
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .relatorio-lista {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    padding-left: 20px;
   }
 }

@@ -78,6 +78,18 @@ const paletaCores = [
   { nome: "🍷 Vinho", hex: "#be123c" },
   { nome: "⚓ Marinho", hex: "#1e40af" },
   { nome: "🌿 Musgo", hex: "#4d7c0f" },
+  { nome: "🍈 Menta", hex: "#34d399" },
+  { nome: "🌅 Salmão", hex: "#fb7185" },
+  { nome: "🍇 Uva", hex: "#7c3aed" },
+  { nome: "🦚 Petróleo", hex: "#0e7490" },
+  { nome: "🌻 Girassol", hex: "#eab308" },
+  { nome: "🍫 Chocolate", hex: "#78350f" },
+  { nome: "🥝 Kiwi", hex: "#a3e635" },
+  { nome: "🌌 Anil", hex: "#4338ca" },
+  { nome: "🍬 Lilás", hex: "#c084fc" },
+  { nome: "🩶 Grafite", hex: "#334155" },
+  { nome: "🔥 Ferrugem", hex: "#c2410c" },
+  { nome: "🌤️ Azul Céu", hex: "#0ea5e9" },
 ];
 
 // --- FRASES MOTIVACIONAIS E PROVÉRBIOS (exibidas no modo foco) ---
@@ -256,15 +268,20 @@ function exibirDicaDescanso() {
 function navegarPara(pagina) {
   document.getElementById("pagina-painel").style.display =
     pagina === "painel" ? "block" : "none";
+  document.getElementById("pagina-estudos").style.display =
+    pagina === "estudos" ? "block" : "none";
   document.getElementById("pagina-perfil").style.display =
     pagina === "perfil" ? "block" : "none";
   document
     .getElementById("nav-painel")
     .classList.toggle("active", pagina === "painel");
   document
+    .getElementById("nav-estudos")
+    .classList.toggle("active", pagina === "estudos");
+  document
     .getElementById("nav-perfil")
     .classList.toggle("active", pagina === "perfil");
-  if (pagina === "painel") {
+  if (pagina === "painel" || pagina === "estudos") {
     renderizarTodoOPainel();
   } else {
     calcularEMostrarEstatisticas();
@@ -2081,8 +2098,18 @@ function renderizarMateriasCadastradas() {
     return;
   }
 
-  container.innerHTML = materias
+  const filtro = obterMetaFiltroAtiva();
+  const itensFiltrados = materias
     .map((m, i) => ({ m, i }))
+    .filter(({ m }) => !filtro || (m.metaVinculada || "") === filtro);
+
+  if (itensFiltrados.length === 0) {
+    container.innerHTML =
+      '<p class="sessoes-hoje-vazio">Nenhuma matéria vinculada a essa prova ainda.</p>';
+    return;
+  }
+
+  container.innerHTML = itensFiltrados
     .sort((a, b) => (b.m.peso || 1) - (a.m.peso || 1))
     .map(({ m, i }) => {
       const peso = m.peso || 1;
@@ -2113,18 +2140,127 @@ function renderizarMateriasCadastradas() {
     .join("");
 }
 
-// --- REVISÃO ESPAÇADA ---
-// Usa o peso (prioridade) de cada matéria, já reaproveitado em outros
-// pontos do app, pra decidir de quanto em quanto tempo ela "vence" pra
-// revisão: matérias de prioridade alta pedem revisão mais frequente. A
-// data de referência é a sessão mais recente registrada pra cada matéria.
+// --- REVISÃO ESPAÇADA (algoritmo SM-2, estilo Anki) ---
+// Cada TÓPICO (dentro de uma matéria) vira um "cartão" com seu próprio
+// fator de facilidade, intervalo e número de repetições — exatamente como
+// no Anki. Toda vez que você avalia uma revisão ("Não lembrei" / "Foi
+// difícil" / "Lembrei bem"), o intervalo até a próxima revisão aumenta ou
+// volta pro início, dependendo de quão bem você lembrou.
+const SRS_PADRAO = () => ({
+  easeFactor: 2.5,
+  interval: 1,
+  repeticoes: 0,
+  ultimaRevisao: null,
+  proximaRevisao: obterDataLocalString(new Date()),
+});
+
+// Localiza um tópico pelo id em qualquer matéria (mais robusto que guardar
+// índice de matéria, que pode mudar se alguma for excluída).
+function encontrarTopicoPorId(topicoId) {
+  for (const m of materias) {
+    if (!m.topicos) continue;
+    const topico = m.topicos.find((t) => t.id === topicoId);
+    if (topico) return { materia: m, topico };
+  }
+  return null;
+}
+
+// Tópicos concluídos que ainda não tinham dado de SRS (cadastrados antes
+// dessa função existir) ganham um cartão novo, agendado pra revisar hoje —
+// assim ninguém fica de fora do sistema novo.
+function garantirSrsEmTopicosConcluidos() {
+  let mudou = false;
+  materias.forEach((m) => {
+    (m.topicos || []).forEach((t) => {
+      if (t.concluido && !t.srs) {
+        t.srs = SRS_PADRAO();
+        mudou = true;
+      }
+    });
+  });
+  if (mudou) localStorage.setItem("materias", JSON.stringify(materias));
+}
+
+// Núcleo do SM-2. qualidade: 0 = não lembrei, 3 = foi difícil, 5 = lembrei bem.
+function aplicarSM2(srs, qualidade) {
+  if (qualidade < 3) {
+    srs.repeticoes = 0;
+    srs.interval = 1;
+  } else {
+    if (srs.repeticoes === 0) srs.interval = 1;
+    else if (srs.repeticoes === 1) srs.interval = 6;
+    else srs.interval = Math.round(srs.interval * srs.easeFactor);
+    srs.repeticoes += 1;
+  }
+
+  srs.easeFactor = Math.max(
+    1.3,
+    srs.easeFactor + (0.1 - (5 - qualidade) * (0.08 + (5 - qualidade) * 0.02)),
+  );
+
+  const hoje = new Date();
+  srs.ultimaRevisao = obterDataLocalString(hoje);
+  const proxima = new Date(hoje);
+  proxima.setDate(proxima.getDate() + srs.interval);
+  srs.proximaRevisao = obterDataLocalString(proxima);
+}
+
+// Chamada pelos botões de avaliação no card "Revisão Pendente".
+function avaliarRevisaoTopico(topicoId, qualidade) {
+  const achado = encontrarTopicoPorId(topicoId);
+  if (!achado || !achado.topico.srs) return;
+
+  aplicarSM2(achado.topico.srs, qualidade);
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  const legendas = {
+    0: "Vamos revisar de novo logo",
+    3: "Um pouco mais",
+    5: "Ótimo!",
+  };
+  mostrarToastGamificacao(
+    qualidade >= 5 ? "🧠" : qualidade >= 3 ? "🙂" : "🔁",
+    `Próxima revisão em ${achado.topico.srs.interval} dia(s)`,
+    legendas[qualidade] || "",
+  );
+
+  renderizarRevisaoPendente();
+}
+
+function calcularTopicosParaRevisar() {
+  garantirSrsEmTopicosConcluidos();
+  const hojeStr = obterDataLocalString(new Date());
+  const resultado = [];
+
+  obterMateriasDoFiltroAtivo().forEach((m) => {
+    (m.topicos || []).forEach((t) => {
+      if (t.concluido && t.srs && t.srs.proximaRevisao <= hojeStr) {
+        const diasAtraso = Math.floor(
+          (new Date(hojeStr + "T00:00:00") -
+            new Date(t.srs.proximaRevisao + "T00:00:00")) /
+            86400000,
+        );
+        resultado.push({ materia: m, topico: t, diasAtraso });
+      }
+    });
+  });
+
+  resultado.sort((a, b) => b.diasAtraso - a.diasAtraso);
+  return resultado;
+}
+
+// Heurística antiga, mantida como reserva pra matérias que ainda não têm
+// nenhum tópico cadastrado — assim quem não usa sub-tópicos ainda continua
+// recebendo algum lembrete, baseado no peso de prioridade da matéria.
 function calcularRevisoesPendentes() {
   const hoje = new Date();
   const resultado = [];
 
-  materias.forEach((m) => {
+  obterMateriasDoFiltroAtivo().forEach((m) => {
+    if ((m.topicos || []).length > 0) return; // essa matéria já usa o SM-2 por tópico
+
     const sessoesDaMateria = logsSessoes.filter((l) => l.materia === m.nome);
-    if (sessoesDaMateria.length === 0) return; // nunca estudada: não é "revisão", é primeira vez
+    if (sessoesDaMateria.length === 0) return;
 
     const dataMaisRecente = sessoesDaMateria.reduce(
       (max, l) => (l.data > max ? l.data : max),
@@ -2144,9 +2280,6 @@ function calcularRevisoesPendentes() {
     }
   });
 
-  // Mais atrasada em relação ao próprio limite primeiro (uma matéria de
-  // prioridade alta 1 dia atrasada aparece antes de uma de baixa 2 dias
-  // atrasada, porque a urgência relativa dela é maior).
   resultado.sort(
     (a, b) => b.diasDesde - b.limiteDias - (a.diasDesde - a.limiteDias),
   );
@@ -2155,48 +2288,92 @@ function calcularRevisoesPendentes() {
 
 function renderizarRevisaoPendente() {
   const card = document.getElementById("card-revisao-pendente");
-  const container = document.getElementById("revisao-pendente-lista");
-  if (!card || !container) return;
+  const containerTopicos = document.getElementById("revisao-topicos-lista");
+  const containerMaterias = document.getElementById("revisao-pendente-lista");
+  if (!card || !containerTopicos || !containerMaterias) return;
 
-  const algumaMateriaJaEstudada = materias.some((m) =>
+  const topicosDevidos = calcularTopicosParaRevisar();
+  const materiasSemTopicos = calcularRevisoesPendentes();
+  const materiasDoFiltro = obterMateriasDoFiltroAtivo();
+
+  const existeAlgumTopicoConcluido = materiasDoFiltro.some((m) =>
+    (m.topicos || []).some((t) => t.concluido),
+  );
+  const algumaMateriaJaEstudada = materiasDoFiltro.some((m) =>
     logsSessoes.some((l) => l.materia === m.nome),
   );
 
-  if (!algumaMateriaJaEstudada) {
+  if (!existeAlgumTopicoConcluido && !algumaMateriaJaEstudada) {
     card.style.display = "none";
     return;
   }
   card.style.display = "block";
 
-  const pendentes = calcularRevisoesPendentes();
-
-  if (pendentes.length === 0) {
-    container.innerHTML =
-      '<p class="sessoes-hoje-vazio">Tudo em dia! Nenhuma matéria precisa de revisão agora. 🎉</p>';
-    return;
+  // Tópicos com SM-2 (o sistema "de verdade")
+  if (topicosDevidos.length === 0) {
+    containerTopicos.innerHTML = existeAlgumTopicoConcluido
+      ? '<p class="sessoes-hoje-vazio">Nenhum tópico vencido pra revisar agora. 🎉</p>'
+      : "";
+  } else {
+    containerTopicos.innerHTML = topicosDevidos
+      .map(({ materia, topico, diasAtraso }) => {
+        const rotuloAtraso =
+          diasAtraso <= 0
+            ? "Revisar hoje"
+            : `Atrasado ${diasAtraso} dia${diasAtraso === 1 ? "" : "s"}`;
+        return `
+          <div class="revisao-item revisao-item-topico">
+            <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
+            <div class="revisao-info">
+              <span class="revisao-nome">${escapeHtml(topico.nome)}</span>
+              <span class="revisao-dias">${escapeHtml(materia.nome)} · ${rotuloAtraso}</span>
+            </div>
+            <div class="revisao-avaliacao">
+              <button type="button" class="revisao-btn-sm2 revisao-btn-ruim" title="Não lembrei" onclick="avaliarRevisaoTopico('${topico.id}', 0)">😵</button>
+              <button type="button" class="revisao-btn-sm2 revisao-btn-medio" title="Foi difícil" onclick="avaliarRevisaoTopico('${topico.id}', 3)">😐</button>
+              <button type="button" class="revisao-btn-sm2 revisao-btn-bom" title="Lembrei bem" onclick="avaliarRevisaoTopico('${topico.id}', 5)">😄</button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
   }
 
-  container.innerHTML = pendentes
-    .map(({ materia, diasDesde }) => {
-      const nomeEscapado = escapeHtml(materia.nome).replace(/'/g, "\\'");
-      return `
-        <div class="revisao-item">
-          <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
-          <div class="revisao-info">
-            <span class="revisao-nome">${escapeHtml(materia.nome)}</span>
-            <span class="revisao-dias">Sem revisão há ${diasDesde} dia${diasDesde === 1 ? "" : "s"}</span>
+  // Fallback pra matérias sem tópicos cadastrados
+  if (materiasSemTopicos.length === 0) {
+    containerMaterias.innerHTML = "";
+  } else {
+    containerMaterias.innerHTML = materiasSemTopicos
+      .map(({ materia, diasDesde }) => {
+        const nomeEscapado = escapeHtml(materia.nome).replace(/'/g, "\\'");
+        return `
+          <div class="revisao-item">
+            <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
+            <div class="revisao-info">
+              <span class="revisao-nome">${escapeHtml(materia.nome)}</span>
+              <span class="revisao-dias">Sem revisão há ${diasDesde} dia${diasDesde === 1 ? "" : "s"} · sem tópicos cadastrados</span>
+            </div>
+            <button
+              type="button"
+              class="revisao-btn-estudar"
+              onclick="iniciarRevisaoRapida('${nomeEscapado}')"
+            >
+              ▶️ Revisar
+            </button>
           </div>
-          <button
-            type="button"
-            class="revisao-btn-estudar"
-            onclick="iniciarRevisaoRapida('${nomeEscapado}')"
-          >
-            ▶️ Revisar
-          </button>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
+  }
+
+  if (
+    topicosDevidos.length === 0 &&
+    materiasSemTopicos.length === 0 &&
+    existeAlgumTopicoConcluido
+  ) {
+    containerTopicos.innerHTML =
+      '<p class="sessoes-hoje-vazio">Tudo em dia! Nenhuma revisão pendente agora. 🎉</p>';
+  }
 }
 
 // Atalho de um clique: já seleciona a matéria no timer e começa o foco.
@@ -2281,12 +2458,23 @@ function renderizarQuestoesResolvidas() {
     }
   }
 
+  // Com uma prova em foco, considera só as questões de matérias vinculadas
+  // a ela (mais "Estudo Geral", que não pertence a nenhuma prova específica
+  // e por isso não teria como ser filtrado por uma).
+  const filtroProva = obterMetaFiltroAtiva();
+  const nomesFiltro = filtroProva
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const registrosDoFiltro = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+
   const hoje = obterDataLocalString(new Date());
-  const registrosHoje = registrosQuestoes.filter((r) => r.data === hoje);
+  const registrosHoje = registrosDoFiltro.filter((r) => r.data === hoje);
   const totalHoje = registrosHoje.reduce((s, r) => s + r.total, 0);
   const acertosHoje = registrosHoje.reduce((s, r) => s + r.acertos, 0);
-  const totalGeral = registrosQuestoes.reduce((s, r) => s + r.total, 0);
-  const acertosGeral = registrosQuestoes.reduce((s, r) => s + r.acertos, 0);
+  const totalGeral = registrosDoFiltro.reduce((s, r) => s + r.total, 0);
+  const acertosGeral = registrosDoFiltro.reduce((s, r) => s + r.acertos, 0);
 
   const elHoje = document.getElementById("questoes-stat-hoje");
   if (elHoje) {
@@ -2307,10 +2495,11 @@ function renderizarQuestoesResolvidas() {
   const lista = document.getElementById("questoes-lista-recente");
   if (!lista) return;
 
-  const recentes = [...registrosQuestoes].reverse().slice(0, 8);
+  const recentes = [...registrosDoFiltro].reverse().slice(0, 8);
   if (recentes.length === 0) {
-    lista.innerHTML =
-      '<p class="sessoes-hoje-vazio">Nenhuma questão registrada ainda.</p>';
+    lista.innerHTML = filtroProva
+      ? '<p class="sessoes-hoje-vazio">Nenhuma questão registrada para essa prova ainda.</p>'
+      : '<p class="sessoes-hoje-vazio">Nenhuma questão registrada ainda.</p>';
     return;
   }
 
@@ -2446,10 +2635,23 @@ function alternarTopicoMateria(topicoId) {
   const topico = m.topicos.find((t) => t.id === topicoId);
   if (!topico) return;
   topico.concluido = !topico.concluido;
+  // Guarda quando foi concluído — usado pela previsão de conclusão do
+  // edital (calcula o ritmo de tópicos/dia com base nisso).
+  topico.concluidoEm = topico.concluido
+    ? obterDataLocalString(new Date())
+    : null;
+
+  // Primeira vez que esse tópico é concluído: cria o "cartão" de revisão
+  // espaçada (SM-2) pra ele, agendado pra revisar a partir de hoje.
+  if (topico.concluido && !topico.srs) {
+    topico.srs = SRS_PADRAO();
+  }
+
   localStorage.setItem("materias", JSON.stringify(materias));
 
   renderizarTopicosEdicao();
   renderizarMateriasCadastradas();
+  renderizarRevisaoPendente();
 }
 
 function removerTopicoMateria(topicoId) {
@@ -2581,8 +2783,361 @@ function atualizarDropdowns() {
   }
 }
 
+// --- PROVA/EXAME EM FOCO (filtro de estatísticas por meta) ---
+// Cada "meta" já representa uma prova/exame (objetivoNome + data + qtd. de
+// tópicos do edital), e cada matéria pode estar vinculada a uma delas
+// (m.metaVinculada). Esse filtro só decide QUAL prova está "em foco" pra
+// fins de exibição — ele não separa os dados em áreas diferentes do
+// localStorage, então nada é duplicado nem perdido ao trocar de prova.
+function obterMetaFiltroAtiva() {
+  return localStorage.getItem("metaFiltroAtivo") || "";
+}
+
+// "" (Todas as Provas) sempre retorna a lista completa de matérias.
+function obterMateriasDoFiltroAtivo() {
+  const filtro = obterMetaFiltroAtiva();
+  if (!filtro) return materias;
+  return materias.filter((m) => (m.metaVinculada || "") === filtro);
+}
+
+// Chips de seleção (Todas as Provas + uma por meta cadastrada). Só aparece
+// quando existe pelo menos uma meta — sem metas, não tem o que alternar.
+function renderizarSeletorProvas() {
+  const container = document.getElementById("seletor-provas-container");
+  const lista = document.getElementById("seletor-provas-lista");
+  if (!container || !lista) return;
+
+  if (metas.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+  container.style.display = "flex";
+
+  const filtro = obterMetaFiltroAtiva();
+  let html = `<button type="button" class="prova-pill${filtro === "" ? " prova-pill-ativa" : ""}" onclick="selecionarProvaAtiva('')">📚 Todas as Provas</button>`;
+
+  metas.forEach((meta) => {
+    const nomeEscapadoJs = String(meta.objetivoNome).replace(/'/g, "\\'");
+    const ativa = filtro === meta.objetivoNome;
+    html += `<button type="button" class="prova-pill${ativa ? " prova-pill-ativa" : ""}" onclick="selecionarProvaAtiva('${nomeEscapadoJs}')">🎯 ${escapeHtml(meta.objetivoNome)}</button>`;
+  });
+
+  lista.innerHTML = html;
+}
+
+// Troca a prova em foco e redesenha tudo que depende dela (gráfico, lista
+// de matérias cadastradas, revisão pendente, questões e o widget de meta).
+function selecionarProvaAtiva(nomeObjetivo) {
+  localStorage.setItem("metaFiltroAtivo", nomeObjetivo);
+  renderizarTodoOPainel();
+}
+
+// Remove uma meta/prova. As matérias vinculadas a ela viram "Matéria
+// Isolada" (nada é apagado do histórico de tempo já estudado).
+function excluirMeta(indice) {
+  const meta = metas[indice];
+  if (!meta) return;
+
+  const confirmado = confirm(
+    `Excluir a prova "${meta.objetivoNome}"? As matérias vinculadas a ela passam a ficar como "Matéria Isolada" — o histórico de tempo estudado nelas é mantido.`,
+  );
+  if (!confirmado) return;
+
+  materias.forEach((m) => {
+    if (m.metaVinculada === meta.objetivoNome) m.metaVinculada = "";
+  });
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  metas.splice(indice, 1);
+  localStorage.setItem("metas", JSON.stringify(metas));
+
+  if (obterMetaFiltroAtiva() === meta.objetivoNome) {
+    localStorage.setItem("metaFiltroAtivo", "");
+  }
+
+  renderizarTodoOPainel();
+}
+
+// --- COMPARATIVO ENTRE PROVAS (tempo, tópicos e % de acerto por meta) ---
+function calcularEstatisticasPorProva() {
+  const hoje = new Date();
+
+  return metas.map((meta) => {
+    const materiasDaMeta = materias.filter(
+      (m) => (m.metaVinculada || "") === meta.objetivoNome,
+    );
+    const nomesDaMeta = new Set(materiasDaMeta.map((m) => m.nome));
+
+    const tempoMinutos = materiasDaMeta.reduce(
+      (soma, m) => soma + (tempoPorMateria[m.nome] || 0),
+      0,
+    );
+
+    let topicosConcluidos = 0;
+    let topicosTotais = 0;
+    materiasDaMeta.forEach((m) => {
+      const topicos = m.topicos || [];
+      topicosTotais += topicos.length;
+      topicosConcluidos += topicos.filter((t) => t.concluido).length;
+    });
+
+    const registrosDaMeta = registrosQuestoes.filter((r) =>
+      nomesDaMeta.has(r.materia),
+    );
+    const questoesTotal = registrosDaMeta.reduce((s, r) => s + r.total, 0);
+    const questoesAcertos = registrosDaMeta.reduce((s, r) => s + r.acertos, 0);
+
+    const prazo = new Date(meta.dataLimite + "T23:59:59");
+    const diasRestantes = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24));
+
+    return {
+      objetivoNome: meta.objetivoNome,
+      tempoMinutos,
+      topicosConcluidos,
+      topicosTotais,
+      percentualTopicos:
+        topicosTotais > 0
+          ? Math.round((topicosConcluidos / topicosTotais) * 100)
+          : null,
+      questoesTotal,
+      questoesAcertos,
+      percentualAcerto:
+        questoesTotal > 0
+          ? Math.round((questoesAcertos / questoesTotal) * 100)
+          : null,
+      diasRestantes,
+    };
+  });
+}
+
+let graficoComparativoProvas = null;
+
+// Só faz sentido comparar provas quando "Todas as Provas" está selecionada
+// no topo — com uma prova específica em foco, o card fica escondido (não
+// tem o que comparar com ela mesma).
+function renderizarComparativoProvas() {
+  const card = document.getElementById("card-comparativo-provas");
+  const corpoTabela = document.getElementById("comparativo-provas-corpo");
+  const canvas = document.getElementById("chartComparativoProvas");
+  if (!card || !corpoTabela) return;
+
+  const filtro = obterMetaFiltroAtiva();
+  if (filtro || metas.length === 0) {
+    card.style.display = "none";
+    if (graficoComparativoProvas) {
+      graficoComparativoProvas.destroy();
+      graficoComparativoProvas = null;
+    }
+    return;
+  }
+  card.style.display = "block";
+
+  const stats = calcularEstatisticasPorProva();
+  const maiorTempo = Math.max(1, ...stats.map((s) => s.tempoMinutos));
+
+  corpoTabela.innerHTML = stats
+    .map((s) => {
+      const larguraBarra = Math.round((s.tempoMinutos / maiorTempo) * 100);
+      const topicosTexto =
+        s.topicosTotais > 0
+          ? `${s.topicosConcluidos}/${s.topicosTotais} (${s.percentualTopicos}%)`
+          : "Sem tópicos cadastrados";
+      const acertoTexto =
+        s.questoesTotal > 0
+          ? `${s.percentualAcerto}% (${s.questoesAcertos}/${s.questoesTotal})`
+          : "Sem questões registradas";
+      const diasTexto =
+        s.diasRestantes > 0
+          ? `${s.diasRestantes} dias`
+          : s.diasRestantes === 0
+            ? "É hoje!"
+            : "Prazo encerrado";
+
+      return `
+        <tr>
+          <td><strong>🎯 ${escapeHtml(s.objetivoNome)}</strong></td>
+          <td>
+            <div class="comparativo-barra-fundo">
+              <div class="comparativo-barra-preenchida" style="width:${larguraBarra}%;"></div>
+            </div>
+            <span class="comparativo-barra-legenda">${formatarHorasMinutos(s.tempoMinutos)}</span>
+          </td>
+          <td>${topicosTexto}</td>
+          <td>${acertoTexto}</td>
+          <td>${diasTexto}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  if (!canvas) return;
+  if (graficoComparativoProvas) {
+    graficoComparativoProvas.destroy();
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  graficoComparativoProvas = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: stats.map((s) => s.objetivoNome),
+      datasets: [
+        {
+          label: "% Tópicos concluídos",
+          data: stats.map((s) => s.percentualTopicos || 0),
+          backgroundColor: "#3b82f6",
+          borderRadius: 6,
+        },
+        {
+          label: "% Acerto em questões",
+          data: stats.map((s) => s.percentualAcerto || 0),
+          backgroundColor: "#10b981",
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (valor) => `${valor}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        x: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMuted,
+            font: { family: fonteApp, size: 12 },
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (contexto) =>
+              ` ${contexto.dataset.label}: ${contexto.parsed.y}%`,
+          },
+        },
+      },
+    },
+  });
+}
+
+// --- RITMO SUGERIDO POR MATÉRIA (tópicos restantes ÷ dias até a prova) ---
+// Só entram matérias vinculadas a uma meta e que já têm tópicos cadastrados
+// (sem tópicos não dá pra saber "quanto falta"). Respeita o filtro de prova
+// em foco: com uma prova específica selecionada, mostra só as matérias
+// dela; com "Todas as Provas", mostra de todas.
+function calcularRitmoSugerido() {
+  const hoje = new Date();
+
+  return obterMateriasDoFiltroAtivo()
+    .filter((m) => m.metaVinculada && (m.topicos || []).length > 0)
+    .map((m) => {
+      const meta = metas.find((mt) => mt.objetivoNome === m.metaVinculada);
+      if (!meta) return null;
+
+      const prazo = new Date(meta.dataLimite + "T23:59:59");
+      const diasRestantes = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24));
+
+      const topicos = m.topicos || [];
+      const concluidos = topicos.filter((t) => t.concluido).length;
+      const restantes = topicos.length - concluidos;
+      if (restantes <= 0) return null; // matéria já concluída, nada a sugerir
+
+      // Ritmo próprio: minutos médios que essa matéria já levou por tópico
+      // concluído (tempo real já estudado nela ÷ tópicos já concluídos).
+      // Sem nenhum tópico concluído ainda, usa uma estimativa genérica de
+      // 40 min/tópico só como ponto de partida, marcada como tal na tela.
+      const minutosEstudados = tempoPorMateria[m.nome] || 0;
+      const mediaMinutosPorTopico =
+        concluidos > 0 ? minutosEstudados / concluidos : 40;
+
+      const minutosNecessarios = restantes * mediaMinutosPorTopico;
+      const diasParaDistribuir = Math.max(1, diasRestantes);
+      const minutosPorDia = minutosNecessarios / diasParaDistribuir;
+
+      return {
+        materia: m,
+        meta,
+        diasRestantes,
+        restantes,
+        totalTopicos: topicos.length,
+        minutosPorDia,
+        estimativaGenerica: concluidos === 0,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.minutosPorDia - a.minutosPorDia);
+}
+
+function renderizarRitmoSugerido() {
+  const card = document.getElementById("card-ritmo-sugerido");
+  const lista = document.getElementById("ritmo-sugerido-lista");
+  if (!card || !lista) return;
+
+  const itens = calcularRitmoSugerido();
+
+  if (itens.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  lista.innerHTML = itens
+    .map((item) => {
+      const prazoTexto =
+        item.diasRestantes > 0
+          ? `${item.diasRestantes} dias até a prova`
+          : item.diasRestantes === 0
+            ? "A prova é hoje"
+            : "Prazo já passou";
+      const avisoEstimativa = item.estimativaGenerica
+        ? '<span class="ritmo-aviso" title="Ainda sem tópicos concluídos nessa matéria — estimativa inicial genérica até você concluir os primeiros">⚠️ estimativa inicial</span>'
+        : "";
+
+      return `
+        <div class="ritmo-item">
+          <span class="ritmo-dot" style="background:${item.materia.cor || "#64748b"}"></span>
+          <div class="ritmo-info">
+            <div class="ritmo-topo">
+              <span class="ritmo-materia">${escapeHtml(item.materia.nome)}</span>
+              <span class="ritmo-prova">🎯 ${escapeHtml(item.meta.objetivoNome)}</span>
+            </div>
+            <div class="ritmo-detalhe">
+              ${item.restantes}/${item.totalTopicos} tópicos restantes · ${prazoTexto}
+            </div>
+          </div>
+          <div class="ritmo-sugestao">
+            <span class="ritmo-sugestao-valor">${formatarHorasMinutos(Math.round(item.minutosPorDia))}/dia</span>
+            ${avisoEstimativa}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 // --- RENDERIZADORES DE TELA (METAS, HISTÓRICO, HEATMAP E GRÁFICOS) ---
 function renderizarMetasEGraficos() {
+  renderizarSeletorProvas();
+
   const lista = document.getElementById("lista-materias");
   if (!lista) return;
   lista.innerHTML = "";
@@ -2597,21 +3152,34 @@ function renderizarMetasEGraficos() {
     return;
   }
 
-  metas.forEach((meta) => {
-    let dataFormatada = new Date(
-      meta.dataLimite + "T23:59:59",
-    ).toLocaleDateString("pt-BR");
-    lista.innerHTML += `<div class="materia-item" style="border-left:5px solid var(--success);"><strong>🎯 ${meta.objetivoNome}</strong> - Prova planejada para: ${dataFormatada} (Tópicos do edital: ${meta.qtdMaterias})</div>`;
-  });
+  const filtroAtivo = obterMetaFiltroAtiva();
 
-  let metaAtiva = metas[metas.length - 1];
-  if (widgetConteudo) {
+  lista.innerHTML = metas
+    .map((meta, i) => {
+      let dataFormatada = new Date(
+        meta.dataLimite + "T23:59:59",
+      ).toLocaleDateString("pt-BR");
+      const destacada = filtroAtivo && filtroAtivo === meta.objetivoNome;
+      return `<div class="materia-item"${destacada ? ' style="border-left:5px solid var(--success); outline:2px solid var(--accent-text);"' : ' style="border-left:5px solid var(--success);"'}>
+        <strong>🎯 ${escapeHtml(meta.objetivoNome)}</strong> - Prova planejada para: ${dataFormatada} (Tópicos do edital: ${meta.qtdMaterias})
+        <button type="button" title="Excluir esta prova" onclick="excluirMeta(${i})" style="float:right; background:none; border:none; color:var(--danger); cursor:pointer; font-size:1rem;">✕</button>
+      </div>`;
+    })
+    .join("");
+
+  // Com uma prova em foco, o widget mostra essa; sem filtro (Todas as
+  // Provas), mantém o comportamento original de mostrar a mais recente.
+  let metaAtiva =
+    (filtroAtivo && metas.find((m) => m.objetivoNome === filtroAtivo)) ||
+    metas[metas.length - 1];
+
+  if (widgetConteudo && metaAtiva) {
     let hoje = new Date();
     let prazo = new Date(metaAtiva.dataLimite + "T23:59:59");
     let dRestantes = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24));
 
     widgetConteudo.innerHTML = `
-                <div class="meta-stat-row"><div class="meta-stat-lbl">Meta Principal Ativa</div><div class="meta-stat-val" style="color:var(--accent-text);">${metaAtiva.objetivoNome}</div></div>
+                <div class="meta-stat-row"><div class="meta-stat-lbl">${filtroAtivo ? "Prova em Foco" : "Meta Principal Ativa"}</div><div class="meta-stat-val" style="color:var(--accent-text);">${escapeHtml(metaAtiva.objetivoNome)}</div></div>
                 <div class="meta-stat-row"><div class="meta-stat-lbl">Tópicos Totais</div><div class="meta-stat-val"><span class="meta-highlight">${metaAtiva.qtdMaterias}</span> conteúdos no edital</div></div>
                 <div class="meta-stat-row"><div class="meta-stat-lbl">Dias para a Prova</div><div class="meta-countdown" style="font-size:1.4rem;">${dRestantes > 0 ? dRestantes : 0} dias restantes</div></div>`;
   }
@@ -3008,9 +3576,19 @@ function obterTempoPorMateria() {
   // Usa diretamente o objeto tempoPorMateria, que é mantido em dia por
   // salvarProgressoGeral() toda vez que uma sessão é registrada. A chave
   // antiga "historicoFoco" não representava mais os dados reais.
+  // Quando há uma prova em foco, mostra só o tempo das matérias vinculadas
+  // a ela (matérias de outras provas ou "Estudo Geral" ficam de fora).
+  const filtro = obterMetaFiltroAtiva();
+  const nomesPermitidos = filtro
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+
   const mapaTempo = {};
   Object.keys(tempoPorMateria).forEach((nome) => {
-    if (tempoPorMateria[nome] > 0) {
+    if (
+      tempoPorMateria[nome] > 0 &&
+      (!nomesPermitidos || nomesPermitidos.has(nome))
+    ) {
       mapaTempo[nome] = tempoPorMateria[nome];
     }
   });
@@ -3029,6 +3607,8 @@ function renderizarTodoOPainel() {
   renderizarMateriasCadastradas();
   renderizarRevisaoPendente();
   renderizarQuestoesResolvidas();
+  renderizarComparativoProvas();
+  renderizarRitmoSugerido();
 }
 
 // Inicialização do formulário de cadastro de matéria (estrelas + swatches)
@@ -3350,6 +3930,314 @@ function formatarRotuloIntervalo(periodo, rangeInicio, rangeFim) {
   return String(rangeInicio.getFullYear());
 }
 
+// --- INSIGHT 1: PREVISÃO DE CONCLUSÃO DO EDITAL ---
+// Cruza os tópicos (sub-tópicos cadastrados dentro de cada matéria, na
+// edição) das matérias vinculadas a cada meta com o ritmo real de
+// conclusão dos últimos 14 dias, pra estimar quando o edital "acaba" no
+// ritmo atual — e compara com a data da prova, se houver uma cadastrada.
+function calcularPrevisoesConclusao() {
+  const JANELA_DIAS = 14;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  return metas
+    .map((meta) => {
+      const materiasDaMeta = materias.filter(
+        (m) => m.metaVinculada === meta.objetivoNome,
+      );
+      const todosTopicos = materiasDaMeta.flatMap((m) => m.topicos || []);
+
+      if (todosTopicos.length === 0) return null; // sem tópicos cadastrados: sem dado pra prever
+
+      const concluidos = todosTopicos.filter((t) => t.concluido);
+      const restantes = todosTopicos.length - concluidos.length;
+
+      if (restantes === 0) {
+        return {
+          meta,
+          totalTopicos: todosTopicos.length,
+          concluidos: concluidos.length,
+          concluido: true,
+        };
+      }
+
+      const concluidosRecentes = concluidos.filter((t) => {
+        if (!t.concluidoEm) return false;
+        const dataConclusao = new Date(t.concluidoEm + "T00:00:00");
+        const diasDesde = Math.floor((hoje - dataConclusao) / 86400000);
+        return diasDesde >= 0 && diasDesde < JANELA_DIAS;
+      }).length;
+
+      const ritmoPorDia = concluidosRecentes / JANELA_DIAS;
+
+      if (ritmoPorDia <= 0) {
+        return {
+          meta,
+          totalTopicos: todosTopicos.length,
+          concluidos: concluidos.length,
+          semRitmo: true,
+        };
+      }
+
+      const diasEstimados = Math.ceil(restantes / ritmoPorDia);
+      const dataPrevista = new Date(hoje);
+      dataPrevista.setDate(dataPrevista.getDate() + diasEstimados);
+
+      let diferencaDiasProva = null;
+      if (meta.dataLimite) {
+        const dataProva = new Date(meta.dataLimite + "T23:59:59");
+        diferencaDiasProva = Math.round((dataPrevista - dataProva) / 86400000);
+      }
+
+      return {
+        meta,
+        totalTopicos: todosTopicos.length,
+        concluidos: concluidos.length,
+        restantes,
+        ritmoPorSemana: Math.round(ritmoPorDia * 7 * 10) / 10,
+        diasEstimados,
+        dataPrevista,
+        diferencaDiasProva,
+      };
+    })
+    .filter(Boolean);
+}
+
+function renderizarPrevisaoConclusao() {
+  const container = document.getElementById("insight-previsao-conclusao");
+  if (!container) return;
+
+  const previsoes = calcularPrevisoesConclusao();
+
+  if (previsoes.length === 0) {
+    container.innerHTML = `
+      <div class="insight-vazio">
+        💡 Vincule matérias a uma meta e cadastre os tópicos do edital
+        dentro delas (no botão ✏️ editar de cada matéria) pra ver aqui uma
+        previsão de quando você termina, no seu ritmo atual.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = previsoes
+    .map((p) => {
+      if (p.concluido) {
+        return `
+          <div class="insight-previsao-card insight-previsao-ok">
+            <strong>🎉 ${escapeHtml(p.meta.objetivoNome)}</strong>
+            <p>Todos os ${p.totalTopicos} tópicos vinculados já foram concluídos!</p>
+          </div>
+        `;
+      }
+
+      if (p.semRitmo) {
+        return `
+          <div class="insight-previsao-card">
+            <strong>🔮 ${escapeHtml(p.meta.objetivoNome)}</strong>
+            <p>
+              ${p.concluidos}/${p.totalTopicos} tópicos concluídos, mas nenhum
+              nos últimos 14 dias — sem dado recente suficiente pra estimar
+              um ritmo. Marque os tópicos conforme for estudando.
+            </p>
+          </div>
+        `;
+      }
+
+      const dataPrevistaFmt = p.dataPrevista.toLocaleDateString("pt-BR");
+      let comparacaoHtml = "";
+      if (p.diferencaDiasProva !== null) {
+        if (p.diferencaDiasProva <= 0) {
+          comparacaoHtml = `<p class="insight-previsao-positivo">✅ ${Math.abs(p.diferencaDiasProva)} dia(s) de folga antes da prova, nesse ritmo.</p>`;
+        } else {
+          comparacaoHtml = `<p class="insight-previsao-negativo">⚠️ ${p.diferencaDiasProva} dia(s) depois da prova, nesse ritmo — considere acelerar ou ajustar o plano.</p>`;
+        }
+      }
+
+      return `
+        <div class="insight-previsao-card">
+          <strong>🔮 ${escapeHtml(p.meta.objetivoNome)}</strong>
+          <p>
+            No ritmo atual (${p.ritmoPorSemana} tópico(s)/semana), você
+            termina os ${p.restantes} tópico(s) restantes em
+            <strong>${p.diasEstimados} dia(s)</strong> — por volta de
+            ${dataPrevistaFmt}.
+          </p>
+          ${comparacaoHtml}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+// --- INSIGHT 2: COMPARAÇÃO SEMANA ATUAL VS. ANTERIOR ---
+function calcularComparacaoSemanal() {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  function somarMinutosNoIntervalo(diasAtrasInicio, diasAtrasFim) {
+    let total = 0;
+    logsSessoes.forEach((log) => {
+      const dataLog = new Date(log.data + "T00:00:00");
+      const diffDias = Math.floor((hoje - dataLog) / 86400000);
+      if (diffDias >= diasAtrasFim && diffDias <= diasAtrasInicio) {
+        total += log.duracao || 0;
+      }
+    });
+    return total;
+  }
+
+  const minutosAtual = somarMinutosNoIntervalo(6, 0);
+  const minutosAnterior = somarMinutosNoIntervalo(13, 7);
+
+  let variacaoPct = null;
+  if (minutosAnterior > 0) {
+    variacaoPct = Math.round(
+      ((minutosAtual - minutosAnterior) / minutosAnterior) * 100,
+    );
+  } else if (minutosAtual > 0) {
+    variacaoPct = 100;
+  }
+
+  return { minutosAtual, minutosAnterior, variacaoPct };
+}
+
+function renderizarComparacaoSemanal() {
+  const container = document.getElementById("insight-comparacao-semanal");
+  if (!container) return;
+
+  const { minutosAtual, minutosAnterior, variacaoPct } =
+    calcularComparacaoSemanal();
+
+  if (minutosAtual === 0 && minutosAnterior === 0) {
+    container.innerHTML = `
+      <div class="insight-vazio">
+        📊 Ainda sem sessões suficientes nas últimas duas semanas pra
+        comparar seu ritmo.
+      </div>
+    `;
+    return;
+  }
+
+  const horasAtual = formatarHorasMinutos(minutosAtual);
+  const horasAnterior = formatarHorasMinutos(minutosAnterior);
+
+  let faixaHtml;
+  if (variacaoPct === null) {
+    faixaHtml = `<span class="insight-comparacao-neutro">Sem sessões na semana passada pra comparar.</span>`;
+  } else if (variacaoPct > 0) {
+    faixaHtml = `<span class="insight-comparacao-positivo">↑ ${variacaoPct}% mais foco que a semana passada</span>`;
+  } else if (variacaoPct < 0) {
+    faixaHtml = `<span class="insight-comparacao-negativo">↓ ${Math.abs(variacaoPct)}% menos foco que a semana passada</span>`;
+  } else {
+    faixaHtml = `<span class="insight-comparacao-neutro">Mesmo ritmo da semana passada</span>`;
+  }
+
+  container.innerHTML = `
+    <div class="insight-comparacao-card">
+      <div class="insight-comparacao-numeros">
+        <span>${horasAtual} essa semana</span>
+        <span class="insight-comparacao-vs">vs.</span>
+        <span>${horasAnterior} semana passada</span>
+      </div>
+      ${faixaHtml}
+    </div>
+  `;
+}
+
+// --- INSIGHT 3: EXPORTAR RELATÓRIO EM PDF (via impressão do navegador) ---
+// Monta uma versão limpa e "imprimível" do resumo do período selecionado
+// em Análise de Estudos e chama a impressão nativa do navegador — de lá,
+// a pessoa escolhe "Salvar como PDF" no destino da impressão. Evita
+// carregar uma biblioteca de PDF só pra isso, e funciona offline.
+function exportarRelatorioPDF() {
+  const { buckets, rangeInicio, rangeFim } = gerarBucketsAnalise(
+    analisePeriodoAtual,
+    analiseOffset,
+  );
+  const inicioStr = obterDataLocalString(rangeInicio);
+  const fimStr = obterDataLocalString(rangeFim);
+  const sessoesNoPeriodo = logsSessoes.filter(
+    (log) => log.data >= inicioStr && log.data <= fimStr,
+  );
+
+  const totalMinutos = sessoesNoPeriodo.reduce((s, log) => s + log.duracao, 0);
+  const totalSessoes = sessoesNoPeriodo.length;
+  const mediaMinutos = totalSessoes > 0 ? totalMinutos / totalSessoes : 0;
+
+  const mapaMateriaPeriodo = {};
+  sessoesNoPeriodo.forEach((log) => {
+    mapaMateriaPeriodo[log.materia] =
+      (mapaMateriaPeriodo[log.materia] || 0) + log.duracao;
+  });
+  const entradasMaterias = Object.entries(mapaMateriaPeriodo).sort(
+    (a, b) => b[1] - a[1],
+  );
+
+  const rotuloPeriodo = formatarRotuloIntervalo(
+    analisePeriodoAtual,
+    rangeInicio,
+    rangeFim,
+  );
+  const nomeUsuario = dadosPerfil.nome || "Estudante";
+  const geradoEm = new Date().toLocaleString("pt-BR");
+
+  const linhasMaterias =
+    entradasMaterias.length === 0
+      ? '<tr><td colspan="3">Sem sessões registradas neste período.</td></tr>'
+      : entradasMaterias
+          .map(([nome, min]) => {
+            const pct =
+              totalMinutos > 0 ? Math.round((min / totalMinutos) * 100) : 0;
+            return `<tr><td>${escapeHtml(nome)}</td><td>${formatarHorasMinutos(min)}</td><td>${pct}%</td></tr>`;
+          })
+          .join("");
+
+  const previsoesHtml = calcularPrevisoesConclusao()
+    .map((p) => {
+      if (p.concluido) {
+        return `<li>🎉 ${escapeHtml(p.meta.objetivoNome)}: todos os ${p.totalTopicos} tópicos concluídos.</li>`;
+      }
+      if (p.semRitmo) {
+        return `<li>🔮 ${escapeHtml(p.meta.objetivoNome)}: ${p.concluidos}/${p.totalTopicos} tópicos concluídos (sem ritmo recente pra estimar).</li>`;
+      }
+      return `<li>🔮 ${escapeHtml(p.meta.objetivoNome)}: previsão de término em ${p.diasEstimados} dia(s) (${p.dataPrevista.toLocaleDateString("pt-BR")}), ritmo de ${p.ritmoPorSemana} tópico(s)/semana.</li>`;
+    })
+    .join("");
+
+  const container = document.getElementById("relatorio-impressao");
+  if (!container) return;
+
+  container.innerHTML = `
+    <h1>⚡ Estude+ — Relatório de Estudos</h1>
+    <p class="relatorio-meta-info">
+      <strong>${escapeHtml(nomeUsuario)}</strong> · Período: ${rotuloPeriodo} ·
+      Gerado em ${geradoEm}
+    </p>
+
+    <h2>Resumo do período</h2>
+    <table class="relatorio-tabela">
+      <tr><td>Horas estudadas</td><td>${(totalMinutos / 60).toFixed(1)}h</td></tr>
+      <tr><td>Sessões registradas</td><td>${totalSessoes}</td></tr>
+      <tr><td>Tempo médio por sessão</td><td>${formatarHorasMinutos(mediaMinutos)}</td></tr>
+    </table>
+
+    <h2>Distribuição por matéria</h2>
+    <table class="relatorio-tabela">
+      <tr><th>Matéria</th><th>Tempo</th><th>% do período</th></tr>
+      ${linhasMaterias}
+    </table>
+
+    ${
+      previsoesHtml
+        ? `<h2>Previsão de conclusão</h2><ul class="relatorio-lista">${previsoesHtml}</ul>`
+        : ""
+    }
+  `;
+
+  window.print();
+}
+
 function renderizarAnaliseEstudos() {
   const canvasDonut = document.getElementById("chartAnaliseDonut");
   const canvasBarras = document.getElementById("chartAnaliseBarras");
@@ -3574,6 +4462,13 @@ function renderizarAnaliseEstudos() {
       return `<span style="--cor:${cor}">${escapeHtml(nome)}</span>`;
     })
     .join("");
+
+  // Os dois insights abaixo não dependem do período selecionado no toggle
+  // (previsão usa progresso geral dos tópicos; comparação é sempre "esta
+  // semana vs. a passada"), mas é conveniente recalcular junto pra ficarem
+  // sempre atualizados quando a pessoa entra na aba de Análise.
+  renderizarComparacaoSemanal();
+  renderizarPrevisaoConclusao();
 }
 
 // --- GAMIFICAÇÃO: XP, NÍVEIS, TÍTULOS E CONQUISTAS ---
@@ -3917,6 +4812,7 @@ const CHAVES_BACKUP = [
   "historicoFoco",
   "logsSessoes",
   "materias",
+  "metaFiltroAtivo",
   "metaPomodorosDiaria",
   "metas",
   "pomosPorDia",
@@ -4050,3 +4946,112 @@ function iniciarAppEstudeMais() {
   renderizarTarefas();
   atualizarProgressoPomodoros();
 }
+
+// ============================================================
+// ATALHOS DE TECLADO
+// ============================================================
+// Espaço  → inicia o foco (se estiver parado) ou pausa/retoma (se já
+//           estiver rodando, seja foco, pausa ou overtime).
+// Esc     → sai da tela cheia do modo foco (o pomodoro continua contando
+//           normalmente em segundo plano).
+// Os atalhos ficam desligados enquanto a pessoa está digitando em algum
+// campo (input/textarea/select) ou com algum modal aberto na frente, pra
+// não atrapalhar o uso normal do teclado.
+function algumModalAberto() {
+  return Array.from(document.querySelectorAll(".modal-distracao")).some(
+    (modal) => getComputedStyle(modal).display !== "none",
+  );
+}
+
+function digitandoEmCampoDeTexto(elemento) {
+  if (!elemento) return false;
+  const tag = elemento.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    elemento.isContentEditable
+  );
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === " " || event.code === "Space") {
+    if (event.repeat) return;
+    if (digitandoEmCampoDeTexto(event.target) || algumModalAberto()) return;
+
+    event.preventDefault(); // evita rolar a página com a barra de espaço
+    if (emPreparacao) return; // durante a preparação, os botões dela mandam
+
+    if (!emEstadoDeFocoAtivo && !emPausaConfig) {
+      gerenciarBotaoFocoPrincipal(); // ainda parado → inicia o foco
+    } else {
+      pauseTimer(); // já rodando (foco, pausa ou overtime) → pausa/retoma
+    }
+    return;
+  }
+
+  if (event.key === "Escape") {
+    if (document.body.classList.contains("modo-isolamento-ativo")) {
+      sairDoModoFoco();
+    }
+  }
+});
+
+// ============================================================
+// PWA: SERVICE WORKER + INSTALAÇÃO COMO APP
+// ============================================================
+// Registra o service worker (cache do app shell pra abrir offline).
+// Roda em qualquer navegador que suporte; nos que não suportam, o app
+// continua funcionando 100% normal, só sem o modo offline.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("sw.js")
+      .catch((err) => console.error("Falha ao registrar service worker:", err));
+  });
+}
+
+// Captura o evento que o navegador dispara quando o app pode ser
+// instalado, guarda ele pra disparar depois (quando a pessoa clicar no
+// nosso botão) e mostra o botão "Instalar App".
+let eventoInstalacaoPwa = null;
+
+function appJaEstaInstalado() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  eventoInstalacaoPwa = event;
+  if (!appJaEstaInstalado()) {
+    const btn = document.getElementById("btn-instalar-app");
+    if (btn) btn.style.display = "flex";
+  }
+});
+
+async function instalarApp() {
+  const btn = document.getElementById("btn-instalar-app");
+  if (!eventoInstalacaoPwa) return;
+
+  eventoInstalacaoPwa.prompt();
+  const escolha = await eventoInstalacaoPwa.userChoice;
+  eventoInstalacaoPwa = null;
+  if (btn) btn.style.display = "none";
+
+  if (escolha.outcome === "accepted") {
+    mostrarToastGamificacao(
+      "⚡",
+      "App instalado!",
+      "Agora você pode abrir o Estude+ direto da tela inicial.",
+    );
+  }
+}
+
+window.addEventListener("appinstalled", () => {
+  const btn = document.getElementById("btn-instalar-app");
+  if (btn) btn.style.display = "none";
+  eventoInstalacaoPwa = null;
+});
