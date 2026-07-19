@@ -12,7 +12,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=27" />
+    <link rel="stylesheet" href="css/style.css?v=29" />
   </head>
   <body>
     <button
@@ -35,74 +35,224 @@
       🌙 Escuro
     </button>
 
+    <div
+      id="conta-usuario-badge"
+      class="conta-usuario-badge"
+      style="display: none"
+    >
+      <span id="usuario-logado-email"></span>
+      <button type="button" onclick="fazerLogout()" title="Sair da conta">
+        🚪 Sair
+      </button>
+    </div>
+
+    <button
+      type="button"
+      id="btn-abrir-login"
+      class="btn-abrir-login"
+      onclick="abrirModalLogin()"
+      title="Entrar ou criar conta para salvar seus dados na nuvem"
+      style="display: none"
+    >
+      🔐 Entrar
+    </button>
+
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- TELA DE LOGIN -->
-    <div id="tela-login" class="tela-login" style="display: none">
-      <div class="tela-login-card">
-        <h1 class="tela-login-logo">⚡ ESTUDE+</h1>
-        <p class="tela-login-subtitulo">
-          Entre para acessar seus estudos em qualquer dispositivo
-        </p>
+    <!-- MODAL DE LOGIN / CADASTRO / RECUPERAÇÃO DE SENHA -->
+    <div id="modal-login" class="modal-distracao">
+      <div class="modal-conteudo tela-login-card">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalLogin()"
+          title="Fechar (continuar sem conta)"
+        >
+          ✕
+        </button>
 
-        <form id="form-login" onsubmit="fazerLogin(event)">
-          <label for="login-email">E-mail</label>
-          <input
-            type="email"
-            id="login-email"
-            required
-            autocomplete="email"
-            placeholder="voce@email.com"
-          />
+        <!-- Passo 1: login / cadastro -->
+        <div id="login-passo-form">
+          <h1 class="tela-login-logo">⚡ ESTUDE+</h1>
+          <p class="tela-login-subtitulo">
+            Entre para salvar seus estudos e acessar de qualquer dispositivo
+          </p>
 
-          <label for="login-senha">Senha</label>
-          <input
-            type="password"
-            id="login-senha"
-            required
-            minlength="6"
-            autocomplete="current-password"
-            placeholder="Mínimo 6 caracteres"
-          />
-
-          <div
-            id="login-erro"
-            class="tela-login-erro"
-            style="display: none"
-          ></div>
-
-          <button
-            type="submit"
-            id="btn-login-entrar"
-            class="tela-login-btn-primario"
-          >
-            Entrar
-          </button>
           <button
             type="button"
-            class="tela-login-btn-secundario"
-            onclick="fazerCadastro(event)"
+            class="tela-login-btn-google"
+            onclick="entrarComGoogle()"
           >
-            Criar conta nova
+            <svg width="18" height="18" viewBox="0 0 18 18">
+              <path
+                fill="#4285F4"
+                d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"
+              />
+              <path
+                fill="#34A853"
+                d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"
+              />
+              <path
+                fill="#EA4335"
+                d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"
+              />
+            </svg>
+            Continuar com Google
           </button>
 
-          <div
-            id="login-carregando"
-            class="tela-login-carregando"
-            style="display: none"
-          >
-            Carregando seus dados...
-          </div>
-        </form>
+          <div class="tela-login-divisor"><span>ou</span></div>
 
-        <p class="tela-login-nota">
-          Seus dados ficam salvos na nuvem e disponíveis em qualquer aparelho em
-          que você entrar com essa conta.
-        </p>
+          <form id="form-login" onsubmit="fazerLogin(event)">
+            <label for="login-email">E-mail</label>
+            <input
+              type="email"
+              id="login-email"
+              required
+              autocomplete="email"
+              placeholder="voce@email.com"
+            />
+
+            <label for="login-senha">Senha</label>
+            <input
+              type="password"
+              id="login-senha"
+              required
+              minlength="6"
+              autocomplete="current-password"
+              placeholder="Mínimo 6 caracteres"
+            />
+
+            <div class="tela-login-link-recuperar">
+              <a href="#" onclick="mostrarRecuperarSenha(event)"
+                >Esqueci minha senha</a
+              >
+            </div>
+
+            <div
+              id="login-erro"
+              class="tela-login-erro"
+              style="display: none"
+            ></div>
+
+            <button
+              type="submit"
+              id="btn-login-entrar"
+              class="tela-login-btn-primario"
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              class="tela-login-btn-secundario"
+              onclick="fazerCadastro(event)"
+            >
+              Criar conta nova
+            </button>
+
+            <div
+              id="login-carregando"
+              class="tela-login-carregando"
+              style="display: none"
+            >
+              Carregando seus dados...
+            </div>
+          </form>
+
+          <p class="tela-login-nota">
+            Seus dados ficam salvos na nuvem e disponíveis em qualquer aparelho
+            em que você entrar com essa conta. Se preferir, pode fechar essa
+            janela e continuar usando o app sem conta — os dados ficam só neste
+            aparelho.
+          </p>
+        </div>
+
+        <!-- Passo 2: recuperar senha (pede o e-mail) -->
+        <div id="login-passo-recuperar" style="display: none">
+          <h1 class="tela-login-logo">🔑 Recuperar senha</h1>
+          <p class="tela-login-subtitulo">
+            Digite seu e-mail. Vamos mandar um link pra você criar uma senha
+            nova.
+          </p>
+
+          <form
+            id="form-recuperar-senha"
+            onsubmit="enviarRecuperacaoSenha(event)"
+          >
+            <label for="recuperar-email">E-mail</label>
+            <input
+              type="email"
+              id="recuperar-email"
+              required
+              autocomplete="email"
+              placeholder="voce@email.com"
+            />
+
+            <div
+              id="recuperar-msg"
+              class="tela-login-erro"
+              style="display: none"
+            ></div>
+
+            <button type="submit" class="tela-login-btn-primario">
+              Enviar link de recuperação
+            </button>
+            <button
+              type="button"
+              class="tela-login-btn-secundario"
+              onclick="voltarParaLogin()"
+            >
+              Voltar
+            </button>
+          </form>
+        </div>
+
+        <!-- Passo 3: definir nova senha (abre sozinho ao voltar pelo link do e-mail) -->
+        <div id="login-passo-nova-senha" style="display: none">
+          <h1 class="tela-login-logo">🔑 Criar nova senha</h1>
+          <p class="tela-login-subtitulo">
+            Escolha uma nova senha para sua conta.
+          </p>
+
+          <form id="form-nova-senha" onsubmit="salvarNovaSenha(event)">
+            <label for="nova-senha-1">Nova senha</label>
+            <input
+              type="password"
+              id="nova-senha-1"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              placeholder="Mínimo 6 caracteres"
+            />
+
+            <label for="nova-senha-2">Confirmar nova senha</label>
+            <input
+              type="password"
+              id="nova-senha-2"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              placeholder="Repita a senha"
+            />
+
+            <div
+              id="nova-senha-erro"
+              class="tela-login-erro"
+              style="display: none"
+            ></div>
+
+            <button type="submit" class="tela-login-btn-primario">
+              Salvar nova senha
+            </button>
+          </form>
+        </div>
       </div>
     </div>
 
-    <div id="app-conteudo" style="display: none">
+    <div id="app-conteudo">
       <h1 class="app-header-main">⚡ ESTUDE+</h1>
 
       <div class="app-nav">
@@ -115,16 +265,6 @@
         </div>
         <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
           👤 Perfil Pessoal
-        </div>
-        <div
-          id="conta-usuario-badge"
-          class="conta-usuario-badge"
-          style="display: none"
-        >
-          <span id="usuario-logado-email"></span>
-          <button type="button" onclick="fazerLogout()" title="Sair da conta">
-            🚪 Sair
-          </button>
         </div>
       </div>
 
@@ -1549,7 +1689,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=1"></script>
+    <script src="js/auth-sync.js?v=2"></script>
     <script src="js/script.js?v=23"></script>
 
     <script>

@@ -2,9 +2,10 @@
 // LOGIN E SINCRONIZAÇÃO EM NUVEM (SUPABASE)
 // ============================================================
 // Preencha SUPABASE_URL e SUPABASE_ANON_KEY com os dados do SEU projeto
-// (painel do Supabase > Project Settings > API). Enquanto os valores abaixo
-// forem os placeholders, o app roda 100% local, sem tela de login — exatamente
-// como antes — então não tem risco de quebrar nada até você configurar.
+// (painel do Supabase > Project Settings > API / Data API). Enquanto os
+// valores abaixo forem os placeholders, o app roda 100% local, sem nenhum
+// botão de login — exatamente como antes — então não tem risco de quebrar
+// nada até você configurar.
 const SUPABASE_URL = "https://sqzxijwhkadebluxcrff.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxenhpandoa2FkZWJsdXhjcmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODg4NDQsImV4cCI6MjA5OTk2NDg0NH0.ncxcxzmvq1PIEePjqhQTDEPZDw4rZnrxH26i7xa4w58";
@@ -53,6 +54,19 @@ function aplicarDadosDaNuvem(dados) {
   });
 }
 
+// Um jeito simples de saber se já existe progresso real neste aparelho
+// (usado como convidado, sem login) antes de decidir se entra em conflito
+// com dados que já existirem na nuvem daquela conta.
+function localTemProgressoSignificativo() {
+  try {
+    const materiasLocais = JSON.parse(localStorage.getItem("materias")) || [];
+    const sessoesLocais = JSON.parse(localStorage.getItem("logsSessoes")) || [];
+    return materiasLocais.length > 0 || sessoesLocais.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // --- ENVIO PARA A NUVEM (com debounce, pra não disparar 1 request a cada
 // tecla digitada — espera 2s de silêncio antes de sincronizar) ---
 let timeoutSincronizacao = null;
@@ -81,7 +95,7 @@ async function sincronizarParaNuvem() {
   }
 }
 
-async function baixarDaNuvem() {
+async function buscarDadosDaNuvem() {
   const { data, error } = await sb
     .from("dados_usuario")
     .select("dados")
@@ -89,9 +103,9 @@ async function baixarDaNuvem() {
     .maybeSingle();
   if (error) {
     console.error("Erro ao baixar dados da nuvem:", error);
-    return;
+    return {};
   }
-  if (data && data.dados) aplicarDadosDaNuvem(data.dados);
+  return data && data.dados ? data.dados : {};
 }
 
 // Sempre que uma das chaves sincronizáveis é escrita no localStorage em
@@ -107,19 +121,34 @@ if (SUPABASE_CONFIGURADO) {
   };
 }
 
-// --- TELA DE LOGIN: MOSTRAR / ESCONDER ---
-function mostrarTelaLogin() {
-  const login = document.getElementById("tela-login");
-  const app = document.getElementById("app-conteudo");
-  if (login) login.style.display = "flex";
-  if (app) app.style.display = "none";
+// --- MODAL DE LOGIN: MOSTRAR / ESCONDER / TROCAR DE PASSO ---
+function abrirModalLogin() {
+  document.getElementById("modal-login").style.display = "flex";
+  mostrarPassoLogin("login-passo-form");
 }
 
-function esconderTelaLogin() {
-  const login = document.getElementById("tela-login");
-  const app = document.getElementById("app-conteudo");
-  if (login) login.style.display = "none";
-  if (app) app.style.display = "block";
+function fecharModalLogin() {
+  document.getElementById("modal-login").style.display = "none";
+}
+
+function mostrarPassoLogin(idPasso) {
+  [
+    "login-passo-form",
+    "login-passo-recuperar",
+    "login-passo-nova-senha",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === idPasso ? "block" : "none";
+  });
+}
+
+function mostrarRecuperarSenha(event) {
+  if (event) event.preventDefault();
+  mostrarPassoLogin("login-passo-recuperar");
+}
+
+function voltarParaLogin() {
+  mostrarPassoLogin("login-passo-form");
 }
 
 function definirCarregandoLogin(carregando) {
@@ -130,15 +159,30 @@ function definirCarregandoLogin(carregando) {
 }
 
 function atualizarUiUsuarioLogado() {
-  const el = document.getElementById("usuario-logado-email");
-  if (el && usuarioAtual) el.innerText = usuarioAtual.email;
   const badge = document.getElementById("conta-usuario-badge");
-  if (badge) badge.style.display = SUPABASE_CONFIGURADO ? "flex" : "none";
+  const btnEntrar = document.getElementById("btn-abrir-login");
+  const emailEl = document.getElementById("usuario-logado-email");
+
+  if (!SUPABASE_CONFIGURADO) {
+    if (badge) badge.style.display = "none";
+    if (btnEntrar) btnEntrar.style.display = "none";
+    return;
+  }
+
+  if (usuarioAtual) {
+    if (emailEl) emailEl.innerText = usuarioAtual.email;
+    if (badge) badge.style.display = "flex";
+    if (btnEntrar) btnEntrar.style.display = "none";
+  } else {
+    if (badge) badge.style.display = "none";
+    if (btnEntrar) btnEntrar.style.display = "flex";
+  }
 
   const avisoBackup = document.getElementById("texto-aviso-backup");
-  if (avisoBackup && SUPABASE_CONFIGURADO) {
-    avisoBackup.innerText =
-      "Seus dados (matérias, histórico, XP, conquistas, tarefas) já ficam salvos na nuvem e sincronizados nessa conta. Mesmo assim, vale exportar um backup de vez em quando como cópia extra de segurança.";
+  if (avisoBackup) {
+    avisoBackup.innerText = usuarioAtual
+      ? "Seus dados (matérias, histórico, XP, conquistas, tarefas) já ficam salvos na nuvem e sincronizados nessa conta. Mesmo assim, vale exportar um backup de vez em quando como cópia extra de segurança."
+      : "Você está usando o app sem conta — os dados ficam só neste navegador. Se limpar o cache, trocar de navegador ou reinstalar o sistema, tudo se perde. Exporte um backup de vez em quando, ou crie uma conta (botão 🔐 Entrar) pra salvar tudo na nuvem.";
   }
 }
 
@@ -151,11 +195,13 @@ function traduzirErroAuth(msg) {
   if (/Password should be at least/i.test(msg))
     return "A senha precisa ter pelo menos 6 caracteres.";
   if (/Unable to validate email/i.test(msg)) return "Digite um e-mail válido.";
+  if (/rate limit/i.test(msg))
+    return "Muitas tentativas seguidas. Espere um pouco e tente de novo.";
   return msg;
 }
 
-function mostrarErroLogin(mensagem, sucesso) {
-  const el = document.getElementById("login-erro");
+function mostrarErroLogin(mensagem, sucesso, idAlvo) {
+  const el = document.getElementById(idAlvo || "login-erro");
   if (!el) return;
   el.innerText = mensagem;
   el.style.color = sucesso ? "var(--success)" : "var(--danger)";
@@ -217,39 +263,146 @@ async function fazerCadastro(event) {
   // sb.auth.onAuthStateChange cuida de entrar direto.
 }
 
+// --- LOGIN COM GOOGLE ---
+async function entrarComGoogle() {
+  if (!SUPABASE_CONFIGURADO) return;
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  });
+  if (error) {
+    mostrarErroLogin(traduzirErroAuth(error.message), false);
+  }
+  // O navegador é redirecionado pro Google e depois volta pro app; o resto
+  // é tratado pelo onAuthStateChange quando a sessão chega.
+}
+
+// --- RECUPERAÇÃO DE SENHA ---
+async function enviarRecuperacaoSenha(event) {
+  event.preventDefault();
+  if (!SUPABASE_CONFIGURADO) return;
+
+  const email = document.getElementById("recuperar-email").value.trim();
+  document.getElementById("recuperar-msg").style.display = "none";
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  });
+
+  if (error) {
+    mostrarErroLogin(traduzirErroAuth(error.message), false, "recuperar-msg");
+    return;
+  }
+
+  mostrarErroLogin(
+    "Link enviado! Verifique seu e-mail (e a caixa de spam) e clique no link pra criar uma senha nova.",
+    true,
+    "recuperar-msg",
+  );
+}
+
+async function salvarNovaSenha(event) {
+  event.preventDefault();
+  if (!SUPABASE_CONFIGURADO) return;
+
+  const senha1 = document.getElementById("nova-senha-1").value;
+  const senha2 = document.getElementById("nova-senha-2").value;
+  document.getElementById("nova-senha-erro").style.display = "none";
+
+  if (senha1.length < 6) {
+    mostrarErroLogin(
+      "A senha precisa ter pelo menos 6 caracteres.",
+      false,
+      "nova-senha-erro",
+    );
+    return;
+  }
+  if (senha1 !== senha2) {
+    mostrarErroLogin(
+      "As duas senhas precisam ser iguais.",
+      false,
+      "nova-senha-erro",
+    );
+    return;
+  }
+
+  const { error } = await sb.auth.updateUser({ password: senha1 });
+  if (error) {
+    mostrarErroLogin(traduzirErroAuth(error.message), false, "nova-senha-erro");
+    return;
+  }
+
+  alert("Senha atualizada com sucesso! Você já está logado.");
+  fecharModalLogin();
+}
+
+// --- LOGOUT ---
 async function fazerLogout() {
   if (!SUPABASE_CONFIGURADO) return;
   const confirmado = confirm(
-    "Sair da conta? Seus dados já ficam salvos na nuvem, então você pode entrar de novo em qualquer aparelho.",
+    "Sair da conta? Seus dados já ficam salvos na nuvem, então você pode entrar de novo em qualquer aparelho. O app continua funcionando neste aparelho como convidado, sem conta.",
   );
   if (!confirmado) return;
   await sincronizarParaNuvem(); // garante que a última alteração local subiu antes de sair
   await sb.auth.signOut();
 }
 
-// --- FLUXO PRINCIPAL: DECIDE SE MOSTRA LOGIN OU JÁ ENTRA DIRETO ---
+// --- FLUXO PRINCIPAL ---
+// Diferente da versão anterior, o app NUNCA fica bloqueado esperando login:
+// ele já inicia no modo "convidado" (dados só neste aparelho) e, se houver
+// uma sessão salva (ou o usuário logar depois), os dados da nuvem entram
+// em cena a partir daí.
 async function entrarComSessao(session) {
   usuarioAtual = session.user;
   definirCarregandoLogin(true);
-  await baixarDaNuvem();
+
+  const dadosNuvem = await buscarDadosDaNuvem();
+  const nuvemTemDados = Object.keys(dadosNuvem).length > 0;
+  const localTemDados = localTemProgressoSignificativo();
+
+  if (nuvemTemDados && localTemDados) {
+    // Tem progresso feito como convidado NESTE aparelho e também dados já
+    // salvos NESSA conta — deixa a pessoa escolher qual lado vence, em vez
+    // de sobrescrever silenciosamente um dos dois.
+    definirCarregandoLogin(false);
+    const usarDadosDaConta = confirm(
+      "Você tem dados salvos nesta conta E também dados feitos aqui neste aparelho sem estar logado.\n\n" +
+        "OK = usar os dados da CONTA (substitui os deste aparelho)\n" +
+        "Cancelar = manter os dados DESTE APARELHO (substitui os da conta)",
+    );
+    if (usarDadosDaConta) {
+      aplicarDadosDaNuvem(dadosNuvem);
+    } else {
+      await sincronizarParaNuvem();
+    }
+  } else if (nuvemTemDados) {
+    aplicarDadosDaNuvem(dadosNuvem);
+  } else if (localTemDados) {
+    // Conta nova (nuvem vazia) mas já tem progresso de convidado aqui —
+    // sobe esse progresso pra não perder nada.
+    await sincronizarParaNuvem();
+  }
+
   definirCarregandoLogin(false);
-  esconderTelaLogin();
+  fecharModalLogin();
   atualizarUiUsuarioLogado();
-  iniciarAppEstudeMais();
+  recarregarEstadoDoLocalStorage();
+  renderizarTodoOPainel();
+  renderizarTarefas();
+  atualizarProgressoPomodoros();
 }
 
 async function iniciarAutenticacao() {
-  if (!SUPABASE_CONFIGURADO) {
-    // Sem Supabase configurado: app funciona 100% local, sem login.
-    iniciarAppEstudeMais();
-    return;
-  }
+  // O app já abre direto, no modo convidado — login é 100% opcional.
+  iniciarAppEstudeMais();
+
+  if (!SUPABASE_CONFIGURADO) return;
 
   const { data } = await sb.auth.getSession();
   if (data.session) {
     await entrarComSessao(data.session);
   } else {
-    mostrarTelaLogin();
+    atualizarUiUsuarioLogado();
   }
 
   sb.auth.onAuthStateChange((evento, session) => {
@@ -258,6 +411,10 @@ async function iniciarAutenticacao() {
     } else if (evento === "SIGNED_OUT") {
       usuarioAtual = null;
       location.reload();
+    } else if (evento === "PASSWORD_RECOVERY") {
+      // Usuário voltou pelo link do e-mail de recuperação de senha.
+      document.getElementById("modal-login").style.display = "flex";
+      mostrarPassoLogin("login-passo-nova-senha");
     }
   });
 }
