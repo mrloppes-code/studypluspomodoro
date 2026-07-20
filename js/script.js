@@ -5463,6 +5463,7 @@ const CHAVES_BACKUP = [
   "totalOvertimeGeralMinutos",
   "ultimaAuditoria",
   "ultimoNivelVisto",
+  "ultimoChangelogVisto",
 ];
 
 function exportarDados() {
@@ -5698,4 +5699,254 @@ window.addEventListener("appinstalled", () => {
   const btn = document.getElementById("btn-instalar-app");
   if (btn) btn.style.display = "none";
   eventoInstalacaoPwa = null;
+});
+
+// ============================================================
+// NOVIDADES E FUNCIONALIDADES (botão flutuante ✨)
+// ============================================================
+// Cada vez que uma leva de mudanças entra no app, adicione uma entrada
+// nova NO TOPO deste array. "versao" é só um identificador (pode ser
+// número, "16 jul", etc.) — o que importa é ser sempre um valor novo, pra
+// o app saber que tem novidade não vista ainda (compara com
+// "ultimoChangelogVisto" no localStorage).
+const CHANGELOG_ESTUDE_MAIS = [
+  {
+    versao: "1.13",
+    titulo: "Botão de Novidades",
+    itens: [
+      "Este painel aqui: um jeito rápido de ver tudo que o app faz e o que mudou recentemente.",
+    ],
+  },
+  {
+    versao: "1.12",
+    titulo: "Correções de modo foco e conta",
+    itens: [
+      "Corrigido: o relógio da tela cheia ficava desproporcional e com brilho exagerado em celulares e tablets.",
+      "Corrigido: os dados da conta anterior continuavam aparecendo depois de sair (logoff) — agora o aparelho volta pro modo convidado, limpo.",
+    ],
+  },
+  {
+    versao: "1.11",
+    titulo: "Simulados e evolução ao longo do tempo",
+    itens: [
+      "Registro de simulados e provas completas, separado das questões do dia a dia, com nota e histórico.",
+      "Gráfico de evolução: horas estudadas e % de acerto em questões, semana a semana.",
+      "Heatmap de produtividade por horário do dia — mostra em que horas você realmente rende mais.",
+    ],
+  },
+  {
+    versao: "1.10",
+    titulo: "App instalável (PWA)",
+    itens: [
+      "O Estude+ agora pode ser instalado na tela inicial do celular ou computador e funciona offline.",
+    ],
+  },
+  {
+    versao: "1.9",
+    titulo: "Revisão espaçada com SM-2",
+    itens: [
+      'Cada tópico do edital virou um "cartão" de revisão, no mesmo estilo do Anki — avalie como lembrou e o intervalo até a próxima revisão se ajusta sozinho.',
+    ],
+  },
+  {
+    versao: "1.8",
+    titulo: "Análises mais profundas",
+    itens: [
+      "Previsão de quando você termina o edital, no seu ritmo atual.",
+      "Comparação entre a semana atual e a anterior.",
+      "Exportar relatório de estudos em PDF.",
+    ],
+  },
+  {
+    versao: "1.7",
+    titulo: "Sub-tópicos e questões resolvidas",
+    itens: [
+      "Cada matéria agora pode ter uma checklist de tópicos do edital, com progresso.",
+      "Registro de questões resolvidas, com contagem de acerto.",
+    ],
+  },
+  {
+    versao: "1.6",
+    titulo: "Painel reorganizado em abas",
+    itens: [
+      "A página foi dividida em Foco, Matérias & Metas e Perfil, pra ficar menos poluída e mais fácil de navegar.",
+    ],
+  },
+  {
+    versao: "1.5",
+    titulo: "Login e sincronização em nuvem",
+    itens: [
+      "Login opcional por e-mail/senha ou Google, com recuperação de senha.",
+      "Seus dados passam a acompanhar você em qualquer aparelho em que entrar com a mesma conta.",
+    ],
+  },
+  {
+    versao: "1.4",
+    titulo: "Mais cores e peso das matérias com utilidade real",
+    itens: [
+      "Paleta de cores das matérias ampliada.",
+      "O peso (prioridade) da matéria agora ordena as listas e alimenta o preenchimento automático da Sessão Planejada.",
+    ],
+  },
+  {
+    versao: "1.3",
+    titulo: "Ajustes do tema claro",
+    itens: ["Diversas correções de contraste e legibilidade no tema claro."],
+  },
+  {
+    versao: "1.2",
+    titulo: "Tema claro/escuro",
+    itens: ["Alternância entre tema claro e escuro, salva por dispositivo."],
+  },
+  {
+    versao: "1.1",
+    titulo: "Sessão de Estudo Planejada",
+    itens: [
+      "Monte uma sequência de matérias e pomodoros com pausas automáticas configuradas de uma vez só.",
+    ],
+  },
+  {
+    versao: "1.0",
+    titulo: "Lançamento",
+    itens: [
+      "Pomodoro com foco, pausa e tela cheia; matérias, metas, tarefas, gamificação (XP, níveis, conquistas, sequência) e heatmap de constância.",
+    ],
+  },
+];
+
+// Lista de funcionalidades atuais do app, agrupadas por área — mostrada na
+// aba "Funcionalidades" do mesmo painel.
+const FUNCIONALIDADES_ESTUDE_MAIS = [
+  {
+    categoria: "⏱️ Foco",
+    itens: [
+      "Timer Pomodoro com foco, pausa automática, overtime e tela cheia imersiva",
+      "Sessão de Estudo Planejada: fila de matérias e pomodoros com pausas automáticas",
+      "Timer de preparação, sons ambiente e batidas binaurais",
+    ],
+  },
+  {
+    categoria: "📚 Matérias e Metas",
+    itens: [
+      "Matérias com cor, peso de prioridade e vínculo a uma meta",
+      "Sub-tópicos do edital por matéria, com progresso",
+      "Metas com data da prova e contagem regressiva",
+      "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
+      "Questões resolvidas e simulados/provas completas, com histórico",
+    ],
+  },
+  {
+    categoria: "📊 Análises",
+    itens: [
+      "Heatmap de constância (estilo GitHub) e calendário compacto",
+      "Gráfico de evolução ao longo do tempo (horas e % de acerto)",
+      "Heatmap de produtividade por horário do dia",
+      "Comparação entre a semana atual e a anterior",
+      "Previsão de conclusão do edital no ritmo atual",
+      "Exportar relatório de estudos em PDF",
+    ],
+  },
+  {
+    categoria: "🏆 Gamificação",
+    itens: [
+      "XP, níveis e conquistas desbloqueáveis",
+      "Sequência de dias seguidos de foco",
+      "Tarefas do dia a dia",
+    ],
+  },
+  {
+    categoria: "🔐 Conta",
+    itens: [
+      "Uso sem conta (dados só no aparelho) ou login por e-mail/Google",
+      "Sincronização entre dispositivos e recuperação de senha",
+      "App instalável (PWA), funciona offline",
+      "Backup manual (exportar/importar) e tema claro/escuro",
+    ],
+  },
+];
+
+function abrirModalNovidades() {
+  document.getElementById("modal-novidades").style.display = "flex";
+  mostrarAbaNovidades("changelog");
+  marcarChangelogComoVisto();
+}
+
+function fecharModalNovidades() {
+  document.getElementById("modal-novidades").style.display = "none";
+}
+
+// Fecha o modal quando o clique acontece na área escurecida ao redor (fora
+// do card), não quando é dentro do conteúdo — evita fechar sem querer ao
+// clicar em algo dentro do painel.
+function fecharModalNovidadesSeClicouFora(event) {
+  if (event.target.id === "modal-novidades") {
+    fecharModalNovidades();
+  }
+}
+
+function mostrarAbaNovidades(aba) {
+  const btnChangelog = document.getElementById("aba-novidades-changelog-btn");
+  const btnFuncoes = document.getElementById("aba-novidades-funcoes-btn");
+  const painelChangelog = document.getElementById("aba-novidades-changelog");
+  const painelFuncoes = document.getElementById("aba-novidades-funcoes");
+  if (!btnChangelog || !btnFuncoes || !painelChangelog || !painelFuncoes)
+    return;
+
+  const ehChangelog = aba === "changelog";
+  btnChangelog.classList.toggle("active", ehChangelog);
+  btnFuncoes.classList.toggle("active", !ehChangelog);
+  painelChangelog.style.display = ehChangelog ? "block" : "none";
+  painelFuncoes.style.display = ehChangelog ? "none" : "block";
+}
+
+function renderizarNovidades() {
+  const listaChangelog = document.getElementById("aba-novidades-changelog");
+  if (listaChangelog) {
+    listaChangelog.innerHTML = CHANGELOG_ESTUDE_MAIS.map(
+      (entrada) => `
+        <div class="changelog-entrada">
+          <div class="changelog-entrada-cabecalho">
+            <span class="changelog-versao">v${entrada.versao}</span>
+            <strong>${escapeHtml(entrada.titulo)}</strong>
+          </div>
+          <ul>
+            ${entrada.itens.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ul>
+        </div>
+      `,
+    ).join("");
+  }
+
+  const listaFuncoes = document.getElementById("aba-novidades-funcoes");
+  if (listaFuncoes) {
+    listaFuncoes.innerHTML = FUNCIONALIDADES_ESTUDE_MAIS.map(
+      (grupo) => `
+        <div class="funcionalidades-grupo">
+          <h3>${escapeHtml(grupo.categoria)}</h3>
+          <ul>
+            ${grupo.itens.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ul>
+        </div>
+      `,
+    ).join("");
+  }
+}
+
+function marcarChangelogComoVisto() {
+  localStorage.setItem("ultimoChangelogVisto", CHANGELOG_ESTUDE_MAIS[0].versao);
+  const bolinha = document.getElementById("btn-novidades-bolinha");
+  if (bolinha) bolinha.style.display = "none";
+}
+
+function atualizarBolinhaNovidades() {
+  const bolinha = document.getElementById("btn-novidades-bolinha");
+  if (!bolinha) return;
+  const ultimoVisto = localStorage.getItem("ultimoChangelogVisto");
+  const versaoMaisRecente = CHANGELOG_ESTUDE_MAIS[0].versao;
+  bolinha.style.display = ultimoVisto === versaoMaisRecente ? "none" : "block";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderizarNovidades();
+  atualizarBolinhaNovidades();
 });

@@ -358,6 +358,7 @@ async function fazerLogout() {
   if (!confirmado) return;
   await sincronizarParaNuvem(); // garante que a última alteração local subiu antes de sair
   await sb.auth.signOut();
+  // limparDadosLocaisDeConta() já roda no listener de SIGNED_OUT, logo abaixo.
 }
 
 // --- FLUXO PRINCIPAL ---
@@ -403,6 +404,8 @@ async function entrarComSessao(session) {
   renderizarTodoOPainel();
   renderizarTarefas();
   atualizarProgressoPomodoros();
+  if (typeof atualizarBolinhaNovidades === "function")
+    atualizarBolinhaNovidades();
 }
 
 async function iniciarAutenticacao() {

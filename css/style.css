@@ -1973,7 +1973,7 @@ body.modo-isolamento-ativo .app-header-main,
 body.modo-isolamento-ativo .app-nav,
 body.modo-isolamento-ativo .topo-info-container,
 body.modo-isolamento-ativo .coluna-lateral-pomo {
-  filter: blur(15px);
+  filter: blur(24px);
   opacity: 0.08;
   pointer-events: none;
   /* Força a renderização do blur numa camada própria da GPU. Sem isso,
@@ -2027,6 +2027,45 @@ body.modo-isolamento-ativo .timer {
   margin: 15px 0;
   color: var(--accent-text);
   text-shadow: 0 0 45px rgba(59, 130, 246, 0.5);
+}
+/* Em telas menores, o relógio de 11rem (176px) estourava a largura da
+   tela — o texto ficava maior que o viewport e o brilho (text-shadow) de
+   45px, que não acompanhava essa redução, passava a dominar visualmente
+   os números, dando a impressão de "desfocado". Reduzimos fonte e brilho
+   junto, proporcionalmente, pra tablets e celulares. */
+@media (max-width: 900px) {
+  body.modo-isolamento-ativo .timer {
+    font-size: 6.5rem;
+    text-shadow: 0 0 26px rgba(59, 130, 246, 0.5);
+  }
+  body.modo-isolamento-ativo .pomo-linha-top {
+    font-size: 1.35rem;
+  }
+  body.modo-isolamento-ativo .pomo-linha-sub {
+    font-size: 1.55rem;
+  }
+  body.modo-isolamento-ativo .pomodoro {
+    padding: 24px;
+  }
+}
+@media (max-width: 480px) {
+  body.modo-isolamento-ativo .timer {
+    font-size: 3.6rem;
+    text-shadow: 0 0 14px rgba(59, 130, 246, 0.45);
+  }
+  body.modo-isolamento-ativo .pomo-linha-top {
+    font-size: 1.05rem;
+  }
+  body.modo-isolamento-ativo .pomo-linha-sub {
+    font-size: 1.2rem;
+  }
+  body.modo-isolamento-ativo .pomodoro {
+    padding: 16px;
+    /* Usa a altura "dinâmica" de viewport quando o navegador suporta
+       (Safari/iOS mais novos) — evita que a barra de endereço do iPhone,
+       que aparece/some ao rolar, cause recorte ou distorção no layout. */
+    height: 100dvh;
+  }
 }
 body.modo-isolamento-ativo .selector-group,
 body.modo-isolamento-ativo .config-abas-container,
@@ -3559,4 +3598,129 @@ body.modo-isolamento-ativo .conta-usuario-badge {
     font-size: 0.85rem;
     padding: 10px 12px;
   }
+}
+
+/* ===== Botão flutuante de Novidades / Funcionalidades ===== */
+.btn-novidades {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 500;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+  border: none;
+  color: white;
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.btn-novidades:hover {
+  transform: scale(1.08);
+}
+.btn-novidades:active {
+  transform: scale(0.96);
+}
+.btn-novidades-bolinha {
+  display: none;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--bg-color);
+}
+body.modo-isolamento-ativo .btn-novidades {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-novidades {
+    bottom: 16px;
+    right: 16px;
+    width: 46px;
+    height: 46px;
+    font-size: 1.2rem;
+  }
+}
+
+/* ===== Modal de Novidades / Funcionalidades ===== */
+.modal-novidades-conteudo {
+  position: relative;
+  max-width: 560px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-novidades-corpo {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.changelog-entrada {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+}
+.changelog-entrada:first-child {
+  padding-top: 0;
+}
+.changelog-entrada:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.changelog-entrada-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.changelog-entrada-cabecalho strong {
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+.changelog-versao {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--accent-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.changelog-entrada ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.changelog-entrada li {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.funcionalidades-grupo {
+  margin-bottom: 16px;
+}
+.funcionalidades-grupo:last-child {
+  margin-bottom: 0;
+}
+.funcionalidades-grupo h3 {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  color: var(--accent-text);
+}
+.funcionalidades-grupo ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.funcionalidades-grupo li {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  line-height: 1.6;
 }

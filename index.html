@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=41" />
+    <link rel="stylesheet" href="css/style.css?v=44" />
   </head>
   <body>
     <button
@@ -85,7 +85,64 @@
       🔐 Entrar
     </button>
 
+    <!-- BOTÃO FLUTUANTE DE NOVIDADES / FUNCIONALIDADES -->
+    <button
+      type="button"
+      id="btn-novidades"
+      class="btn-novidades"
+      onclick="abrirModalNovidades()"
+      title="Novidades e funcionalidades do Estude+"
+    >
+      ✨
+      <span id="btn-novidades-bolinha" class="btn-novidades-bolinha"></span>
+    </button>
+
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- MODAL DE NOVIDADES / FUNCIONALIDADES -->
+    <div
+      id="modal-novidades"
+      class="modal-distracao"
+      onclick="fecharModalNovidadesSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-novidades-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalNovidades()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">✨ Estude+</h2>
+
+        <div class="analise-periodo-toggle" style="margin-bottom: 16px">
+          <button
+            type="button"
+            id="aba-novidades-changelog-btn"
+            class="active"
+            onclick="mostrarAbaNovidades('changelog')"
+          >
+            🆕 Novidades
+          </button>
+          <button
+            type="button"
+            id="aba-novidades-funcoes-btn"
+            onclick="mostrarAbaNovidades('funcoes')"
+          >
+            🧩 Funcionalidades
+          </button>
+        </div>
+
+        <div id="aba-novidades-changelog" class="modal-novidades-corpo"></div>
+        <div
+          id="aba-novidades-funcoes"
+          class="modal-novidades-corpo"
+          style="display: none"
+        ></div>
+      </div>
+    </div>
 
     <!-- MODAL DE LOGIN / CADASTRO / RECUPERAÇÃO DE SENHA -->
     <div id="modal-login" class="modal-distracao">
@@ -2081,8 +2138,8 @@ Licitações e Contratos"
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=3"></script>
-    <script src="js/script.js?v=33"></script>
+    <script src="js/auth-sync.js?v=4"></script>
+    <script src="js/script.js?v=35"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
