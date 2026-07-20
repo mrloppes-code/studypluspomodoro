@@ -2412,6 +2412,7 @@ function renderizarRevisaoPendente() {
             <div class="revisao-info">
               <span class="revisao-nome">${escapeHtml(topico.nome)}</span>
               <span class="revisao-dias">${escapeHtml(materia.nome)} · ${rotuloAtraso}</span>
+              ${topico.nota ? `<span class="revisao-nota">📝 ${escapeHtml(topico.nota)}</span>` : ""}
             </div>
             <div class="revisao-avaliacao">
               <button type="button" class="revisao-btn-sm2 revisao-btn-ruim" title="Não lembrei" onclick="avaliarRevisaoTopico('${topico.id}', 0)">😵</button>
@@ -2799,11 +2800,20 @@ function renderizarTopicosEdicao() {
     .map(
       (t) => `
     <div class="edit-topico-item">
-      <label>
-        <input type="checkbox" ${t.concluido ? "checked" : ""} onchange="alternarTopicoMateria('${t.id}')" />
-        <span class="${t.concluido ? "edit-topico-concluido" : ""}">${escapeHtml(t.nome)}</span>
-      </label>
-      <button type="button" onclick="removerTopicoMateria('${t.id}')" title="Remover tópico">✕</button>
+      <div class="edit-topico-linha-topo">
+        <label>
+          <input type="checkbox" ${t.concluido ? "checked" : ""} onchange="alternarTopicoMateria('${t.id}')" />
+          <span class="${t.concluido ? "edit-topico-concluido" : ""}">${escapeHtml(t.nome)}</span>
+        </label>
+        <button type="button" onclick="removerTopicoMateria('${t.id}')" title="Remover tópico">✕</button>
+      </div>
+      <input
+        type="text"
+        class="edit-topico-nota-input"
+        placeholder="📝 O que errei / o que revisar (opcional)"
+        value="${escapeHtml(t.nota || "")}"
+        onchange="salvarNotaTopico('${t.id}', this.value)"
+      />
     </div>
   `,
     )
@@ -2832,6 +2842,81 @@ function adicionarTopicoMateria(event) {
 
   input.value = "";
   renderizarTopicosEdicao();
+}
+
+// Cola uma lista de tópicos (um por linha, ex: colado direto do edital em
+// PDF) e cadastra todos de uma vez, ignorando linhas em branco e tópicos
+// cujo nome já existe nessa matéria (não faz sentido duplicado).
+function importarTopicosEmLote(event) {
+  if (event) event.preventDefault();
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  if (!m) return;
+
+  const textarea = document.getElementById("edit-topicos-lote");
+  const linhas = textarea.value
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (linhas.length === 0) {
+    alert("Cole ao menos um tópico, um por linha.");
+    return;
+  }
+
+  if (!m.topicos) m.topicos = [];
+  const nomesExistentes = new Set(
+    m.topicos.map((t) => t.nome.trim().toLowerCase()),
+  );
+  const vistosNesseLote = new Set();
+
+  let adicionados = 0;
+  let ignorados = 0;
+
+  linhas.forEach((linha, i) => {
+    const chave = linha.toLowerCase();
+    if (nomesExistentes.has(chave) || vistosNesseLote.has(chave)) {
+      ignorados++;
+      return;
+    }
+    vistosNesseLote.add(chave);
+    m.topicos.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i,
+      nome: linha,
+      concluido: false,
+    });
+    adicionados++;
+  });
+
+  localStorage.setItem("materias", JSON.stringify(materias));
+  textarea.value = "";
+  renderizarTopicosEdicao();
+
+  let msg = `${adicionados} tópico${adicionados === 1 ? "" : "s"} importado${adicionados === 1 ? "" : "s"}.`;
+  if (ignorados > 0) {
+    msg += ` ${ignorados} repetido${ignorados === 1 ? "" : "s"} ${ignorados === 1 ? "foi ignorado" : "foram ignorados"} (já existia${ignorados === 1 ? "" : "m"} nessa matéria).`;
+  }
+  alert(msg);
+}
+
+// Anotação rápida do que errar/revisar naquele tópico específico. Aparece
+// de novo junto com ele quando volta pra fila de revisão espaçada, pra
+// lembrar exatamente o que prestar atenção dessa vez.
+function salvarNotaTopico(topicoId, valor) {
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  if (!m || !m.topicos) return;
+
+  const topico = m.topicos.find((t) => t.id === topicoId);
+  if (!topico) return;
+
+  topico.nota = valor.trim();
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  // Atualiza a revisão pendente em segundo plano (sem re-renderizar a
+  // própria lista de tópicos do modal, senão o campo perderia o foco
+  // enquanto a pessoa ainda está digitando/navegando entre campos).
+  renderizarRevisaoPendente();
 }
 
 function alternarTopicoMateria(topicoId) {
@@ -3338,6 +3423,139 @@ function renderizarRitmoSugerido() {
         </div>
       `;
     })
+    .join("");
+}
+
+// --- "O QUE EU FAÇO AGORA?" (cruza revisão pendente + ritmo + questões) ---
+// Junta os 3 cards de estatística num único veredito objetivo, pra não
+// precisar juntar as peças olhando cada card separado. Prioridade:
+// 1) revisão de tópicos vencidos (o que mais rápido se perde se ignorado)
+// 2) ponto fraco em questões (com amostra mínima, pra não julgar por 1-2
+//    questões isoladas)
+// 3) ritmo mais urgente que ainda não apareceu nos itens acima
+function calcularRecomendacaoHoje() {
+  const acoes = [];
+  const nomesJaRecomendados = new Set();
+
+  // 1) Tópicos vencidos, agrupados por matéria — pega a mais urgente
+  // (mais tópicos vencidos; empate desempata pelo maior atraso).
+  const topicosDevidos = calcularTopicosParaRevisar();
+  if (topicosDevidos.length > 0) {
+    const porMateria = {};
+    topicosDevidos.forEach(({ materia, diasAtraso }) => {
+      if (!porMateria[materia.nome]) {
+        porMateria[materia.nome] = { materia, quantidade: 0, maiorAtraso: 0 };
+      }
+      porMateria[materia.nome].quantidade += 1;
+      porMateria[materia.nome].maiorAtraso = Math.max(
+        porMateria[materia.nome].maiorAtraso,
+        diasAtraso,
+      );
+    });
+    const topMateria = Object.values(porMateria).sort(
+      (a, b) => b.quantidade - a.quantidade || b.maiorAtraso - a.maiorAtraso,
+    )[0];
+
+    acoes.push({
+      icone: "🔁",
+      cor: topMateria.materia.cor || "#64748b",
+      texto: `Revisar ${topMateria.quantidade} tópico${topMateria.quantidade === 1 ? "" : "s"} de ${escapeHtml(topMateria.materia.nome)}`,
+    });
+    nomesJaRecomendados.add(topMateria.materia.nome);
+  }
+
+  // 2) Ponto fraco em questões — pior % de acerto, exigindo pelo menos 5
+  // questões registradas pra entrar na conta (amostra mínima).
+  const filtro = obterMetaFiltroAtiva();
+  const nomesFiltro = filtro
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const registrosValidos = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+
+  const porMateriaQuestoes = {};
+  registrosValidos.forEach((r) => {
+    if (!porMateriaQuestoes[r.materia]) {
+      porMateriaQuestoes[r.materia] = { total: 0, acertos: 0 };
+    }
+    porMateriaQuestoes[r.materia].total += r.total;
+    porMateriaQuestoes[r.materia].acertos += r.acertos;
+  });
+
+  let piorMateria = null;
+  Object.keys(porMateriaQuestoes).forEach((nome) => {
+    const dados = porMateriaQuestoes[nome];
+    if (dados.total < 5) return;
+    const pct = (dados.acertos / dados.total) * 100;
+    if (!piorMateria || pct < piorMateria.pct) {
+      piorMateria = { nome, pct: Math.round(pct) };
+    }
+  });
+
+  if (piorMateria && piorMateria.pct < 70) {
+    const materiaObj = materias.find((m) => m.nome === piorMateria.nome);
+    acoes.push({
+      icone: "🎯",
+      cor: (materiaObj && materiaObj.cor) || "#64748b",
+      texto: `Fazer questões de ${escapeHtml(piorMateria.nome)} (${piorMateria.pct}% de acerto até agora)`,
+    });
+    nomesJaRecomendados.add(piorMateria.nome);
+  }
+
+  // 3) Ritmo mais urgente que ainda não entrou nas recomendações acima —
+  // só entra se o esforço sugerido for relevante (>= 10 min/dia).
+  const ritmo = calcularRitmoSugerido();
+  const proximoRitmo = ritmo.find(
+    (item) =>
+      !nomesJaRecomendados.has(item.materia.nome) && item.minutosPorDia >= 10,
+  );
+  if (proximoRitmo) {
+    acoes.push({
+      icone: "⏳",
+      cor: proximoRitmo.materia.cor || "#64748b",
+      texto: `Estudar ${formatarHorasMinutos(Math.round(proximoRitmo.minutosPorDia))} de ${escapeHtml(proximoRitmo.materia.nome)} hoje (prova em ${proximoRitmo.diasRestantes} dia${proximoRitmo.diasRestantes === 1 ? "" : "s"})`,
+    });
+  }
+
+  return acoes;
+}
+
+function renderizarRecomendacaoHoje() {
+  const card = document.getElementById("card-recomendacao-hoje");
+  const lista = document.getElementById("recomendacao-hoje-lista");
+  if (!card || !lista) return;
+
+  // Sem nenhum dado ainda (app recém-começado), não tem base pra
+  // recomendar nada — o card só aparece depois que existe algum uso real.
+  const semDadosSuficientes =
+    materias.length === 0 ||
+    (logsSessoes.length === 0 && registrosQuestoes.length === 0);
+
+  if (semDadosSuficientes) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const acoes = calcularRecomendacaoHoje();
+
+  if (acoes.length === 0) {
+    lista.innerHTML =
+      '<p class="recomendacao-vazia">Tudo em dia por aqui! Nenhuma revisão pendente nem urgência de ritmo agora — bom momento pra avançar em algo novo do edital. 🎉</p>';
+    return;
+  }
+
+  lista.innerHTML = acoes
+    .map(
+      (acao) => `
+      <div class="recomendacao-item">
+        <span class="recomendacao-dot" style="background:${acao.cor}"></span>
+        <span class="recomendacao-icone">${acao.icone}</span>
+        <span class="recomendacao-texto">${acao.texto}</span>
+      </div>
+    `,
+    )
     .join("");
 }
 
@@ -4026,6 +4244,7 @@ function renderizarTodoOPainel() {
   renderizarRitmoSugerido();
   renderizarEvolucaoTemporal();
   renderizarHeatmapHorario();
+  renderizarRecomendacaoHoje();
 }
 
 // Inicialização do formulário de cadastro de matéria (estrelas + swatches)

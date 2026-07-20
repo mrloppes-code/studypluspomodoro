@@ -2775,14 +2775,19 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 .edit-topico-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding: 7px 0;
   border-bottom: 1px solid var(--border);
 }
 .edit-topico-item:last-child {
   border-bottom: none;
+}
+.edit-topico-linha-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .edit-topico-item label {
   display: flex;
@@ -2816,6 +2821,57 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 .edit-topico-item button:hover {
   color: var(--danger);
+}
+.edit-topico-nota-input {
+  margin: 0 0 0 26px;
+  font-size: 0.78rem;
+  padding: 5px 8px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-main);
+  width: calc(100% - 26px);
+}
+.edit-topico-nota-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Importação em lote de tópicos (colar lista) */
+.edit-topicos-lote-bloco {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+.edit-topicos-lote-bloco summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  list-style: none;
+}
+.edit-topicos-lote-bloco summary::-webkit-details-marker {
+  display: none;
+}
+.edit-topicos-lote-bloco textarea {
+  width: 100%;
+  min-height: 100px;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+.btn-importar-lote {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  margin-bottom: 10px;
+}
+.btn-importar-lote:hover {
+  opacity: 0.9;
 }
 
 /* Progresso de tópicos exibido na lista "Matérias cadastradas" */
@@ -2864,6 +2920,13 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 .revisao-dias {
   font-size: 0.78rem;
   color: var(--warning);
+}
+.revisao-nota {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 2px;
 }
 .revisao-btn-estudar {
   background: var(--primary);
@@ -3445,5 +3508,55 @@ body.modo-isolamento-ativo .conta-usuario-badge {
     align-items: center;
     text-align: left;
     width: 100%;
+  }
+}
+
+/* ============================================================
+   "O QUE EU FAÇO AGORA?" — recomendação do dia no topo do painel
+   ============================================================ */
+.card-recomendacao-hoje {
+  max-width: 1100px;
+  margin: 0 auto 20px auto;
+}
+.recomendacao-hoje-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.recomendacao-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+.recomendacao-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.recomendacao-icone {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.recomendacao-texto {
+  flex: 1;
+}
+.recomendacao-vazia {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+@media (max-width: 480px) {
+  .recomendacao-item {
+    font-size: 0.85rem;
+    padding: 10px 12px;
   }
 }

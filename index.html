@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=39" />
+    <link rel="stylesheet" href="css/style.css?v=41" />
   </head>
   <body>
     <button
@@ -662,6 +662,18 @@
             🔥 Sequência:
             <span class="numero" id="streak-contador-val">0 dias</span>
           </button>
+        </div>
+
+        <div
+          class="card card-recomendacao-hoje"
+          id="card-recomendacao-hoje"
+          style="display: none"
+        >
+          <h2>🧭 O Que Eu Faço Agora?</h2>
+          <div
+            id="recomendacao-hoje-lista"
+            class="recomendacao-hoje-lista"
+          ></div>
         </div>
 
         <div class="secao-topo-pomo">
@@ -1518,6 +1530,33 @@
                   + Adicionar
                 </button>
               </div>
+
+              <details class="edit-topicos-lote-bloco">
+                <summary>
+                  📋 Importar vários tópicos de uma vez (colar lista)
+                </summary>
+                <p class="campo-ajuda">
+                  Cole os tópicos do edital, um por linha. Tópicos com o mesmo
+                  nome de um já cadastrado são ignorados automaticamente.
+                </p>
+                <textarea
+                  id="edit-topicos-lote"
+                  rows="5"
+                  placeholder="Ex:
+Princípios da Administração Pública
+Poderes Administrativos
+Atos Administrativos
+Licitações e Contratos"
+                ></textarea>
+                <button
+                  type="button"
+                  class="btn-importar-lote"
+                  onclick="importarTopicosEmLote(event)"
+                >
+                  Importar Lista
+                </button>
+              </details>
+
               <div class="edit-topicos-lista" id="edit-topicos-lista"></div>
 
               <div style="display: flex; gap: 10px; margin-top: 16px">
@@ -2043,7 +2082,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=3"></script>
-    <script src="js/script.js?v=32"></script>
+    <script src="js/script.js?v=33"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
