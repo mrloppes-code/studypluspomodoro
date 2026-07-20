@@ -2,7 +2,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Estude+ - Painel de Estudos</title>
 
     <!-- PWA: instalação como app + ícones -->
@@ -26,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=35" />
+    <link rel="stylesheet" href="css/style.css?v=39" />
   </head>
   <body>
     <button
@@ -1403,6 +1406,65 @@
             ></div>
           </div>
 
+          <!-- SIMULADOS E PROVAS COMPLETAS -->
+          <div class="card">
+            <h2>🎓 Simulados e Provas</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Separado das questões do dia a dia — cada simulado completo fica
+              registrado aqui, com a nota, pra você acompanhar sua evolução
+              prova a prova.
+            </p>
+            <form id="form-simulado" onsubmit="registrarSimulado(event)">
+              <label for="simulado-nome">Nome do simulado:</label>
+              <input
+                type="text"
+                id="simulado-nome"
+                maxlength="80"
+                placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
+                required
+              />
+
+              <label for="simulado-meta"
+                >Vincular a uma prova (opcional):</label
+              >
+              <select id="simulado-meta">
+                <option value="">Sem prova vinculada</option>
+              </select>
+
+              <div class="questoes-form-linha">
+                <div>
+                  <label for="simulado-total">Total de questões:</label>
+                  <input type="number" id="simulado-total" min="1" required />
+                </div>
+                <div>
+                  <label for="simulado-acertos">Acertos:</label>
+                  <input type="number" id="simulado-acertos" min="0" required />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                  margin-top: 12px;
+                "
+              >
+                Registrar Simulado
+              </button>
+            </form>
+
+            <div
+              id="simulados-lista-recente"
+              class="questoes-lista-recente"
+            ></div>
+          </div>
+
           <!-- MODAL EDITAR MATÉRIA -->
           <div id="modal-editar-materia" class="modal-distracao">
             <div class="modal-conteudo modal-pausa-conteudo">
@@ -1580,6 +1642,44 @@
             <h2>📋 Registro de Metas Fixadas</h2>
             <div id="lista-materias"></div>
           </div>
+
+          <!-- EVOLUÇÃO AO LONGO DO TEMPO -->
+          <div
+            class="card full-width"
+            id="card-evolucao-temporal"
+            style="display: none"
+          >
+            <h2>📈 Evolução ao Longo do Tempo</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Horas estudadas e % de acerto em questões, semana a semana —
+              últimas 8 semanas.
+            </p>
+            <div class="chart-wrapper">
+              <canvas id="chartEvolucaoTemporal"></canvas>
+            </div>
+          </div>
+
+          <!-- HEATMAP DE PRODUTIVIDADE POR HORÁRIO -->
+          <div
+            class="card full-width"
+            id="card-heatmap-horario"
+            style="display: none"
+          >
+            <h2>🕐 Produtividade por Horário do Dia</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 10px"
+            >
+              Soma de todos os minutos estudados em cada horário, ao longo de
+              todo o histórico — mostra em que hora do dia você realmente rende
+              mais.
+            </p>
+            <div class="heatmap-horario-grade" id="heatmap-horario-grade"></div>
+            <p id="heatmap-horario-resumo" class="heatmap-horario-resumo"></p>
+          </div>
         </div>
       </div>
       <!-- fecha #pagina-estudos -->
@@ -1589,7 +1689,35 @@
         <div class="perfil-container">
           <div class="card">
             <div class="perfil-header">
-              <div class="perfil-avatar" id="avatar-letras">U</div>
+              <div class="perfil-avatar-bloco">
+                <div class="perfil-avatar" id="perfil-avatar-wrapper">
+                  <span id="avatar-letras">U</span>
+                  <img
+                    id="avatar-foto"
+                    alt="Foto de perfil"
+                    style="display: none"
+                  />
+                </div>
+                <label class="btn-trocar-foto" for="input-foto-perfil"
+                  >📷 Trocar foto</label
+                >
+                <input
+                  type="file"
+                  id="input-foto-perfil"
+                  accept="image/*"
+                  style="display: none"
+                  onchange="selecionarFotoPerfil(event)"
+                />
+                <button
+                  type="button"
+                  class="btn-remover-foto"
+                  id="btn-remover-foto-perfil"
+                  onclick="removerFotoPerfil()"
+                  style="display: none"
+                >
+                  Remover foto
+                </button>
+              </div>
               <div class="perfil-detalhes">
                 <div class="perfil-nome-linha">
                   <h3 id="lbl-nome-usuario">Estudante</h3>
@@ -1914,8 +2042,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=2"></script>
-    <script src="js/script.js?v=30"></script>
+    <script src="js/auth-sync.js?v=3"></script>
+    <script src="js/script.js?v=32"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

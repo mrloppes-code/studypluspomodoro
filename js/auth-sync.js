@@ -55,6 +55,18 @@ function aplicarDadosDaNuvem(dados) {
   });
 }
 
+// Algumas chaves locais representam a conta (matérias, metas, histórico,
+// perfil, preferências...) e são apagadas quando o usuário sai — sem isso,
+// o aparelho continuava mostrando os dados de quem acabou de deslogar em
+// vez de voltar a um estado limpo de "convidado". Como fazerLogout() já
+// sincroniza com a nuvem antes de sair, nada se perde: é só entrar de novo
+// na mesma conta pra tudo voltar.
+function limparDadosLocaisDeConta() {
+  obterChavesSincronizaveis().forEach((chave) => {
+    localStorage.removeItem(chave);
+  });
+}
+
 // Um jeito simples de saber se já existe progresso real neste aparelho
 // (usado como convidado, sem login) antes de decidir se entra em conflito
 // com dados que já existirem na nuvem daquela conta.
@@ -411,6 +423,7 @@ async function iniciarAutenticacao() {
       entrarComSessao(session);
     } else if (evento === "SIGNED_OUT") {
       usuarioAtual = null;
+      limparDadosLocaisDeConta();
       location.reload();
     } else if (evento === "PASSWORD_RECOVERY") {
       // Usuário voltou pelo link do e-mail de recuperação de senha.

@@ -12,6 +12,10 @@ let dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
 };
 let totalOvertimeGeralMinutos =
   parseInt(localStorage.getItem("totalOvertimeGeralMinutos")) || 0;
+// Foto de perfil (opcional): guardada já redimensionada e comprimida em
+// base64, pra caber tranquilo no localStorage e ser sincronizada com a
+// nuvem sem pesar. null = sem foto, usa as iniciais do nome.
+let fotoPerfilBase64 = localStorage.getItem("fotoPerfilBase64") || null;
 let bancoDistracoes = JSON.parse(localStorage.getItem("bancoDistracoes")) || {
   Celular: 0,
   Filhos: 0,
@@ -1827,6 +1831,87 @@ function carregarDadosPerfil() {
 
   let inc = dadosPerfil.nome.substring(0, 2).toUpperCase();
   document.getElementById("avatar-letras").innerText = inc || "ST";
+  aplicarFotoPerfilNaTela();
+}
+
+// --- FOTO DE PERFIL ---
+// Lê o arquivo escolhido, recorta um quadrado central e redimensiona pra
+// 256x256 antes de salvar — assim a imagem fica leve o bastante pra caber
+// no localStorage e ser sincronizada com a nuvem sem pesar, não importa
+// quão grande era a foto original.
+function selecionarFotoPerfil(event) {
+  const arquivo = event.target.files && event.target.files[0];
+  if (!arquivo) return;
+
+  if (!arquivo.type.startsWith("image/")) {
+    alert("Escolha um arquivo de imagem (JPG, PNG, etc.).");
+    event.target.value = "";
+    return;
+  }
+
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const TAMANHO = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width = TAMANHO;
+      canvas.height = TAMANHO;
+      const ctx = canvas.getContext("2d");
+
+      const lado = Math.min(img.width, img.height);
+      const origemX = (img.width - lado) / 2;
+      const origemY = (img.height - lado) / 2;
+      ctx.drawImage(img, origemX, origemY, lado, lado, 0, 0, TAMANHO, TAMANHO);
+
+      fotoPerfilBase64 = canvas.toDataURL("image/jpeg", 0.85);
+      localStorage.setItem("fotoPerfilBase64", fotoPerfilBase64);
+      aplicarFotoPerfilNaTela();
+    };
+    img.onerror = () => {
+      alert("Não consegui abrir essa imagem. Tente outro arquivo.");
+    };
+    img.src = leitor.result;
+  };
+  leitor.onerror = () => {
+    alert("Não consegui ler esse arquivo. Tente novamente.");
+  };
+  leitor.readAsDataURL(arquivo);
+
+  // Permite escolher o mesmo arquivo de novo depois (ex: trocar, remover,
+  // trocar pela mesma foto original) sem o navegador ignorar por já ter
+  // sido "selecionado" antes.
+  event.target.value = "";
+}
+
+function removerFotoPerfil() {
+  const confirmado = confirm(
+    "Remover a foto de perfil e voltar a mostrar as iniciais do nome?",
+  );
+  if (!confirmado) return;
+
+  fotoPerfilBase64 = null;
+  localStorage.removeItem("fotoPerfilBase64");
+  aplicarFotoPerfilNaTela();
+}
+
+function aplicarFotoPerfilNaTela() {
+  const img = document.getElementById("avatar-foto");
+  const letras = document.getElementById("avatar-letras");
+  const btnRemover = document.getElementById("btn-remover-foto-perfil");
+  if (!img || !letras) return;
+
+  if (fotoPerfilBase64) {
+    img.src = fotoPerfilBase64;
+    img.style.display = "block";
+    letras.style.display = "none";
+    if (btnRemover) btnRemover.style.display = "inline-block";
+  } else {
+    img.style.display = "none";
+    img.removeAttribute("src");
+    letras.style.display = "block";
+    if (btnRemover) btnRemover.style.display = "none";
+  }
 }
 
 function calcularEMostrarEstatisticas() {
@@ -2519,6 +2604,128 @@ function renderizarQuestoesResolvidas() {
     .join("");
 }
 
+// --- SIMULADOS E PROVAS COMPLETAS ---
+// Separado das "questões do dia a dia" (registrosQuestoes) de propósito:
+// um simulado é um evento só, com nota final, que faz sentido acompanhar
+// como uma série própria ao longo do tempo — não misturado com questões
+// avulsas resolvidas estudando.
+function registrarSimulado(event) {
+  event.preventDefault();
+
+  const nome = document.getElementById("simulado-nome").value.trim();
+  const metaVinculada = document.getElementById("simulado-meta").value;
+  const total = parseInt(document.getElementById("simulado-total").value, 10);
+  const acertos = parseInt(
+    document.getElementById("simulado-acertos").value,
+    10,
+  );
+
+  if (!nome) {
+    alert(
+      "Dê um nome pro simulado (ex: 'Simulado SEDES 2026 - 2ª aplicação').",
+    );
+    return;
+  }
+  if (!total || total <= 0) {
+    alert("Informe o total de questões do simulado (maior que zero).");
+    return;
+  }
+  if (isNaN(acertos) || acertos < 0) {
+    alert("Informe quantas você acertou (0 ou mais).");
+    return;
+  }
+  if (acertos > total) {
+    alert("Acertos não pode ser maior que o total de questões.");
+    return;
+  }
+
+  registrosSimulados.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    data: obterDataLocalString(new Date()),
+    nome,
+    metaVinculada: metaVinculada || null,
+    total,
+    acertos,
+  });
+  localStorage.setItem(
+    "registrosSimulados",
+    JSON.stringify(registrosSimulados),
+  );
+
+  document.getElementById("form-simulado").reset();
+  const pct = Math.round((acertos / total) * 100);
+  mostrarToastGamificacao(
+    "🎓",
+    "Simulado registrado",
+    `${nome}: ${pct}% de acerto`,
+  );
+  renderizarSimulados();
+}
+
+function excluirRegistroSimulado(id) {
+  registrosSimulados = registrosSimulados.filter((r) => r.id !== id);
+  localStorage.setItem(
+    "registrosSimulados",
+    JSON.stringify(registrosSimulados),
+  );
+  renderizarSimulados();
+}
+
+function renderizarSimulados() {
+  const seletorMeta = document.getElementById("simulado-meta");
+  if (seletorMeta) {
+    const valorAtual = seletorMeta.value;
+    seletorMeta.innerHTML = '<option value="">Sem prova vinculada</option>';
+    metas.forEach((m) => {
+      seletorMeta.innerHTML += `<option value="${escapeHtml(m.objetivoNome)}">${escapeHtml(m.objetivoNome)}</option>`;
+    });
+    if ([...seletorMeta.options].some((o) => o.value === valorAtual)) {
+      seletorMeta.value = valorAtual;
+    }
+  }
+
+  const lista = document.getElementById("simulados-lista-recente");
+  if (!lista) return;
+
+  const ordenados = [...registrosSimulados].sort((a, b) =>
+    a.data < b.data ? 1 : -1,
+  );
+
+  if (ordenados.length === 0) {
+    lista.innerHTML =
+      '<p class="sessoes-hoje-vazio">Nenhum simulado registrado ainda.</p>';
+    return;
+  }
+
+  // Nota média geral, pra dar um resumo rápido no topo da lista.
+  const totalGeral = registrosSimulados.reduce((s, r) => s + r.total, 0);
+  const acertosGeral = registrosSimulados.reduce((s, r) => s + r.acertos, 0);
+  const mediaGeralHtml =
+    totalGeral > 0
+      ? `<div class="simulados-media-geral">Média geral: <strong>${Math.round((acertosGeral / totalGeral) * 100)}%</strong> em ${registrosSimulados.length} simulado(s)</div>`
+      : "";
+
+  lista.innerHTML =
+    mediaGeralHtml +
+    ordenados
+      .map((r) => {
+        const pct = Math.round((r.acertos / r.total) * 100);
+        const vinculo = r.metaVinculada
+          ? `🎯 ${escapeHtml(r.metaVinculada)}`
+          : "Sem prova vinculada";
+        return `
+        <div class="simulados-item">
+          <div class="simulados-item-info">
+            <span class="simulados-item-nome">${escapeHtml(r.nome)}</span>
+            <span class="simulados-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${vinculo} · ${r.data.split("-").reverse().join("/")}</span>
+          </div>
+          <button type="button" onclick="excluirRegistroSimulado('${r.id}')" title="Excluir registro">✕</button>
+        </div>
+      `;
+      })
+      .join("");
+}
+
 function abrirModalEditarMateria(indice) {
   const m = materias[indice];
   if (!m) return;
@@ -3134,6 +3341,213 @@ function renderizarRitmoSugerido() {
     .join("");
 }
 
+// --- EVOLUÇÃO AO LONGO DO TEMPO (linha: horas/semana + % acerto/semana) ---
+let graficoEvolucaoTemporal = null;
+
+function calcularEvolucaoSemanal(numSemanas) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const semanas = [];
+
+  for (let i = numSemanas - 1; i >= 0; i--) {
+    const fimSemana = somarDias(hoje, -7 * i);
+    const inicioSemana = somarDias(fimSemana, -6);
+    const inicioStr = obterDataLocalString(inicioSemana);
+    const fimStr = obterDataLocalString(fimSemana);
+
+    const sessoesSemana = logsSessoes.filter(
+      (l) => l.data >= inicioStr && l.data <= fimStr,
+    );
+    const minutos = sessoesSemana.reduce((s, l) => s + l.duracao, 0);
+
+    const questoesSemana = registrosQuestoes.filter(
+      (r) => r.data >= inicioStr && r.data <= fimStr,
+    );
+    const totalQuestoes = questoesSemana.reduce((s, r) => s + r.total, 0);
+    const acertosQuestoes = questoesSemana.reduce((s, r) => s + r.acertos, 0);
+    const pctAcerto =
+      totalQuestoes > 0
+        ? Math.round((acertosQuestoes / totalQuestoes) * 100)
+        : null;
+
+    semanas.push({
+      label: `${inicioSemana.getDate()}/${inicioSemana.getMonth() + 1}`,
+      minutos,
+      pctAcerto,
+    });
+  }
+
+  return semanas;
+}
+
+function renderizarEvolucaoTemporal() {
+  const card = document.getElementById("card-evolucao-temporal");
+  const canvas = document.getElementById("chartEvolucaoTemporal");
+  if (!card || !canvas) return;
+
+  const semanas = calcularEvolucaoSemanal(8);
+  const temAlgumDado = semanas.some(
+    (s) => s.minutos > 0 || s.pctAcerto !== null,
+  );
+
+  if (!temAlgumDado) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  if (graficoEvolucaoTemporal) {
+    graficoEvolucaoTemporal.destroy();
+    graficoEvolucaoTemporal = null;
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  graficoEvolucaoTemporal = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: {
+      labels: semanas.map((s) => s.label),
+      datasets: [
+        {
+          label: "Horas estudadas",
+          data: semanas.map((s) => Math.round((s.minutos / 60) * 10) / 10),
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59,130,246,0.15)",
+          yAxisID: "y",
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: "% Acerto em questões",
+          data: semanas.map((s) => s.pctAcerto),
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16,185,129,0.15)",
+          yAxisID: "y1",
+          tension: 0.3,
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        y: {
+          position: "left",
+          min: 0,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}h`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        y1: {
+          position: "right",
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { display: false },
+        },
+        x: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMuted,
+            font: { family: fonteApp, size: 12 },
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) =>
+              ctx.dataset.yAxisID === "y1"
+                ? ` ${ctx.dataset.label}: ${ctx.parsed.y === null ? "sem dado" : ctx.parsed.y + "%"}`
+                : ` ${ctx.dataset.label}: ${ctx.parsed.y}h`,
+          },
+        },
+      },
+    },
+  });
+}
+
+// --- HEATMAP DE PRODUTIVIDADE POR HORÁRIO DO DIA ---
+// Cada sessão já guarda a hora em que aconteceu (campo "hora"), então é só
+// somar os minutos estudados por hora do dia (0h a 23h) e colorir com a
+// mesma escala do heatmap de dias (lvl-1 a lvl-4) já usada no app.
+function calcularProdutividadePorHorario() {
+  const minutosPorHora = Array(24).fill(0);
+  logsSessoes.forEach((log) => {
+    if (!log.hora) return;
+    const h = parseInt(log.hora.split(":")[0], 10);
+    if (isNaN(h) || h < 0 || h > 23) return;
+    minutosPorHora[h] += log.duracao || 0;
+  });
+  return minutosPorHora;
+}
+
+function renderizarHeatmapHorario() {
+  const card = document.getElementById("card-heatmap-horario");
+  const grade = document.getElementById("heatmap-horario-grade");
+  const resumoEl = document.getElementById("heatmap-horario-resumo");
+  if (!card || !grade) return;
+
+  const minutosPorHora = calcularProdutividadePorHorario();
+  const totalMinutos = minutosPorHora.reduce((a, b) => a + b, 0);
+
+  if (totalMinutos === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const maxMinutos = Math.max(...minutosPorHora);
+  const horaPico = minutosPorHora.indexOf(maxMinutos);
+
+  grade.innerHTML = minutosPorHora
+    .map((min, h) => {
+      const intensidade = maxMinutos > 0 ? min / maxMinutos : 0;
+      let nivel = "lvl-0";
+      if (intensidade > 0) nivel = "lvl-1";
+      if (intensidade > 0.35) nivel = "lvl-2";
+      if (intensidade > 0.65) nivel = "lvl-3";
+      if (intensidade > 0.85) nivel = "lvl-4";
+
+      const horaFmt = String(h).padStart(2, "0") + "h";
+      const tempoFmt = min > 0 ? formatarHorasMinutos(min) : "sem registros";
+      const mostraRotulo = h % 3 === 0;
+
+      return `
+        <div class="heatmap-horario-coluna">
+          <div class="heatmap-horario-celula ${nivel}" title="${horaFmt}: ${tempoFmt}"></div>
+          ${mostraRotulo ? `<span class="heatmap-horario-label">${h}h</span>` : ""}
+        </div>
+      `;
+    })
+    .join("");
+
+  if (resumoEl) {
+    resumoEl.innerHTML =
+      maxMinutos > 0
+        ? `🕐 Seu horário mais produtivo: <strong>${String(horaPico).padStart(2, "0")}h</strong> (${formatarHorasMinutos(maxMinutos)} acumulado(s) nesse horário)`
+        : "";
+  }
+}
+
 // --- RENDERIZADORES DE TELA (METAS, HISTÓRICO, HEATMAP E GRÁFICOS) ---
 function renderizarMetasEGraficos() {
   renderizarSeletorProvas();
@@ -3607,8 +4021,11 @@ function renderizarTodoOPainel() {
   renderizarMateriasCadastradas();
   renderizarRevisaoPendente();
   renderizarQuestoesResolvidas();
+  renderizarSimulados();
   renderizarComparativoProvas();
   renderizarRitmoSugerido();
+  renderizarEvolucaoTemporal();
+  renderizarHeatmapHorario();
 }
 
 // Inicialização do formulário de cadastro de matéria (estrelas + swatches)
@@ -3713,6 +4130,9 @@ let tarefas = JSON.parse(localStorage.getItem("tarefas")) || [];
 // Registros de questões resolvidas: {id, data, materia, total, acertos}
 let registrosQuestoes =
   JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
+// Registros de simulados/provas completas: {id, data, nome, metaVinculada, total, acertos}
+let registrosSimulados =
+  JSON.parse(localStorage.getItem("registrosSimulados")) || [];
 
 function salvarTarefas() {
   localStorage.setItem("tarefas", JSON.stringify(tarefas));
@@ -4808,6 +5228,7 @@ const CHAVES_BACKUP = [
   "bancoDistracoes",
   "conquistasDesbloqueadas",
   "dadosPerfil",
+  "fotoPerfilBase64",
   "historicoEstudos",
   "historicoFoco",
   "logsSessoes",
@@ -4817,6 +5238,7 @@ const CHAVES_BACKUP = [
   "metas",
   "pomosPorDia",
   "registrosQuestoes",
+  "registrosSimulados",
   "tarefas",
   "tempoPorMateria",
   "totalOvertimeGeralMinutos",
@@ -4915,6 +5337,7 @@ function recarregarEstadoDoLocalStorage() {
   };
   totalOvertimeGeralMinutos =
     parseInt(localStorage.getItem("totalOvertimeGeralMinutos")) || 0;
+  fotoPerfilBase64 = localStorage.getItem("fotoPerfilBase64") || null;
   bancoDistracoes = JSON.parse(localStorage.getItem("bancoDistracoes")) || {
     Celular: 0,
     Filhos: 0,
@@ -4931,6 +5354,8 @@ function recarregarEstadoDoLocalStorage() {
   tarefas = JSON.parse(localStorage.getItem("tarefas")) || [];
   registrosQuestoes =
     JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
+  registrosSimulados =
+    JSON.parse(localStorage.getItem("registrosSimulados")) || [];
 }
 
 // Carga Geral Inicial
