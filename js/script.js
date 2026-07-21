@@ -70,6 +70,7 @@ let emPreparacao = false;
 let timerPreparo = null;
 let timestampAlvoPreparo = null;
 let acaoAposPreparo = null;
+let alarmePendente = false; // true quando o timer zerou e o alarme ainda não foi reproduzido com sucesso
 
 // Variáveis Heatmap & Calendário
 let modoAtual = "github";
@@ -1377,16 +1378,24 @@ function tickTimer() {
     } else {
       tempoRestante = 0;
       atualizarDisplay(0);
-      testarSomAtual();
+
+      // Só dispara o alarme se ainda não foi disparado (evita repetição ao voltar)
+      if (!alarmePendente) {
+        alarmePendente = true;
+        // Tenta tocar o som agora (pode não funcionar se a aba estiver oculta)
+        testarSomAtual();
+        // Notificação do sistema (funciona mesmo em segundo plano)
+        notificarSemSegundoPlano(
+          "🎉 Foco concluído!",
+          "Você terminou o ciclo de foco. Hora de uma pausa.",
+        );
+      }
+
       emOvertime = true;
       tempoOvertimeAcumulado = 0;
       timestampInicioOvertime = Date.now();
       document.getElementById("timer-display").classList.add("overtime");
       atualizarBotaoCompletarSessao();
-      notificarSeEmSegundoPlano(
-        "🎉 Foco concluído!",
-        "Você terminou o ciclo de foco. Hora de uma pausa.",
-      );
     }
   } else if (emOvertime) {
     tempoOvertimeAcumulado = Math.floor(
@@ -1492,6 +1501,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
+    // Se o timer expirou enquanto a aba estava oculta, toca o som agora
+    if (alarmePendente && emOvertime) {
+      iniciarAudioContext(); // reativa o áudio
+      testarSomAtual();
+      alarmePendente = false; // não toca de novo
+    }
     if (timer) tickTimer();
     pararBlinkTitulo();
   }
