@@ -3724,3 +3724,120 @@ body.modo-isolamento-ativo .btn-novidades {
   color: var(--text-main);
   line-height: 1.6;
 }
+
+/* ============================================================
+   SIMULADO CRONOMETRADO — tela cheia com contagem regressiva
+   ============================================================ */
+.tela-simulado-cronometro {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: radial-gradient(circle at 50% 35%, #1e293b 0%, #020617 100%);
+  z-index: 300000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.simulado-cron-conteudo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 480px;
+}
+.simulado-cron-selo {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--accent-text);
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 6px 16px;
+  border-radius: 50px;
+  margin-bottom: 10px;
+}
+.simulado-cron-conteudo h2 {
+  color: white;
+  font-size: 1.6rem;
+  margin: 0 0 8px;
+  border: none;
+  padding: 0;
+  word-break: break-word;
+}
+.simulado-cron-tempo {
+  font-size: 4.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: white;
+  letter-spacing: 2px;
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+}
+.simulado-cron-sub {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 4px 0 28px;
+}
+.simulado-cron-botoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.simulado-cron-btn-finalizar {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.simulado-cron-btn-finalizar:hover {
+  background: var(--primary-hover);
+}
+.simulado-cron-btn-cancelar {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.simulado-cron-btn-cancelar:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+@media (max-width: 480px) {
+  .simulado-cron-tempo {
+    font-size: 3rem;
+  }
+  .simulado-cron-botoes {
+    flex-direction: column;
+    width: 100%;
+  }
+  .simulado-cron-botoes button {
+    width: 100%;
+  }
+}
+
+/* Destaque temporário no card de Simulados quando a pessoa chega vinda do
+   cronômetro — chama atenção pra onde preencher o resultado. */
+.form-simulado-destaque {
+  animation: pulso-destaque-simulado 1.3s ease-in-out 2;
+}
+@keyframes pulso-destaque-simulado {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--primary);
+  }
+}

@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=44" />
+    <link rel="stylesheet" href="css/style.css?v=45" />
   </head>
   <body>
     <button
@@ -144,7 +144,127 @@
       </div>
     </div>
 
-    <!-- MODAL DE LOGIN / CADASTRO / RECUPERAÇÃO DE SENHA -->
+    <!-- MODAL: CONFIGURAR SIMULADO CRONOMETRADO -->
+    <div id="modal-iniciar-simulado" class="modal-distracao">
+      <div class="modal-conteudo">
+        <h2 style="margin-top: 0">🎓 Simulado Cronometrado</h2>
+        <p class="campo-ajuda" style="margin-top: -4px">
+          Cronometra o tempo total da prova em tela cheia, sem distrações. Ao
+          acabar o tempo (ou quando você terminar antes), você já cai direto na
+          tela de registrar o resultado.
+        </p>
+        <form onsubmit="iniciarSimuladoCronometrado(event)">
+          <label for="simcron-nome">Nome do simulado:</label>
+          <input
+            type="text"
+            id="simcron-nome"
+            maxlength="80"
+            placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
+            required
+          />
+
+          <label for="simcron-meta">Vincular a uma prova (opcional):</label>
+          <select id="simcron-meta">
+            <option value="">Sem prova vinculada</option>
+          </select>
+
+          <div class="questoes-form-linha">
+            <div>
+              <label for="simcron-horas">Duração — horas:</label>
+              <input
+                type="number"
+                id="simcron-horas"
+                min="0"
+                max="12"
+                value="3"
+                required
+              />
+            </div>
+            <div>
+              <label for="simcron-minutos">Duração — minutos:</label>
+              <input
+                type="number"
+                id="simcron-minutos"
+                min="0"
+                max="59"
+                value="0"
+                required
+              />
+            </div>
+          </div>
+
+          <label for="simcron-total"
+            >Total de questões da prova (opcional):</label
+          >
+          <input
+            type="number"
+            id="simcron-total"
+            min="1"
+            placeholder="Ex: 120 — já preenche na hora de registrar o resultado"
+          />
+
+          <div style="display: flex; gap: 10px; margin-top: 14px">
+            <button
+              type="submit"
+              style="
+                flex: 1;
+                padding: 10px;
+                background: var(--primary);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+              "
+            >
+              ▶️ Iniciar Cronômetro
+            </button>
+            <button
+              type="button"
+              onclick="fecharModalIniciarSimulado()"
+              style="
+                flex: 0 0 auto;
+                padding: 10px 16px;
+                background: var(--surface-inset);
+                color: var(--text-main);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                cursor: pointer;
+              "
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TELA CHEIA: SIMULADO CRONOMETRADO EM ANDAMENTO -->
+    <div id="tela-simulado-cronometro" class="tela-simulado-cronometro">
+      <div class="simulado-cron-conteudo">
+        <span class="simulado-cron-selo">🎓 Simulado em andamento</span>
+        <h2 id="simulado-cron-nome-exibido">Simulado</h2>
+        <div class="simulado-cron-tempo" id="simulado-cron-tempo">00:00:00</div>
+        <p class="simulado-cron-sub" id="simulado-cron-sub">tempo restante</p>
+        <div class="simulado-cron-botoes">
+          <button
+            type="button"
+            class="simulado-cron-btn-finalizar"
+            onclick="finalizarSimuladoCronometrado(false)"
+          >
+            ✅ Finalizar Agora
+          </button>
+          <button
+            type="button"
+            class="simulado-cron-btn-cancelar"
+            onclick="cancelarSimuladoCronometrado()"
+          >
+            ✕ Cancelar Simulado
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="modal-login" class="modal-distracao">
       <div class="modal-conteudo tela-login-card">
         <button
@@ -903,6 +1023,22 @@
               >
                 🎧 Sons Ambiente
               </button>
+              <button
+                type="button"
+                onclick="abrirModalIniciarSimulado()"
+                title="Cronometra o tempo total de uma prova em tela cheia; ao terminar, você já cai na tela de registrar o resultado"
+                style="
+                  background: #334155;
+                  color: white;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                  border-radius: 6px;
+                  border: none;
+                  cursor: pointer;
+                "
+              >
+                🎓 Simulado Cronometrado
+              </button>
             </div>
 
             <div class="timer-layout">
@@ -1476,7 +1612,7 @@
           </div>
 
           <!-- SIMULADOS E PROVAS COMPLETAS -->
-          <div class="card">
+          <div class="card" id="card-simulados">
             <h2>🎓 Simulados e Provas</h2>
             <p
               class="campo-ajuda"
@@ -2139,7 +2275,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=4"></script>
-    <script src="js/script.js?v=35"></script>
+    <script src="js/script.js?v=36"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

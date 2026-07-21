@@ -25,6 +25,16 @@ let bancoDistracoes = JSON.parse(localStorage.getItem("bancoDistracoes")) || {
   Televisão: 0,
 };
 
+// Simulado Cronometrado: cronômetro regressivo do tempo total de uma prova,
+// em tela cheia. Persistido no localStorage (não só em variável) porque uma
+// prova real dura horas — se a pessoa recarregar a página ou fechar o
+// navegador sem querer no meio do caminho, o cronômetro precisa continuar
+// de onde parou (ou já finalizar sozinho, se o tempo tiver esgotado
+// enquanto o app estava fechado).
+let simuladoCronIntervalId = null;
+let simuladoCronDados =
+  JSON.parse(localStorage.getItem("simuladoCronDados")) || null; // { timestampAlvo, nome, metaVinculada, total }
+
 // --- VARIÁVEIS GLOBAIS DE EXECUÇÃO ---
 let cacheMinutosSessaoAtual = 0;
 let cacheMateriaSessaoAtual = "";
@@ -2670,6 +2680,188 @@ function excluirRegistroSimulado(id) {
     JSON.stringify(registrosSimulados),
   );
   renderizarSimulados();
+}
+
+// --- SIMULADO CRONOMETRADO ---
+// Reaproveita o mesmo select de metas usado no formulário de registro
+// manual, só que aplicado a um <select> arbitrário (o do modal de
+// configuração e o da lista de simulados têm o mesmo formato de opções).
+function preencherSelectDeMetas(idSelect) {
+  const seletor = document.getElementById(idSelect);
+  if (!seletor) return;
+  const valorAtual = seletor.value;
+  seletor.innerHTML = '<option value="">Sem prova vinculada</option>';
+  metas.forEach((m) => {
+    seletor.innerHTML += `<option value="${escapeHtml(m.objetivoNome)}">${escapeHtml(m.objetivoNome)}</option>`;
+  });
+  if ([...seletor.options].some((o) => o.value === valorAtual)) {
+    seletor.value = valorAtual;
+  }
+}
+
+function abrirModalIniciarSimulado() {
+  preencherSelectDeMetas("simcron-meta");
+  document.getElementById("modal-iniciar-simulado").style.display = "flex";
+}
+
+function fecharModalIniciarSimulado() {
+  document.getElementById("modal-iniciar-simulado").style.display = "none";
+}
+
+function iniciarSimuladoCronometrado(event) {
+  event.preventDefault();
+
+  const nome = document.getElementById("simcron-nome").value.trim();
+  const metaVinculada = document.getElementById("simcron-meta").value;
+  const horas =
+    parseInt(document.getElementById("simcron-horas").value, 10) || 0;
+  const minutos =
+    parseInt(document.getElementById("simcron-minutos").value, 10) || 0;
+  const totalStr = document.getElementById("simcron-total").value;
+  const total = totalStr ? parseInt(totalStr, 10) : null;
+
+  if (!nome) {
+    alert("Dê um nome pro simulado.");
+    return;
+  }
+  const duracaoSegundos = horas * 3600 + minutos * 60;
+  if (duracaoSegundos <= 0) {
+    alert("Informe a duração total da prova (maior que zero).");
+    return;
+  }
+
+  simuladoCronDados = {
+    timestampAlvo: Date.now() + duracaoSegundos * 1000,
+    nome,
+    metaVinculada,
+    total,
+  };
+  localStorage.setItem("simuladoCronDados", JSON.stringify(simuladoCronDados));
+
+  fecharModalIniciarSimulado();
+  iniciarAudioContext(); // gesto do usuário: garante que o alarme final vai poder tocar
+  solicitarPermissaoNotificacao();
+  mostrarTelaSimuladoCronometro();
+}
+
+function mostrarTelaSimuladoCronometro() {
+  if (!simuladoCronDados) return;
+
+  document.getElementById("simulado-cron-nome-exibido").innerText =
+    simuladoCronDados.nome;
+  document.getElementById("tela-simulado-cronometro").style.display = "flex";
+
+  atualizarDisplaySimuladoCronometro();
+  clearInterval(simuladoCronIntervalId);
+  simuladoCronIntervalId = setInterval(
+    atualizarDisplaySimuladoCronometro,
+    1000,
+  );
+}
+
+function atualizarDisplaySimuladoCronometro() {
+  if (!simuladoCronDados) return;
+
+  const restanteMs = simuladoCronDados.timestampAlvo - Date.now();
+  const display = document.getElementById("simulado-cron-tempo");
+  const sub = document.getElementById("simulado-cron-sub");
+
+  if (restanteMs <= 0) {
+    if (display) display.innerText = "00:00:00";
+    if (sub) sub.innerText = "tempo esgotado!";
+    finalizarSimuladoCronometrado(true);
+    return;
+  }
+
+  const totalSegundos = Math.floor(restanteMs / 1000);
+  const h = Math.floor(totalSegundos / 3600);
+  const m = Math.floor((totalSegundos % 3600) / 60);
+  const s = totalSegundos % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+
+  if (display) display.innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  if (sub) sub.innerText = "tempo restante";
+}
+
+// porTempoEsgotado = true quando o cronômetro zerou sozinho; false quando a
+// pessoa clicou em "Finalizar Agora" antes do tempo acabar.
+function finalizarSimuladoCronometrado(porTempoEsgotado) {
+  if (!simuladoCronDados) return;
+
+  clearInterval(simuladoCronIntervalId);
+  simuladoCronIntervalId = null;
+  document.getElementById("tela-simulado-cronometro").style.display = "none";
+
+  if (porTempoEsgotado) {
+    ticarSom(document.getElementById("pomo-som")?.value || "sino");
+    notificarSeEmSegundoPlano(
+      "🎓 Tempo esgotado!",
+      `O tempo do "${simuladoCronDados.nome}" acabou. Registre seu resultado.`,
+    );
+  }
+
+  const dadosParaPreencher = simuladoCronDados;
+  simuladoCronDados = null;
+  localStorage.removeItem("simuladoCronDados");
+
+  preencherFormularioSimuladoApósCronometro(dadosParaPreencher);
+}
+
+function cancelarSimuladoCronometrado() {
+  const confirmado = confirm(
+    "Cancelar o simulado cronometrado? O tempo contado até agora não será registrado em lugar nenhum.",
+  );
+  if (!confirmado) return;
+
+  clearInterval(simuladoCronIntervalId);
+  simuladoCronIntervalId = null;
+  simuladoCronDados = null;
+  localStorage.removeItem("simuladoCronDados");
+  document.getElementById("tela-simulado-cronometro").style.display = "none";
+}
+
+// Depois que o cronômetro acaba (ou é finalizado manualmente), leva a
+// pessoa direto pra aba Estudos, já com nome/prova/total preenchidos no
+// formulário de registro — só falta digitar os acertos.
+function preencherFormularioSimuladoApósCronometro(dados) {
+  navegarPara("estudos");
+
+  setTimeout(() => {
+    preencherSelectDeMetas("simulado-meta");
+
+    const campoNome = document.getElementById("simulado-nome");
+    const campoMeta = document.getElementById("simulado-meta");
+    const campoTotal = document.getElementById("simulado-total");
+    const campoAcertos = document.getElementById("simulado-acertos");
+
+    if (campoNome) campoNome.value = dados.nome;
+    if (campoMeta && dados.metaVinculada) campoMeta.value = dados.metaVinculada;
+    if (campoTotal && dados.total) campoTotal.value = dados.total;
+
+    const cartaoSimulado = document.getElementById("card-simulados");
+    if (cartaoSimulado) {
+      cartaoSimulado.scrollIntoView({ behavior: "smooth", block: "center" });
+      cartaoSimulado.classList.add("form-simulado-destaque");
+      setTimeout(
+        () => cartaoSimulado.classList.remove("form-simulado-destaque"),
+        2600,
+      );
+    }
+    if (campoAcertos) campoAcertos.focus();
+  }, 150);
+}
+
+// Ao abrir o app, retoma um simulado cronometrado que já estava em
+// andamento (ex: a pessoa recarregou a página no meio da prova). Se o
+// tempo já tiver esgotado enquanto o app estava fechado, finaliza direto.
+function verificarSimuladoCronometradoEmAndamento() {
+  if (!simuladoCronDados || !simuladoCronDados.timestampAlvo) return;
+
+  if (simuladoCronDados.timestampAlvo - Date.now() <= 0) {
+    finalizarSimuladoCronometrado(true);
+  } else {
+    mostrarTelaSimuladoCronometro();
+  }
 }
 
 function renderizarSimulados() {
@@ -5590,6 +5782,7 @@ function iniciarAppEstudeMais() {
   renderizarTodoOPainel();
   renderizarTarefas();
   atualizarProgressoPomodoros();
+  verificarSimuladoCronometradoEmAndamento();
 }
 
 // ============================================================
@@ -5711,6 +5904,14 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.14",
+    titulo: "Simulado Cronometrado",
+    itens: [
+      "Cronômetro de tela cheia pro tempo total da prova, direto no Pomodoro — ao acabar (ou ao finalizar antes), você já cai na tela de registrar o resultado do simulado.",
+      "O cronômetro sobrevive a fechar ou recarregar a página: se o tempo esgotar enquanto o app estiver fechado, ele finaliza sozinho e te leva pro registro assim que você reabrir.",
+    ],
+  },
+  {
     versao: "1.13",
     titulo: "Botão de Novidades",
     itens: [
@@ -5823,6 +6024,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "Timer Pomodoro com foco, pausa automática, overtime e tela cheia imersiva",
       "Sessão de Estudo Planejada: fila de matérias e pomodoros com pausas automáticas",
       "Timer de preparação, sons ambiente e batidas binaurais",
+      "Simulado Cronometrado: cronômetro de tela cheia pro tempo total da prova, com atalho direto pra registrar o resultado ao final",
     ],
   },
   {
