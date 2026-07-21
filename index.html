@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=45" />
+    <link rel="stylesheet" href="css/style.css?v=49" />
   </head>
   <body>
     <button
@@ -83,6 +83,17 @@
       style="display: none"
     >
       🔐 Entrar
+    </button>
+
+    <!-- BOTÃO: APAGAR ESTATÍSTICAS / DADOS -->
+    <button
+      type="button"
+      id="btn-gerenciar-dados"
+      class="btn-gerenciar-dados"
+      onclick="abrirModalGerenciarDados()"
+      title="Apagar estatísticas e dados salvos"
+    >
+      🗑️ Dados
     </button>
 
     <!-- BOTÃO FLUTUANTE DE NOVIDADES / FUNCIONALIDADES -->
@@ -141,6 +152,81 @@
           class="modal-novidades-corpo"
           style="display: none"
         ></div>
+      </div>
+    </div>
+
+    <!-- MODAL: APAGAR ESTATÍSTICAS / DADOS -->
+    <div
+      id="modal-gerenciar-dados"
+      class="modal-distracao"
+      onclick="fecharModalGerenciarDadosSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-gerenciar-dados-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalGerenciarDados()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">🗑️ Apagar Dados</h2>
+        <p class="campo-ajuda" style="margin-top: -4px">
+          Essas ações apagam estatísticas e histórico salvos neste aparelho (e
+          na nuvem, se você estiver logado). Não podem ser desfeitas — se
+          quiser, exporte um backup antes na aba Perfil.
+        </p>
+
+        <div class="gerenciar-dados-secao">
+          <h3>📊 Estatísticas gerais</h3>
+          <p class="campo-ajuda">
+            Apaga todo o histórico de foco, heatmap de constância, sequência de
+            dias, XP, conquistas, questões e simulados registrados. As matérias,
+            metas e tarefas cadastradas continuam intactas.
+          </p>
+          <button
+            type="button"
+            class="btn-perigo"
+            onclick="apagarEstatisticasGerais()"
+          >
+            🗑️ Apagar estatísticas gerais
+          </button>
+        </div>
+
+        <div class="gerenciar-dados-secao">
+          <h3>📚 Estatísticas de uma matéria</h3>
+          <p class="campo-ajuda">
+            Apaga o tempo estudado, as sessões e as questões registradas só
+            dessa matéria. A matéria continua cadastrada, zerada.
+          </p>
+          <label for="gerenciar-dados-materia">Matéria:</label>
+          <select id="gerenciar-dados-materia"></select>
+          <button
+            type="button"
+            class="btn-perigo"
+            onclick="apagarEstatisticasMateria()"
+          >
+            🗑️ Apagar estatísticas desta matéria
+          </button>
+        </div>
+
+        <div class="gerenciar-dados-secao">
+          <h3>🎯 Estatísticas de uma meta</h3>
+          <p class="campo-ajuda">
+            Apaga os simulados registrados vinculados a essa prova. A meta
+            continua cadastrada normalmente.
+          </p>
+          <label for="gerenciar-dados-meta">Prova/meta:</label>
+          <select id="gerenciar-dados-meta"></select>
+          <button
+            type="button"
+            class="btn-perigo"
+            onclick="apagarEstatisticasMeta()"
+          >
+            🗑️ Apagar estatísticas desta meta
+          </button>
+        </div>
       </div>
     </div>
 
@@ -474,6 +560,15 @@
         <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
           👤 Perfil
         </div>
+      </div>
+
+      <!-- SEQUÊNCIA DIÁRIA: fica no topo, acima de tudo — vale pra qualquer
+           aba, igual o seletor de prova logo abaixo. -->
+      <div class="topo-info-container">
+        <button class="streak-badge-btn">
+          🔥 Sequência:
+          <span class="numero" id="streak-contador-val">0 dias</span>
+        </button>
       </div>
 
       <!-- SELETOR DE PROVA/EXAME ATIVO: aparece em qualquer aba assim que
@@ -834,19 +929,12 @@
 
       <!-- ================= PAINEL DE ESTUDOS ================= -->
       <div id="pagina-painel">
-        <div class="topo-info-container">
-          <button class="streak-badge-btn">
-            🔥 Sequência:
-            <span class="numero" id="streak-contador-val">0 dias</span>
-          </button>
-        </div>
-
         <div
           class="card card-recomendacao-hoje"
           id="card-recomendacao-hoje"
           style="display: none"
         >
-          <h2>🧭 O Que Eu Faço Agora?</h2>
+          <h2>🧭 O que eu faço agora?</h2>
           <div
             id="recomendacao-hoje-lista"
             class="recomendacao-hoje-lista"
@@ -854,6 +942,12 @@
         </div>
 
         <div class="secao-topo-pomo">
+          <!-- Marcador do lugar original do card do pomodoro: quando o modo
+               foco é ativado, o card é movido para fora de #app-conteudo
+               (ver moverPomodoroParaTelaCheia em script.js) pra não ficar
+               borrado/apagado junto com o resto do conteúdo. Esse marcador
+               fica no lugar pra sabermos onde devolver o card ao sair. -->
+          <div id="modulo-pomodoro-placeholder" style="display: none"></div>
           <div
             class="card pomodoro"
             id="modulo-pomodoro"
@@ -2275,7 +2369,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=4"></script>
-    <script src="js/script.js?v=36"></script>
+    <script src="js/script.js?v=37"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

@@ -1151,6 +1151,46 @@ function cancelarPreparacao() {
   if (status) status.innerText = "Pronto para iniciar!";
 }
 
+// --- MODO FOCO: entrar/sair da tela cheia ---
+//
+// O fundo (#app-conteudo) usa "filter: blur()" + opacity reduzida pra ficar
+// desfocado atrás do timer. O problema: filter/opacity em CSS são aplicados
+// ao elemento E a toda a sua descendência como um grupo só renderizado em
+// conjunto — um filho não consegue "desfazer" isso com filter:none/opacity:1,
+// porque o pai já compôs a imagem borrada incluindo o filho dentro dela. Como
+// o card #modulo-pomodoro (timer, meta de pomodoros, etc.) ficava dentro de
+// #app-conteudo, ele acabava borrado/apagado junto — por isso o modo foco
+// aparecia todo escuro, sem mostrar timer nem meta.
+//
+// A correção: ao entrar no modo foco, o card sai fisicamente de dentro de
+// #app-conteudo e passa a ser filho direto do <body> (fora da árvore
+// borrada), ficando nítido por cima do fundo desfocado. Ao sair, ele volta
+// pro lugar original, guiado pelo marcador #modulo-pomodoro-placeholder.
+function moverPomodoroParaTelaCheia() {
+  const card = document.getElementById("modulo-pomodoro");
+  if (!card || card.parentElement === document.body) return;
+  document.body.appendChild(card);
+}
+
+function restaurarPomodoroNaPosicaoOriginal() {
+  const card = document.getElementById("modulo-pomodoro");
+  const marcador = document.getElementById("modulo-pomodoro-placeholder");
+  if (!card || !marcador) return;
+  if (card.parentElement === document.body) {
+    marcador.parentElement.insertBefore(card, marcador.nextSibling);
+  }
+}
+
+function ativarModoIsolamento() {
+  document.body.classList.add("modo-isolamento-ativo");
+  moverPomodoroParaTelaCheia();
+}
+
+function desativarModoIsolamento() {
+  document.body.classList.remove("modo-isolamento-ativo");
+  restaurarPomodoroNaPosicaoOriginal();
+}
+
 // --- TIMING / POMODORO ---
 function gerenciarBotaoFocoPrincipal() {
   if (emPreparacao) return;
@@ -1180,7 +1220,7 @@ function startTimer() {
 
   if (!emPausaConfig) {
     solicitarPermissaoNotificacao();
-    document.body.classList.add("modo-isolamento-ativo");
+    ativarModoIsolamento();
     document.getElementById("pomodoro-header-titulo").style.display = "none";
     let mSel = document.getElementById("pomo-materia").value || "Estudo Geral";
     document.getElementById("pomo-texto-top").innerText = "Foco absoluto";
@@ -1217,7 +1257,7 @@ function startTimer() {
 // continua rodando normalmente em segundo plano (o setInterval não é afetado
 // por isso, ele só depende da classe CSS que muda a aparência da tela).
 function sairDoModoFoco() {
-  document.body.classList.remove("modo-isolamento-ativo");
+  desativarModoIsolamento();
   atualizarBotaoVoltarModoFoco();
 }
 
@@ -1234,7 +1274,7 @@ function cliqueForaDoConteudoModoFoco(event) {
 // já está rodando desde startTimer(), aqui só reaplicamos o visual).
 function entrarNoModoFoco() {
   if (!emEstadoDeFocoAtivo) return;
-  document.body.classList.add("modo-isolamento-ativo");
+  ativarModoIsolamento();
   atualizarBotaoVoltarModoFoco();
 }
 
@@ -1312,7 +1352,7 @@ function abrirSeletorPausa() {
   const metaDiaria = obterMetaPomodorosDiaria();
 
   if (metaDiaria > 0 && pomosConcluidos >= metaDiaria) {
-    document.body.classList.remove("modo-isolamento-ativo");
+    desativarModoIsolamento();
     document.getElementById("pomo-container-titulos").style.display = "none";
     document.getElementById("pomodoro-header-titulo").style.display = "block";
     document.getElementById("timer-display").classList.remove("overtime");
@@ -1579,7 +1619,7 @@ function finalizarSessao() {
   cacheMinutosSessaoAtual = minutosEstudadosTotais;
   cacheMateriaSessaoAtual = document.getElementById("pomo-materia").value;
 
-  document.body.classList.remove("modo-isolamento-ativo");
+  desativarModoIsolamento();
   document.getElementById("pomo-container-titulos").style.display = "none";
   document.getElementById("pomodoro-header-titulo").style.display = "block";
   document.getElementById("timer-display").classList.remove("overtime");
@@ -6200,3 +6240,155 @@ document.addEventListener("DOMContentLoaded", () => {
   renderizarNovidades();
   atualizarBolinhaNovidades();
 });
+
+// ============================================================
+// APAGAR DADOS — estatísticas gerais, de uma matéria ou de uma meta
+// ============================================================
+// Chaves que guardam só estatística/histórico "de progresso" — nada de
+// cadastro (matérias, metas, tarefas, perfil). São essas que o botão
+// "Apagar estatísticas gerais" zera.
+const CHAVES_ESTATISTICAS_GERAIS = [
+  "historicoEstudos",
+  "historicoFoco",
+  "logsSessoes",
+  "tempoPorMateria",
+  "totalOvertimeGeralMinutos",
+  "pomosPorDia",
+  "conquistasDesbloqueadas",
+  "registrosQuestoes",
+  "registrosSimulados",
+  "ultimoNivelVisto",
+];
+
+function abrirModalGerenciarDados() {
+  preencherSelectsGerenciarDados();
+  document.getElementById("modal-gerenciar-dados").style.display = "flex";
+}
+
+function fecharModalGerenciarDados() {
+  document.getElementById("modal-gerenciar-dados").style.display = "none";
+}
+
+function fecharModalGerenciarDadosSeClicouFora(event) {
+  if (event.target.id === "modal-gerenciar-dados") {
+    fecharModalGerenciarDados();
+  }
+}
+
+// Preenche os selects de matéria e de meta com o que está cadastrado no
+// momento em que o modal é aberto.
+function preencherSelectsGerenciarDados() {
+  const seletorMateria = document.getElementById("gerenciar-dados-materia");
+  if (seletorMateria) {
+    seletorMateria.innerHTML =
+      materias.length > 0
+        ? materias
+            .map(
+              (m) =>
+                `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`,
+            )
+            .join("")
+        : '<option value="">Nenhuma matéria cadastrada</option>';
+  }
+
+  const seletorMeta = document.getElementById("gerenciar-dados-meta");
+  if (seletorMeta) {
+    seletorMeta.innerHTML =
+      metas.length > 0
+        ? metas
+            .map(
+              (m) =>
+                `<option value="${escapeHtml(m.objetivoNome)}">${escapeHtml(m.objetivoNome)}</option>`,
+            )
+            .join("")
+        : '<option value="">Nenhuma prova/meta cadastrada</option>';
+  }
+}
+
+// Apaga TODO o histórico/estatística do app (foco, heatmap, sequência, XP,
+// conquistas, questões e simulados). Matérias, metas, tarefas e perfil
+// continuam cadastrados — só o "progresso registrado" some.
+function apagarEstatisticasGerais() {
+  const confirmado = confirm(
+    "Apagar TODAS as estatísticas gerais? Isso zera histórico de foco, heatmap, sequência, XP, conquistas, questões e simulados registrados. Matérias, metas e tarefas cadastradas continuam. Essa ação não pode ser desfeita.",
+  );
+  if (!confirmado) return;
+
+  CHAVES_ESTATISTICAS_GERAIS.forEach((chave) => localStorage.removeItem(chave));
+
+  alert("Estatísticas gerais apagadas! A página vai recarregar agora.");
+  location.reload();
+}
+
+// Apaga só o tempo estudado, as sessões e as questões registradas de UMA
+// matéria (a escolhida no select). A matéria em si continua cadastrada.
+function apagarEstatisticasMateria() {
+  const seletor = document.getElementById("gerenciar-dados-materia");
+  const nome = seletor ? seletor.value : "";
+  if (!nome) {
+    alert("Escolha uma matéria.");
+    return;
+  }
+
+  const confirmado = confirm(
+    `Apagar todas as estatísticas de "${nome}"? Isso remove o tempo estudado, as sessões e as questões registradas dessa matéria. A matéria continua cadastrada. Essa ação não pode ser desfeita.`,
+  );
+  if (!confirmado) return;
+
+  // Antes de remover as sessões dessa matéria, tira o tempo delas do total
+  // diário — senão o heatmap/histórico geral ficava inflado com tempo que
+  // já foi apagado.
+  logsSessoes
+    .filter((l) => l.materia === nome)
+    .forEach((l) => {
+      if (historicoEstudos[l.data] != null) {
+        historicoEstudos[l.data] = Math.max(
+          0,
+          historicoEstudos[l.data] - l.duracao,
+        );
+        if (historicoEstudos[l.data] === 0) delete historicoEstudos[l.data];
+      }
+    });
+  localStorage.setItem("historicoEstudos", JSON.stringify(historicoEstudos));
+
+  logsSessoes = logsSessoes.filter((l) => l.materia !== nome);
+  localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
+
+  delete tempoPorMateria[nome];
+  localStorage.setItem("tempoPorMateria", JSON.stringify(tempoPorMateria));
+
+  registrosQuestoes = registrosQuestoes.filter((r) => r.materia !== nome);
+  localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
+
+  alert(`Estatísticas de "${nome}" apagadas! A página vai recarregar agora.`);
+  location.reload();
+}
+
+// Apaga só os simulados registrados vinculados a UMA meta/prova (a
+// escolhida no select). A meta em si continua cadastrada.
+function apagarEstatisticasMeta() {
+  const seletor = document.getElementById("gerenciar-dados-meta");
+  const nomeMeta = seletor ? seletor.value : "";
+  if (!nomeMeta) {
+    alert("Escolha uma prova/meta.");
+    return;
+  }
+
+  const confirmado = confirm(
+    `Apagar as estatísticas de simulados vinculados a "${nomeMeta}"? A meta continua cadastrada. Essa ação não pode ser desfeita.`,
+  );
+  if (!confirmado) return;
+
+  registrosSimulados = registrosSimulados.filter(
+    (r) => r.metaVinculada !== nomeMeta,
+  );
+  localStorage.setItem(
+    "registrosSimulados",
+    JSON.stringify(registrosSimulados),
+  );
+
+  alert(
+    `Estatísticas de "${nomeMeta}" apagadas! A página vai recarregar agora.`,
+  );
+  location.reload();
+}

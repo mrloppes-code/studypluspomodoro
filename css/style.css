@@ -1968,17 +1968,11 @@ body.modo-isolamento-ativo {
   height: 100vh;
   height: 100dvh;
 }
-body.modo-isolamento-ativo .container,
-body.modo-isolamento-ativo .app-header-main,
-body.modo-isolamento-ativo .app-nav,
-body.modo-isolamento-ativo .topo-info-container,
-body.modo-isolamento-ativo .coluna-lateral-pomo {
+/* Desfoca TODO o conteúdo que não é o timer */
+body.modo-isolamento-ativo #app-conteudo {
   filter: blur(48px);
   opacity: 0.08;
   pointer-events: none;
-  /* Força a renderização do blur numa camada própria da GPU. Sem isso,
-     celulares (principalmente iPhone) às vezes só desenham o blur pela
-     metade ou deixam ele "tremendo" ao rolar/alternar de app. */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: filter;
@@ -1988,6 +1982,7 @@ body.modo-isolamento-ativo .secao-topo-pomo {
   max-width: 100vw;
   margin: 0;
 }
+/* Restaura a nitidez do timer */
 body.modo-isolamento-ativo .pomodoro {
   position: fixed;
   inset: 0;
@@ -1995,6 +1990,8 @@ body.modo-isolamento-ativo .pomodoro {
   height: 100vh;
   height: 100dvh;
   background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(48px);
+  -webkit-backdrop-filter: blur(48px);
   border: none;
   display: flex;
   flex-direction: column;
@@ -2004,6 +2001,11 @@ body.modo-isolamento-ativo .pomodoro {
   padding-top: max(40px, env(safe-area-inset-top));
   padding-bottom: max(40px, env(safe-area-inset-bottom));
   z-index: 99999 !important;
+
+  /* === NOVAS LINHAS PARA CORRIGIR A HERANÇA === */
+  filter: none !important; /* remove qualquer desfoque herdado */
+  opacity: 1 !important; /* restaura a opacidade total */
+  pointer-events: auto !important; /* permite clicar nos botões */
 }
 body.modo-isolamento-ativo .pomodoro h2 {
   display: none;
@@ -2694,6 +2696,40 @@ body.modo-isolamento-ativo .btn-abrir-login {
 @media (max-width: 640px) {
   .btn-abrir-login {
     top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+}
+
+/* Botão flutuante "Apagar Dados" — fica logo abaixo do botão "Entrar" (ou
+   do selo de conta logada, que ocupa o mesmo canto), formando uma coluna
+   no topo direito da tela. */
+.btn-gerenciar-dados {
+  position: fixed;
+  top: 64px;
+  right: 20px;
+  z-index: 500;
+  background: var(--surface-inset);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.btn-gerenciar-dados:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+body.modo-isolamento-ativo .btn-gerenciar-dados {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-gerenciar-dados {
+    top: 50px;
     right: 12px;
     padding: 6px 12px;
     font-size: 0.78rem;
@@ -3723,6 +3759,48 @@ body.modo-isolamento-ativo .btn-novidades {
   font-size: 0.85rem;
   color: var(--text-main);
   line-height: 1.6;
+}
+
+/* ===== Modal de Apagar Dados ===== */
+.modal-gerenciar-dados-conteudo {
+  max-width: 480px;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+.gerenciar-dados-secao {
+  border-top: 1px solid var(--border);
+  padding: 16px 0;
+}
+.gerenciar-dados-secao:first-of-type {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.gerenciar-dados-secao h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+.gerenciar-dados-secao .campo-ajuda {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+.gerenciar-dados-secao select {
+  margin-bottom: 12px;
+}
+.btn-perigo {
+  width: 100%;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-perigo:hover {
+  background: var(--danger);
+  color: white;
 }
 
 /* ============================================================
