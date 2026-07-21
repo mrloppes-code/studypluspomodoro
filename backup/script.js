@@ -74,9 +74,6 @@ let acaoAposPreparo = null;
 // Variáveis Heatmap & Calendário
 let modoAtual = "github";
 let mesesParaExibir = 1;
-// --- Evita repetição consecutiva de frases e dicas ---
-let ultimoIndiceFrase = -1;
-let ultimoIndiceDica = -1;
 
 const paletaCores = [
   { nome: "🔵 Azul", hex: "#3b82f6" },
@@ -259,31 +256,12 @@ document.addEventListener("DOMContentLoaded", atualizarBotaoTema);
 function selecionarItemAleatorio(lista) {
   return lista[Math.floor(Math.random() * lista.length)];
 }
-function selecionarItemAleatorioComEvitacao(lista, ultimoIndice) {
-  if (!lista || lista.length === 0) return null;
-  if (lista.length === 1) return { item: lista[0], indice: 0 };
-  let idx;
-  let tentativas = 0;
-  const maxTentativas = 50;
-  do {
-    idx = Math.floor(Math.random() * lista.length);
-    tentativas++;
-  } while (idx === ultimoIndice && tentativas < maxTentativas);
-  if (idx === ultimoIndice && lista.length > 1) {
-    idx = (ultimoIndice + 1) % lista.length;
-  }
-  return { item: lista[idx], indice: idx };
-}
+
+// Mostra uma frase motivacional/provérbio aleatório no início do foco.
 function exibirFraseMotivacional() {
   const container = document.getElementById("frase-do-dia");
   if (!container) return;
-  const resultado = selecionarItemAleatorioComEvitacao(
-    FRASES_MOTIVACIONAIS,
-    ultimoIndiceFrase,
-  );
-  if (!resultado) return;
-  ultimoIndiceFrase = resultado.indice;
-  const frase = resultado.item;
+  const frase = selecionarItemAleatorio(FRASES_MOTIVACIONAIS);
   container.className = "frase-foco-container tema-motivacional";
   container.innerHTML = `
     <p class="frase-texto">"${escapeHtml(frase.texto)}"</p>
@@ -295,13 +273,7 @@ function exibirFraseMotivacional() {
 function exibirDicaDescanso() {
   const container = document.getElementById("frase-do-dia");
   if (!container) return;
-  const resultado = selecionarItemAleatorioComEvitacao(
-    DICAS_DESCANSO_SAUDE,
-    ultimoIndiceDica,
-  );
-  if (!resultado) return;
-  ultimoIndiceDica = resultado.indice;
-  const dica = resultado.item;
+  const dica = selecionarItemAleatorio(DICAS_DESCANSO_SAUDE);
   container.className = "frase-foco-container tema-saude";
   container.innerHTML = `<p class="frase-texto">${dica}</p>`;
 }
@@ -2269,17 +2241,13 @@ function renderizarMateriasCadastradas() {
 // no Anki. Toda vez que você avalia uma revisão ("Não lembrei" / "Foi
 // difícil" / "Lembrei bem"), o intervalo até a próxima revisão aumenta ou
 // volta pro início, dependendo de quão bem você lembrou.
-// <--- MELHORIA: agora recebe o peso da matéria para ajustar o fator de facilidade
-const SRS_PADRAO = (peso = 1) => {
-  const fatorBase = Math.max(1.3, 2.5 - (peso - 1) * 0.15);
-  return {
-    easeFactor: fatorBase,
-    interval: 1,
-    repeticoes: 0,
-    ultimaRevisao: null,
-    proximaRevisao: obterDataLocalString(new Date()),
-  };
-};
+const SRS_PADRAO = () => ({
+  easeFactor: 2.5,
+  interval: 1,
+  repeticoes: 0,
+  ultimaRevisao: null,
+  proximaRevisao: obterDataLocalString(new Date()),
+});
 
 // Localiza um tópico pelo id em qualquer matéria (mais robusto que guardar
 // índice de matéria, que pode mudar se alguma for excluída).
@@ -2300,7 +2268,7 @@ function garantirSrsEmTopicosConcluidos() {
   materias.forEach((m) => {
     (m.topicos || []).forEach((t) => {
       if (t.concluido && !t.srs) {
-        t.srs = SRS_PADRAO(m.peso || 1);
+        t.srs = SRS_PADRAO();
         mudou = true;
       }
     });
@@ -3160,8 +3128,7 @@ function alternarTopicoMateria(topicoId) {
   // Primeira vez que esse tópico é concluído: cria o "cartão" de revisão
   // espaçada (SM-2) pra ele, agendado pra revisar a partir de hoje.
   if (topico.concluido && !topico.srs) {
-    const peso = m.peso || 1;
-    topico.srs = SRS_PADRAO(peso);
+    topico.srs = SRS_PADRAO();
   }
 
   localStorage.setItem("materias", JSON.stringify(materias));

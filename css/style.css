@@ -1973,7 +1973,7 @@ body.modo-isolamento-ativo .app-header-main,
 body.modo-isolamento-ativo .app-nav,
 body.modo-isolamento-ativo .topo-info-container,
 body.modo-isolamento-ativo .coluna-lateral-pomo {
-  filter: blur(24px);
+  filter: blur(48px);
   opacity: 0.08;
   pointer-events: none;
   /* Força a renderização do blur numa camada própria da GPU. Sem isso,
