@@ -1337,6 +1337,10 @@ function startTimer() {
     document.getElementById("pomo-container-titulos").style.display = "flex";
     exibirFraseMotivacional();
 
+    // Registra que um novo ciclo de foco genuíno começou agora — usado só
+    // pra calcular a taxa de conclusão (iniciados x completos) depois.
+    registrarPomodoroIniciado();
+
     // Novo ciclo de foco genuíno: limpa a legenda da sessão anterior e
     // qualquer destaque vermelho de pausa que tenha sobrado.
     const legenda = document.getElementById("legenda-tempo-concluido");
@@ -4624,6 +4628,7 @@ function renderizarTodoOPainel() {
   renderizarMetasEGraficos();
   renderizarGrafico();
   atualizarProgressoPomodoros();
+  renderizarTaxaConclusao();
   renderizarGamificacao();
   renderizarMateriasCadastradas();
   renderizarRevisaoPendente();
@@ -4731,6 +4736,89 @@ function registrarPomodoroConcluido() {
   pomosPorDia[hojeStr] = (pomosPorDia[hojeStr] || 0) + 1;
   localStorage.setItem("pomosPorDia", JSON.stringify(pomosPorDia));
   atualizarProgressoPomodoros();
+}
+
+// Contador irmão do de cima, mas pro momento em que um ciclo de foco
+// genuíno COMEÇA (chamado de dentro de startTimer(), só quando não é uma
+// pausa) — mesmo que esse ciclo depois seja abandonado no meio pelo botão
+// "Finalizar". Junto com pomosPorDia (só os concluídos), dá pra calcular a
+// taxa de conclusão: quantos dos pomodoros iniciados chegaram até o fim.
+function registrarPomodoroIniciado() {
+  const hojeStr = obterDataLocalString(new Date());
+  let pomosIniciadosPorDia =
+    JSON.parse(localStorage.getItem("pomosIniciadosPorDia")) || {};
+  pomosIniciadosPorDia[hojeStr] = (pomosIniciadosPorDia[hojeStr] || 0) + 1;
+  localStorage.setItem(
+    "pomosIniciadosPorDia",
+    JSON.stringify(pomosIniciadosPorDia),
+  );
+}
+
+// Soma iniciados/concluídos de um período (hoje, últimos 7 dias ou tudo) e
+// renderiza as 3 linhas do card "Taxa de Conclusão de Pomodoros" na aba de
+// Análises. Um pomodoro só entra em pomosPorDia quando chega a cumprir o
+// ciclo inteiro (ver registrarPomodoroConcluido) — a diferença pro que está
+// em pomosIniciadosPorDia é o quanto foi abandonado no meio do caminho.
+function renderizarTaxaConclusao() {
+  const container = document.getElementById("taxa-conclusao-conteudo");
+  if (!container) return;
+
+  const iniciadosPorDia =
+    JSON.parse(localStorage.getItem("pomosIniciadosPorDia")) || {};
+  const concluidosPorDia =
+    JSON.parse(localStorage.getItem("pomosPorDia")) || {};
+
+  const hojeStr = obterDataLocalString(new Date());
+  const seteAtras = new Date();
+  seteAtras.setDate(seteAtras.getDate() - 6); // hoje + 6 dias anteriores = 7 dias
+  seteAtras.setHours(0, 0, 0, 0);
+
+  function somarPeriodo(filtroData) {
+    let iniciados = 0;
+    let concluidos = 0;
+    Object.keys(iniciadosPorDia).forEach((data) => {
+      if (filtroData(data)) iniciados += iniciadosPorDia[data];
+    });
+    Object.keys(concluidosPorDia).forEach((data) => {
+      if (filtroData(data)) concluidos += concluidosPorDia[data];
+    });
+    return { iniciados, concluidos };
+  }
+
+  const hoje = somarPeriodo((data) => data === hojeStr);
+  const ultimos7 = somarPeriodo(
+    (data) => new Date(`${data}T00:00:00`) >= seteAtras,
+  );
+  const total = somarPeriodo(() => true);
+
+  function linhaHtml(titulo, stats) {
+    const pct =
+      stats.iniciados > 0
+        ? Math.round((stats.concluidos / stats.iniciados) * 100)
+        : null;
+    const pctTexto = pct === null ? "—" : `${pct}%`;
+    const corPct =
+      pct === null
+        ? "var(--text-muted)"
+        : pct >= 80
+          ? "var(--success)"
+          : pct >= 50
+            ? "var(--warning)"
+            : "var(--danger)";
+
+    return `
+      <div class="taxa-conclusao-linha">
+        <span class="taxa-conclusao-titulo">${titulo}</span>
+        <span class="taxa-conclusao-detalhe">${stats.concluidos} de ${stats.iniciados} iniciados</span>
+        <span class="taxa-conclusao-pct" style="color: ${corPct}">${pctTexto}</span>
+      </div>
+    `;
+  }
+
+  container.innerHTML =
+    linhaHtml("Hoje", hoje) +
+    linhaHtml("Últimos 7 dias", ultimos7) +
+    linhaHtml("Total", total);
 }
 
 // --- TAREFAS (widget lateral) ---
@@ -5844,6 +5932,7 @@ const CHAVES_BACKUP = [
   "metaFiltroAtivo",
   "metaPomodorosDiaria",
   "metas",
+  "pomosIniciadosPorDia",
   "pomosPorDia",
   "registrosQuestoes",
   "registrosSimulados",
@@ -6100,6 +6189,34 @@ window.addEventListener("appinstalled", () => {
 // o app saber que tem novidade não vista ainda (compara com
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
+  {
+    versao: "1.18",
+    titulo: "Taxa de Conclusão de Pomodoros",
+    itens: [
+      "Novo card em Estudos → Análises mostrando quantos pomodoros iniciados realmente chegaram até o fim (sem serem finalizados no meio) — hoje, nos últimos 7 dias e no total.",
+    ],
+  },
+  {
+    versao: "1.17",
+    titulo: "Sons ambiente mais realistas",
+    itens: [
+      "Chuva, Escritório e Biblioteca deixaram de ser só ruído rosa com um filtro plano em cima. Agora têm modulação de volume simulando rajadas de chuva ou o ar-condicionado ciclando, e o Escritório ganhou um zumbido grave de fundo — pra soarem mais parecidos com o ambiente real, não só um chiado uniforme.",
+    ],
+  },
+  {
+    versao: "1.16",
+    titulo: "Aba Estudos reorganizada",
+    itens: [
+      "A aba Estudos ganhou 3 sub-abas — 📋 Cadastro, ✍️ Hoje & Registros e 📊 Análises — reunindo os cards por assunto em vez de uma rolagem única enorme. Nenhuma função foi removida, só reorganizada.",
+    ],
+  },
+  {
+    versao: "1.15",
+    titulo: "Apagar estatísticas e dados salvos",
+    itens: [
+      "Novo botão 🗑️ Dados, logo abaixo do botão Entrar, com opções pra apagar as estatísticas gerais, de uma matéria específica ou de uma meta específica — sem precisar excluir a matéria ou a meta em si.",
+    ],
+  },
   {
     versao: "1.14",
     titulo: "Simulado Cronometrado",
@@ -6363,6 +6480,7 @@ const CHAVES_ESTATISTICAS_GERAIS = [
   "tempoPorMateria",
   "totalOvertimeGeralMinutos",
   "pomosPorDia",
+  "pomosIniciadosPorDia",
   "conquistasDesbloqueadas",
   "registrosQuestoes",
   "registrosSimulados",

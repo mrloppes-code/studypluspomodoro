@@ -2115,6 +2115,25 @@ body.modo-isolamento-ativo .secondary-element {
   display: none !important;
 }
 
+/* Botões secundários do Pomodoro (Testar Alarme / Sessão Planejada / Sons
+   Ambiente / Simulado Cronometrado): em telas largas cabem os 4 numa linha
+   só (flex-wrap cuida disso). Em telas estreitas, "Simulado Cronometrado"
+   (o texto mais longo) não cabia ao lado de "Sons Ambiente" e acabava
+   sozinho numa 3ª linha — por isso, abaixo de 640px trocamos pra um grid
+   fixo de 2 colunas, garantindo sempre 2 por linha (1ª: Testar Alarme +
+   Sessão Planejada; 2ª: Sons Ambiente + Simulado Cronometrado). */
+@media (max-width: 640px) {
+  .botoes-secundarios-pomodoro {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+  }
+  .botoes-secundarios-pomodoro button {
+    width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+  }
+}
+
 /* Botão de sair do modo foco: só aparece dentro da tela cheia */
 .btn-sair-modo-foco {
   display: none;
@@ -2192,6 +2211,35 @@ body.modo-isolamento-ativo .btn-voltar-modo-foco {
   height: 340px;
   margin: 16px auto 4px;
 }
+
+/* Taxa de Conclusão de Pomodoros (iniciados x completos) */
+.taxa-conclusao-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.taxa-conclusao-titulo {
+  font-weight: 600;
+  color: var(--text-main);
+  flex: 1;
+}
+.taxa-conclusao-detalhe {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.taxa-conclusao-pct {
+  font-weight: bold;
+  font-size: 1.05rem;
+  min-width: 48px;
+  text-align: right;
+}
+
 .historico-dia-card {
   background: var(--surface-inset);
   border-radius: 8px;

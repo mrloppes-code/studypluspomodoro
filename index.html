@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=50" />
+    <link rel="stylesheet" href="css/style.css?v=52" />
   </head>
   <body>
     <button
@@ -1068,7 +1068,7 @@
                 gap: 8px;
                 flex-wrap: wrap;
               "
-              class="secondary-element"
+              class="secondary-element botoes-secundarios-pomodoro"
             >
               <button
                 type="button"
@@ -1844,6 +1844,14 @@
             <div class="historico-lista" id="historico-7-dias"></div>
           </div>
           <div class="card">
+            <h2>✅ Taxa de Conclusão de Pomodoros</h2>
+            <p class="campo-ajuda">
+              Quantos dos pomodoros que você iniciou realmente chegaram até o
+              fim, sem serem finalizados no meio do caminho.
+            </p>
+            <div id="taxa-conclusao-conteudo"></div>
+          </div>
+          <div class="card">
             <h2>📊 Distribuição de Tempo</h2>
             <div class="chart-wrapper">
               <canvas id="chartMaterias"></canvas>
@@ -2387,7 +2395,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=4"></script>
-    <script src="js/script.js?v=39"></script>
+    <script src="js/script.js?v=41"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
