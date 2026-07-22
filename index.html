@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=49" />
+    <link rel="stylesheet" href="css/style.css?v=50" />
   </head>
   <body>
     <button
@@ -1386,8 +1386,294 @@
 
       <!-- ================= ESTUDOS (MATÉRIAS, HEATMAP, METAS, HISTÓRICO) ================= -->
       <div id="pagina-estudos" style="display: none">
-        <div class="container" id="conteudo-painel">
-          <!-- HEATMAP COMPLETO RESTAURADO -->
+        <!-- SUB-NAVEGAÇÃO DA ABA ESTUDOS: divide o que era uma rolagem
+             única e enorme em 3 grupos menores, sem remover nenhuma
+             função — só reorganiza onde cada card aparece. -->
+        <div class="estudos-subnav">
+          <button
+            type="button"
+            id="estudos-sub-cadastro-btn"
+            class="estudos-subnav-btn active"
+            onclick="mostrarSubAbaEstudos('cadastro')"
+          >
+            📋 Cadastro
+          </button>
+          <button
+            type="button"
+            id="estudos-sub-registros-btn"
+            class="estudos-subnav-btn"
+            onclick="mostrarSubAbaEstudos('registros')"
+          >
+            ✍️ Hoje &amp; Registros
+          </button>
+          <button
+            type="button"
+            id="estudos-sub-analises-btn"
+            class="estudos-subnav-btn"
+            onclick="mostrarSubAbaEstudos('analises')"
+          >
+            📊 Análises
+          </button>
+        </div>
+
+        <!-- 📋 CADASTRO: matérias, metas e a lista de metas fixadas -->
+        <div class="container" id="estudos-sub-cadastro">
+          <div class="card">
+            <h2>📚 Cadastrar Nova Matéria</h2>
+            <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
+              <label>Peso da Matéria:</label>
+              <div class="peso-estrelas" id="peso-estrelas-container"></div>
+              <input type="hidden" id="mat-only-peso" value="1" />
+
+              <label for="mat-only-nome">Nome da Matéria:</label>
+              <input
+                type="text"
+                id="mat-only-nome"
+                placeholder="Ex: Direito Administrativo"
+                maxlength="40"
+                required
+                oninput="
+                  atualizarContadorNomeMateria();
+                  validarFormularioMateria();
+                "
+              />
+              <span class="contador-caracteres" id="contador-nome-materia"
+                >0 / 40</span
+              >
+
+              <label for="mat-vinc-meta">Vincular a uma Meta:</label>
+              <select id="mat-vinc-meta">
+                <option value="">Matéria Isolada</option>
+              </select>
+              <span class="campo-ajuda">
+                Vincular liga essa matéria a uma meta com prazo (ela passa a
+                contar como um dos tópicos daquele objetivo). "Matéria Isolada"
+                é só pra estudo livre, sem vínculo com nenhuma meta.
+              </span>
+
+              <label>Cor da Matéria:</label>
+              <div class="cor-swatches" id="cor-swatches-container"></div>
+              <input type="hidden" id="mat-only-cor" />
+
+              <button
+                type="submit"
+                id="btn-adicionar-materia"
+                disabled
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                "
+              >
+                Adicionar Matéria
+              </button>
+            </form>
+
+            <div class="materias-cadastradas-header">
+              <span>Matérias cadastradas</span>
+            </div>
+            <div
+              class="materias-cadastradas-lista"
+              id="materias-cadastradas-lista"
+            ></div>
+          </div>
+          <div class="card">
+            <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
+            <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
+              <label for="meta-objetivo-nome">Nome do Objetivo / Meta:</label>
+              <input
+                type="text"
+                id="meta-objetivo-nome"
+                placeholder="Ex: Concurso Nacional"
+                required
+              />
+              <div class="flex-inputs">
+                <div>
+                  <label for="meta-prova-data">Data da Prova:</label>
+                  <input type="date" id="meta-prova-data" required />
+                </div>
+                <div>
+                  <label for="meta-qtd-materias">Qtd. Tópicos:</label>
+                  <input
+                    type="number"
+                    id="meta-qtd-materias"
+                    min="1"
+                    placeholder="Ex: 40"
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--success);
+                  color: white;
+                "
+              >
+                Fixar Nova Meta
+              </button>
+            </form>
+          </div>
+          <div class="card full-width">
+            <h2>📋 Registro de Metas Fixadas</h2>
+            <div id="lista-materias"></div>
+          </div>
+        </div>
+
+        <!-- ✍️ HOJE & REGISTROS: sessões, revisão, ritmo, questões e simulados -->
+        <div class="container" id="estudos-sub-registros" style="display: none">
+          <div class="card">
+            <h2>📝 Sessões de Hoje</h2>
+            <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
+          </div>
+          <div class="card" id="card-revisao-pendente" style="display: none">
+            <h2>📖 Revisão Pendente</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cada tópico concluído vira um "cartão" de revisão espaçada (igual
+              Anki): avalie como lembrou e o intervalo até a próxima revisão
+              aumenta ou volta pro início — 😵 não lembrei, 😐 foi difícil, 😄
+              lembrei bem.
+            </p>
+            <div
+              id="revisao-topicos-lista"
+              class="revisao-pendente-lista"
+            ></div>
+            <div
+              id="revisao-pendente-lista"
+              class="revisao-pendente-lista revisao-fallback-lista"
+            ></div>
+          </div>
+          <div class="card" id="card-ritmo-sugerido" style="display: none">
+            <h2>⏳ Ritmo Sugerido por Matéria</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cruza os tópicos que faltam em cada matéria vinculada a uma prova
+              com os dias restantes até ela, e sugere quanto tempo por dia
+              dedicar pra não deixar nada acumulado pra última hora. A
+              estimativa usa seu próprio ritmo (tempo já estudado ÷ tópicos já
+              concluídos naquela matéria) assim que você tiver alguns
+              concluídos.
+            </p>
+            <div id="ritmo-sugerido-lista" class="ritmo-sugerido-lista"></div>
+          </div>
+          <div class="card">
+            <h2>📝 Questões Resolvidas</h2>
+            <form id="form-questoes" onsubmit="registrarQuestoes(event)">
+              <label for="questoes-materia">Matéria:</label>
+              <select id="questoes-materia">
+                <option value="Estudo Geral">Estudo Geral</option>
+              </select>
+
+              <div class="questoes-form-linha">
+                <div>
+                  <label for="questoes-total">Total de questões:</label>
+                  <input type="number" id="questoes-total" min="1" required />
+                </div>
+                <div>
+                  <label for="questoes-acertos">Acertos:</label>
+                  <input type="number" id="questoes-acertos" min="0" required />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                  margin-top: 12px;
+                "
+              >
+                Registrar
+              </button>
+            </form>
+
+            <div class="questoes-stats-resumo">
+              <div>
+                <span class="questoes-stats-label">Hoje</span>
+                <span id="questoes-stat-hoje">Nenhuma hoje ainda</span>
+              </div>
+              <div>
+                <span class="questoes-stats-label">No total</span>
+                <span id="questoes-stat-geral">Nenhuma registrada ainda</span>
+              </div>
+            </div>
+
+            <div
+              id="questoes-lista-recente"
+              class="questoes-lista-recente"
+            ></div>
+          </div>
+          <div class="card" id="card-simulados">
+            <h2>🎓 Simulados e Provas</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Separado das questões do dia a dia — cada simulado completo fica
+              registrado aqui, com a nota, pra você acompanhar sua evolução
+              prova a prova.
+            </p>
+            <form id="form-simulado" onsubmit="registrarSimulado(event)">
+              <label for="simulado-nome">Nome do simulado:</label>
+              <input
+                type="text"
+                id="simulado-nome"
+                maxlength="80"
+                placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
+                required
+              />
+
+              <label for="simulado-meta"
+                >Vincular a uma prova (opcional):</label
+              >
+              <select id="simulado-meta">
+                <option value="">Sem prova vinculada</option>
+              </select>
+
+              <div class="questoes-form-linha">
+                <div>
+                  <label for="simulado-total">Total de questões:</label>
+                  <input type="number" id="simulado-total" min="1" required />
+                </div>
+                <div>
+                  <label for="simulado-acertos">Acertos:</label>
+                  <input type="number" id="simulado-acertos" min="0" required />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--primary);
+                  color: white;
+                  margin-top: 12px;
+                "
+              >
+                Registrar Simulado
+              </button>
+            </form>
+
+            <div
+              id="simulados-lista-recente"
+              class="questoes-lista-recente"
+            ></div>
+          </div>
+        </div>
+
+        <!-- 📊 ANÁLISES: heatmap, histórico, gráficos e comparativos -->
+        <div class="container" id="estudos-sub-analises" style="display: none">
           <div class="card full-width">
             <div class="calendario-controles">
               <div class="controles-grupo">
@@ -1553,385 +1839,16 @@
               >
             </div>
           </div>
-
-          <div class="card">
-            <h2>📚 Cadastrar Nova Matéria</h2>
-            <form id="materia-only-form" onsubmit="adicionarNovaMateria(event)">
-              <label>Peso da Matéria:</label>
-              <div class="peso-estrelas" id="peso-estrelas-container"></div>
-              <input type="hidden" id="mat-only-peso" value="1" />
-
-              <label for="mat-only-nome">Nome da Matéria:</label>
-              <input
-                type="text"
-                id="mat-only-nome"
-                placeholder="Ex: Direito Administrativo"
-                maxlength="40"
-                required
-                oninput="
-                  atualizarContadorNomeMateria();
-                  validarFormularioMateria();
-                "
-              />
-              <span class="contador-caracteres" id="contador-nome-materia"
-                >0 / 40</span
-              >
-
-              <label for="mat-vinc-meta">Vincular a uma Meta:</label>
-              <select id="mat-vinc-meta">
-                <option value="">Matéria Isolada</option>
-              </select>
-              <span class="campo-ajuda">
-                Vincular liga essa matéria a uma meta com prazo (ela passa a
-                contar como um dos tópicos daquele objetivo). "Matéria Isolada"
-                é só pra estudo livre, sem vínculo com nenhuma meta.
-              </span>
-
-              <label>Cor da Matéria:</label>
-              <div class="cor-swatches" id="cor-swatches-container"></div>
-              <input type="hidden" id="mat-only-cor" />
-
-              <button
-                type="submit"
-                id="btn-adicionar-materia"
-                disabled
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--primary);
-                  color: white;
-                "
-              >
-                Adicionar Matéria
-              </button>
-            </form>
-
-            <div class="materias-cadastradas-header">
-              <span>Matérias cadastradas</span>
-            </div>
-            <div
-              class="materias-cadastradas-lista"
-              id="materias-cadastradas-lista"
-            ></div>
-          </div>
-
-          <!-- REVISÃO ESPAÇADA -->
-          <div class="card" id="card-revisao-pendente" style="display: none">
-            <h2>📖 Revisão Pendente</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Cada tópico concluído vira um "cartão" de revisão espaçada (igual
-              Anki): avalie como lembrou e o intervalo até a próxima revisão
-              aumenta ou volta pro início — 😵 não lembrei, 😐 foi difícil, 😄
-              lembrei bem.
-            </p>
-            <div
-              id="revisao-topicos-lista"
-              class="revisao-pendente-lista"
-            ></div>
-            <div
-              id="revisao-pendente-lista"
-              class="revisao-pendente-lista revisao-fallback-lista"
-            ></div>
-          </div>
-
-          <!-- RITMO SUGERIDO POR MATÉRIA -->
-          <div class="card" id="card-ritmo-sugerido" style="display: none">
-            <h2>⏳ Ritmo Sugerido por Matéria</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Cruza os tópicos que faltam em cada matéria vinculada a uma prova
-              com os dias restantes até ela, e sugere quanto tempo por dia
-              dedicar pra não deixar nada acumulado pra última hora. A
-              estimativa usa seu próprio ritmo (tempo já estudado ÷ tópicos já
-              concluídos naquela matéria) assim que você tiver alguns
-              concluídos.
-            </p>
-            <div id="ritmo-sugerido-lista" class="ritmo-sugerido-lista"></div>
-          </div>
-
-          <!-- QUESTÕES RESOLVIDAS -->
-          <div class="card">
-            <h2>📝 Questões Resolvidas</h2>
-            <form id="form-questoes" onsubmit="registrarQuestoes(event)">
-              <label for="questoes-materia">Matéria:</label>
-              <select id="questoes-materia">
-                <option value="Estudo Geral">Estudo Geral</option>
-              </select>
-
-              <div class="questoes-form-linha">
-                <div>
-                  <label for="questoes-total">Total de questões:</label>
-                  <input type="number" id="questoes-total" min="1" required />
-                </div>
-                <div>
-                  <label for="questoes-acertos">Acertos:</label>
-                  <input type="number" id="questoes-acertos" min="0" required />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--primary);
-                  color: white;
-                  margin-top: 12px;
-                "
-              >
-                Registrar
-              </button>
-            </form>
-
-            <div class="questoes-stats-resumo">
-              <div>
-                <span class="questoes-stats-label">Hoje</span>
-                <span id="questoes-stat-hoje">Nenhuma hoje ainda</span>
-              </div>
-              <div>
-                <span class="questoes-stats-label">No total</span>
-                <span id="questoes-stat-geral">Nenhuma registrada ainda</span>
-              </div>
-            </div>
-
-            <div
-              id="questoes-lista-recente"
-              class="questoes-lista-recente"
-            ></div>
-          </div>
-
-          <!-- SIMULADOS E PROVAS COMPLETAS -->
-          <div class="card" id="card-simulados">
-            <h2>🎓 Simulados e Provas</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Separado das questões do dia a dia — cada simulado completo fica
-              registrado aqui, com a nota, pra você acompanhar sua evolução
-              prova a prova.
-            </p>
-            <form id="form-simulado" onsubmit="registrarSimulado(event)">
-              <label for="simulado-nome">Nome do simulado:</label>
-              <input
-                type="text"
-                id="simulado-nome"
-                maxlength="80"
-                placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
-                required
-              />
-
-              <label for="simulado-meta"
-                >Vincular a uma prova (opcional):</label
-              >
-              <select id="simulado-meta">
-                <option value="">Sem prova vinculada</option>
-              </select>
-
-              <div class="questoes-form-linha">
-                <div>
-                  <label for="simulado-total">Total de questões:</label>
-                  <input type="number" id="simulado-total" min="1" required />
-                </div>
-                <div>
-                  <label for="simulado-acertos">Acertos:</label>
-                  <input type="number" id="simulado-acertos" min="0" required />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--primary);
-                  color: white;
-                  margin-top: 12px;
-                "
-              >
-                Registrar Simulado
-              </button>
-            </form>
-
-            <div
-              id="simulados-lista-recente"
-              class="questoes-lista-recente"
-            ></div>
-          </div>
-
-          <!-- MODAL EDITAR MATÉRIA -->
-          <div id="modal-editar-materia" class="modal-distracao">
-            <div class="modal-conteudo modal-pausa-conteudo">
-              <h2
-                style="
-                  color: var(--accent-text);
-                  border-bottom: 1px solid var(--border);
-                  padding-bottom: 10px;
-                "
-              >
-                ✏️ Editar Matéria
-              </h2>
-
-              <label for="edit-mat-nome" style="margin-top: 10px"
-                >Nome da Matéria:</label
-              >
-              <input type="text" id="edit-mat-nome" maxlength="40" />
-
-              <label>Peso da Matéria:</label>
-              <div
-                class="peso-estrelas"
-                id="edit-peso-estrelas-container"
-              ></div>
-              <input type="hidden" id="edit-mat-peso" />
-
-              <label for="edit-mat-vinc-meta">Vincular a uma Meta:</label>
-              <select id="edit-mat-vinc-meta">
-                <option value="">Matéria Isolada</option>
-              </select>
-
-              <label>Cor da Matéria:</label>
-              <div class="cor-swatches" id="edit-cor-swatches-container"></div>
-              <input type="hidden" id="edit-mat-cor" />
-              <input type="hidden" id="edit-mat-indice" />
-
-              <label style="margin-top: 14px">📋 Tópicos do Edital:</label>
-              <div class="edit-topico-add-row">
-                <input
-                  type="text"
-                  id="edit-topico-novo-nome"
-                  maxlength="60"
-                  placeholder="Ex: Atos Administrativos"
-                  onkeydown="
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      adicionarTopicoMateria();
-                    }
-                  "
-                />
-                <button type="button" onclick="adicionarTopicoMateria()">
-                  + Adicionar
-                </button>
-              </div>
-
-              <details class="edit-topicos-lote-bloco">
-                <summary>
-                  📋 Importar vários tópicos de uma vez (colar lista)
-                </summary>
-                <p class="campo-ajuda">
-                  Cole os tópicos do edital, um por linha. Tópicos com o mesmo
-                  nome de um já cadastrado são ignorados automaticamente.
-                </p>
-                <textarea
-                  id="edit-topicos-lote"
-                  rows="5"
-                  placeholder="Ex:
-Princípios da Administração Pública
-Poderes Administrativos
-Atos Administrativos
-Licitações e Contratos"
-                ></textarea>
-                <button
-                  type="button"
-                  class="btn-importar-lote"
-                  onclick="importarTopicosEmLote(event)"
-                >
-                  Importar Lista
-                </button>
-              </details>
-
-              <div class="edit-topicos-lista" id="edit-topicos-lista"></div>
-
-              <div style="display: flex; gap: 10px; margin-top: 16px">
-                <button
-                  type="button"
-                  onclick="fecharModalEditarMateria()"
-                  style="
-                    flex: 1;
-                    background: #334155;
-                    color: white;
-                    padding: 10px;
-                  "
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onclick="salvarEdicaoMateria()"
-                  style="
-                    flex: 1;
-                    background: var(--primary);
-                    color: white;
-                    padding: 10px;
-                  "
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
-            <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
-              <label for="meta-objetivo-nome">Nome do Objetivo / Meta:</label>
-              <input
-                type="text"
-                id="meta-objetivo-nome"
-                placeholder="Ex: Concurso Nacional"
-                required
-              />
-              <div class="flex-inputs">
-                <div>
-                  <label for="meta-prova-data">Data da Prova:</label>
-                  <input type="date" id="meta-prova-data" required />
-                </div>
-                <div>
-                  <label for="meta-qtd-materias">Qtd. Tópicos:</label>
-                  <input
-                    type="number"
-                    id="meta-qtd-materias"
-                    min="1"
-                    placeholder="Ex: 40"
-                    required
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--success);
-                  color: white;
-                "
-              >
-                Fixar Nova Meta
-              </button>
-            </form>
-          </div>
-
-          <div class="card">
-            <h2>📝 Sessões de Hoje</h2>
-            <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
-          </div>
-
           <div class="card">
             <h2>📊 Histórico Recente (7 Dias)</h2>
             <div class="historico-lista" id="historico-7-dias"></div>
           </div>
-
           <div class="card">
             <h2>📊 Distribuição de Tempo</h2>
             <div class="chart-wrapper">
               <canvas id="chartMaterias"></canvas>
             </div>
           </div>
-
           <div
             class="card full-width"
             id="card-comparativo-provas"
@@ -1963,12 +1880,6 @@ Licitações e Contratos"
               <canvas id="chartComparativoProvas"></canvas>
             </div>
           </div>
-
-          <div class="card full-width">
-            <h2>📋 Registro de Metas Fixadas</h2>
-            <div id="lista-materias"></div>
-          </div>
-
           <!-- EVOLUÇÃO AO LONGO DO TEMPO -->
           <div
             class="card full-width"
@@ -1987,7 +1898,6 @@ Licitações e Contratos"
               <canvas id="chartEvolucaoTemporal"></canvas>
             </div>
           </div>
-
           <!-- HEATMAP DE PRODUTIVIDADE POR HORÁRIO -->
           <div
             class="card full-width"
@@ -2005,6 +1915,114 @@ Licitações e Contratos"
             </p>
             <div class="heatmap-horario-grade" id="heatmap-horario-grade"></div>
             <p id="heatmap-horario-resumo" class="heatmap-horario-resumo"></p>
+          </div>
+        </div>
+
+        <!-- MODAL EDITAR MATÉRIA -->
+        <div id="modal-editar-materia" class="modal-distracao">
+          <div class="modal-conteudo modal-pausa-conteudo">
+            <h2
+              style="
+                color: var(--accent-text);
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 10px;
+              "
+            >
+              ✏️ Editar Matéria
+            </h2>
+
+            <label for="edit-mat-nome" style="margin-top: 10px"
+              >Nome da Matéria:</label
+            >
+            <input type="text" id="edit-mat-nome" maxlength="40" />
+
+            <label>Peso da Matéria:</label>
+            <div class="peso-estrelas" id="edit-peso-estrelas-container"></div>
+            <input type="hidden" id="edit-mat-peso" />
+
+            <label for="edit-mat-vinc-meta">Vincular a uma Meta:</label>
+            <select id="edit-mat-vinc-meta">
+              <option value="">Matéria Isolada</option>
+            </select>
+
+            <label>Cor da Matéria:</label>
+            <div class="cor-swatches" id="edit-cor-swatches-container"></div>
+            <input type="hidden" id="edit-mat-cor" />
+            <input type="hidden" id="edit-mat-indice" />
+
+            <label style="margin-top: 14px">📋 Tópicos do Edital:</label>
+            <div class="edit-topico-add-row">
+              <input
+                type="text"
+                id="edit-topico-novo-nome"
+                maxlength="60"
+                placeholder="Ex: Atos Administrativos"
+                onkeydown="
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    adicionarTopicoMateria();
+                  }
+                "
+              />
+              <button type="button" onclick="adicionarTopicoMateria()">
+                + Adicionar
+              </button>
+            </div>
+
+            <details class="edit-topicos-lote-bloco">
+              <summary>
+                📋 Importar vários tópicos de uma vez (colar lista)
+              </summary>
+              <p class="campo-ajuda">
+                Cole os tópicos do edital, um por linha. Tópicos com o mesmo
+                nome de um já cadastrado são ignorados automaticamente.
+              </p>
+              <textarea
+                id="edit-topicos-lote"
+                rows="5"
+                placeholder="Ex:
+Princípios da Administração Pública
+Poderes Administrativos
+Atos Administrativos
+Licitações e Contratos"
+              ></textarea>
+              <button
+                type="button"
+                class="btn-importar-lote"
+                onclick="importarTopicosEmLote(event)"
+              >
+                Importar Lista
+              </button>
+            </details>
+
+            <div class="edit-topicos-lista" id="edit-topicos-lista"></div>
+
+            <div style="display: flex; gap: 10px; margin-top: 16px">
+              <button
+                type="button"
+                onclick="fecharModalEditarMateria()"
+                style="
+                  flex: 1;
+                  background: #334155;
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onclick="salvarEdicaoMateria()"
+                style="
+                  flex: 1;
+                  background: var(--primary);
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                Salvar Alterações
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2369,7 +2387,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=4"></script>
-    <script src="js/script.js?v=37"></script>
+    <script src="js/script.js?v=39"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

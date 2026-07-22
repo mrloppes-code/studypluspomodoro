@@ -334,6 +334,24 @@ function navegarPara(pagina) {
   }
 }
 
+// --- SUB-ABAS DA PÁGINA ESTUDOS (Cadastro / Hoje & Registros / Análises) ---
+// Puramente visual: só troca qual grupo de cards aparece. Nenhum dado ou
+// função muda de comportamento, é a mesma coisa de antes, só organizada.
+function mostrarSubAbaEstudos(subaba) {
+  const grupos = {
+    cadastro: "estudos-sub-cadastro",
+    registros: "estudos-sub-registros",
+    analises: "estudos-sub-analises",
+  };
+
+  Object.entries(grupos).forEach(([chave, idGrupo]) => {
+    const painel = document.getElementById(idGrupo);
+    const botao = document.getElementById(`${idGrupo}-btn`);
+    if (painel) painel.style.display = chave === subaba ? "grid" : "none";
+    if (botao) botao.classList.toggle("active", chave === subaba);
+  });
+}
+
 // --- ÁUDIO (ALARME) ---
 function iniciarAudioContext() {
   if (!audioCtx) {
@@ -401,44 +419,60 @@ function testarSomAtual() {
 // Todos os ruídos (chuva, escritório, biblioteca, ruído branco/rosa/marrom)
 // são sintetizados na hora pelo Web Audio API — não dependem de internet nem
 // de arquivos de áudio, e continuam tocando mesmo com o modal fechado.
+//
+// Chuva/Escritório/Biblioteca não são só "ruído rosa com um filtro": um
+// filtro estático sozinho vira só um chiado uniforme, sem a textura do
+// ambiente real. Por isso cada um também pode ter uma "modulacao" (uma ou
+// mais LFOs de frequência bem baixa somadas, que fazem o volume variar
+// devagar e de forma meio imprevisível — como rajadas de chuva ou o
+// compressor do ar-condicionado ciclando) e/ou um "hum" (um tom grave puro
+// somado por baixo, como o zumbido elétrico de um ambiente de escritório).
 const SONS_AMBIENTE_CONFIG = {
-  // Chuva: ruído rosa "puro" já soa naturalmente como uma chuva/cachoeira
-  // contínua (é um efeito bem conhecido em síntese de áudio). O filtro
-  // passa-faixa estreito usado antes (bandpass, Q baixo) isolava uma banda
-  // fina de frequência, o que dá um som mais "oco"/"vento em túnel" do que
-  // chuva de verdade. Um passa-altas suave só tira o grave abafado que
-  // sobra do ruído rosa, deixando o "sssh" contínuo da chuva limpo.
+  // Chuva de verdade tem um "corpo" de chiado de banda larga (não só agudo)
+  // e a intensidade varia em rajadas — nunca é um som perfeitamente
+  // constante. Passa-baixas suave em 5kHz mantém o chiado cheio (em vez de
+  // isolar só o agudo fino de antes) e a modulação de duas LFOs fora de
+  // fase simula essas rajadas de vento/chuva sem virar um "tremolo" robótico
+  // e previsível de uma LFO só.
   chuva: {
     label: "🌧️ Chuva",
     cor: "rosa",
-    filtro: { tipo: "highpass", freq: 350, Q: 0.7 },
+    filtro: { tipo: "lowpass", freq: 5000, Q: 0.4 },
+    modulacao: {
+      base: 0.72,
+      profundidade: 0.28,
+      lfos: [{ freq: 0.07 }, { freq: 0.13 }],
+    },
   },
-  // Escritório real é, na prática, o zumbido baixo do ar-condicionado
-  // somado a um murmúrio distante de conversas/teclado — não o grave
-  // profundo e "oceânico" do ruído marrom usado antes. Ruído rosa com um
-  // corte um pouco mais alto (900Hz) mantém esse corpo mais neutro e deixa
-  // passar um pouco mais de médio, que é o que dá a sensação de murmúrio.
+  // Escritório real é o zumbido baixo do ar-condicionado (que cicla ligando
+  // e desligando de forma bem lenta e regular — daí uma única LFO bem
+  // devagar) somado a um murmúrio de médio-agudo (mantido com um corte de
+  // filtro menos agressivo que antes) e um zumbido elétrico grave e quase
+  // imperceptível ao fundo (o "hum", um tom puro de 57Hz bem baixinho).
   escritorio: {
     label: "🏢 Escritório",
     cor: "rosa",
-    filtro: { tipo: "lowpass", freq: 900, Q: 0.5 },
+    filtro: { tipo: "lowpass", freq: 2200, Q: 0.5 },
+    modulacao: { base: 0.82, profundidade: 0.18, lfos: [{ freq: 0.035 }] },
+    hum: { freq: 57, volume: 0.05 },
   },
   // Biblioteca é o ambiente mais silencioso dos três na vida real: quase
-  // silêncio total, com um chiado bem suave e abafado ao fundo. Por isso
-  // o corte de frequência mais baixo (mais abafado) e o volume máximo
-  // reduzido, pra ficar sutil mesmo no volume máximo do controle.
+  // silêncio total, com um chiado bem suave e abafado ao fundo — sem
+  // variação nenhuma (por isso, sem "modulacao"). Corte de frequência bem
+  // mais baixo que os outros dois e volume máximo bem reduzido, pra ficar
+  // sutil mesmo no volume máximo do controle.
   biblioteca: {
     label: "📚 Biblioteca",
     cor: "rosa",
-    filtro: { tipo: "lowpass", freq: 550, Q: 0.3 },
-    volumeMax: 0.35,
+    filtro: { tipo: "lowpass", freq: 350, Q: 0.3 },
+    volumeMax: 0.22,
   },
   branco: { label: "⚪ Ruído Branco", cor: "branco" },
   rosa: { label: "🌸 Ruído Rosa", cor: "rosa" },
   marrom: { label: "🟤 Ruído Marrom", cor: "marrom" },
 };
 
-let sonsAmbienteNodes = {}; // { chave: { source, gain, filtro } }
+let sonsAmbienteNodes = {}; // { chave: { source, gain, filtro, extras } }
 let sonsAmbienteVolumes =
   JSON.parse(localStorage.getItem("sonsAmbienteVolumes")) || {};
 
@@ -486,6 +520,42 @@ function criarBufferRuido(cor) {
   return buffer;
 }
 
+// Monta o estágio de "modulação de amplitude" de um som ambiente: um
+// GainNode cujo volume-base é cfgMod.base, com uma ou mais LFOs (osciladores
+// bem lentos, na faixa de 0.03 a 0.15Hz — abaixo do que o ouvido percebe
+// como "tremolo" e mais perto de uma variação orgânica e lenta) somadas em
+// cima pra variar esse volume ao longo do tempo. Duas LFOs em frequências
+// não-relacionadas (ex: 0.07Hz e 0.13Hz) batendo fora de fase uma da outra
+// já produz um padrão bem mais imprevisível do que uma LFO só — sem precisar
+// de AudioWorklet ou de gerar ruído de baixa frequência à parte.
+function criarModuladorAmplitude(cfgMod) {
+  const moduladorGain = audioCtx.createGain();
+  moduladorGain.gain.value = cfgMod.base;
+
+  const extras = [moduladorGain];
+  const profundidadePorLfo = cfgMod.profundidade / cfgMod.lfos.length;
+
+  cfgMod.lfos.forEach((lfoCfg) => {
+    const lfo = audioCtx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = lfoCfg.freq;
+
+    // Escala a saída da LFO (que varia de -1 a +1) pra profundidade
+    // desejada antes de somar no ganho — sem isso a modulação seria forte
+    // demais (o volume chegaria a zero ou dobraria).
+    const escala = audioCtx.createGain();
+    escala.gain.value = profundidadePorLfo;
+
+    lfo.connect(escala);
+    escala.connect(moduladorGain.gain);
+    lfo.start();
+
+    extras.push(lfo, escala);
+  });
+
+  return { moduladorGain, extras };
+}
+
 function alternarSomAmbiente(chave) {
   iniciarAudioContext();
   if (sonsAmbienteNodes[chave]) {
@@ -520,11 +590,38 @@ function iniciarSomAmbiente(chave) {
     ultimoNode = filtro;
   }
 
+  // Nós extras (LFOs de modulação, oscilador de hum) que precisam ser
+  // parados e desconectados junto quando o som for desligado — sem isso
+  // ficariam tocando pra sempre "invisíveis", vazando memória/CPU.
+  let extras = [];
+
+  if (cfg.modulacao) {
+    const { moduladorGain, extras: extrasModulacao } = criarModuladorAmplitude(
+      cfg.modulacao,
+    );
+    ultimoNode.connect(moduladorGain);
+    ultimoNode = moduladorGain;
+    extras = extras.concat(extrasModulacao);
+  }
+
   ultimoNode.connect(gain);
+
+  if (cfg.hum) {
+    const humOsc = audioCtx.createOscillator();
+    humOsc.type = "sine";
+    humOsc.frequency.value = cfg.hum.freq;
+    const humGain = audioCtx.createGain();
+    humGain.gain.value = cfg.hum.volume;
+    humOsc.connect(humGain);
+    humGain.connect(gain);
+    humOsc.start();
+    extras.push(humOsc, humGain);
+  }
+
   gain.connect(audioCtx.destination);
   source.start();
 
-  sonsAmbienteNodes[chave] = { source, gain, filtro };
+  sonsAmbienteNodes[chave] = { source, gain, filtro, extras };
 }
 
 function pararSomAmbiente(chave) {
@@ -538,6 +635,18 @@ function pararSomAmbiente(chave) {
   nodes.source.disconnect();
   nodes.gain.disconnect();
   if (nodes.filtro) nodes.filtro.disconnect();
+  (nodes.extras || []).forEach((node) => {
+    try {
+      if (typeof node.stop === "function") node.stop();
+    } catch (err) {
+      /* já parado, ignora */
+    }
+    try {
+      node.disconnect();
+    } catch (err) {
+      /* já desconectado, ignora */
+    }
+  });
   delete sonsAmbienteNodes[chave];
 }
 
