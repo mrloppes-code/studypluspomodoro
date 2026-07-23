@@ -55,6 +55,14 @@ let pausadoManualmente = false;
 let timestampPausaManualInicio = null;
 let tempoOvertimeAcumulado = 0;
 let tempoBaseEscolhidoMinutos = 25;
+// Trava contra duplo-clique/duplo-disparo: true enquanto uma sessão está no
+// meio do processo de ser encerrada (persistindo no histórico e decidindo o
+// que vem a seguir). Sem isso, cliques repetidos em "Finalizar"/"Completar
+// Sessão" antes da tela reagir geravam mais de um registro no histórico
+// para a mesma sessão. É liberada de volta em resetTimer() e em
+// iniciarPausaComDuracao() — os dois pontos em que o fluxo de encerramento
+// termina e o controle volta pro usuário.
+let processandoFinalizacaoSessao = false;
 let timestampAlvo = null; // instante (epoch ms) em que a contagem regressiva zera
 let timestampInicioOvertime = null; // instante (epoch ms) em que o overtime começou
 let meuGrafico = null;
@@ -1413,6 +1421,14 @@ function atualizarBotaoCompletarSessao() {
 // mostra a legenda com o tempo concluído e abre o seletor de pausa — tudo
 // sem sair da tela de foco.
 function abrirSeletorPausa() {
+  // Trava contra duplo-clique: se já tem uma finalização em andamento
+  // (por exemplo, o usuário clicou em "Finalizar" e em "Completar Sessão"
+  // em sequência rápida, ou clicou duas vezes no mesmo botão), ignora a
+  // chamada extra — evita registrar a mesma sessão mais de uma vez no
+  // histórico.
+  if (processandoFinalizacaoSessao) return;
+  processandoFinalizacaoSessao = true;
+
   let minOver = Math.floor(tempoOvertimeAcumulado / 60);
   let minutosEstudados = tempoBaseEscolhidoMinutos + minOver;
   if (minutosEstudados < 1) minutosEstudados = 1;
@@ -1435,6 +1451,12 @@ function abrirSeletorPausa() {
   // duplicada).
   emOvertime = false;
   tempoOvertimeAcumulado = 0;
+
+  // Esconde o botão "Completar Sessão" (e o "Finalizar" some junto, já que
+  // ambos dependem de emOvertime) imediatamente — antes ele continuava
+  // visível e clicável enquanto o modal de pausa aparecia, então cliques
+  // repetidos geravam um novo registro no histórico a cada clique.
+  atualizarBotaoCompletarSessao();
 
   const legenda = document.getElementById("legenda-tempo-concluido");
   if (legenda) {
@@ -1495,10 +1517,16 @@ function iniciarPausaComDuracao(minutos, automatica) {
   document.getElementById("modal-pausa-sugerida").style.display = "none";
 
   tempoRestante = minutos * 60;
-  tempoBaseEscolhidoMinutos = minutos;
+  // NÃO mexe em tempoBaseEscolhidoMinutos aqui: essa variável guarda a
+  // duração do FOCO (25/30/40/50 min), não a da pausa. Sobrescrevê-la com a
+  // duração da pausa corrompia o "tempo base" do ciclo — daí o timer voltar
+  // errado pra home depois: resetTimer() usa tempoBaseEscolhidoMinutos para
+  // recalcular o próximo pomodoro, e ficava usando a duração da pausa em vez
+  // da duração de foco escolhida.
   emOvertime = false;
   tempoOvertimeAcumulado = 0;
   emPausaConfig = true;
+  processandoFinalizacaoSessao = false;
 
   const display = document.getElementById("timer-display");
   display.classList.remove("overtime");
@@ -1693,6 +1721,21 @@ document.addEventListener("keydown", (e) => {
 });
 
 function finalizarSessao() {
+  // Trava contra duplo-clique: se já tem uma finalização em andamento (ex:
+  // o usuário clicou de novo antes da tela reagir), ignora o clique extra
+  // em vez de gerar um segundo registro da mesma sessão no histórico.
+  if (processandoFinalizacaoSessao) return;
+
+  // A sessão foi cumprida na íntegra (o ciclo já entrou em overtime): trata
+  // exatamente como o clique em "Completar Sessão" — persiste e oferece a
+  // escolha da duração da pausa, em vez de pular direto pra Auditoria de
+  // Foco sem nunca dar a opção de pausa e sem contar o tempo extra igual.
+  if (emOvertime && !emPausaConfig) {
+    abrirSeletorPausa();
+    return;
+  }
+
+  processandoFinalizacaoSessao = true;
   clearInterval(timer);
 
   // Clicar em "Finalizar" manualmente é uma intervenção direta do usuário
@@ -1895,6 +1938,7 @@ function resetTimer() {
   timestampInicioOvertime = null;
   pausadoManualmente = false;
   timestampPausaManualInicio = null;
+  processandoFinalizacaoSessao = false;
 
   // Atualiza o display visual
   atualizarDisplay(tempoRestante);
@@ -4284,6 +4328,41 @@ function excluirSessaoDoDia(indice) {
   renderizarTodoOPainel();
 }
 
+// Exclui uma sessão específica listada no widget "Histórico Recente (7
+// Dias)" — usado pra corrigir registros errados (ex: os duplicados gerados
+// pelo bug de clique duplo ao finalizar sessão). Reverte o tempo subtraído
+// do total do dia e da matéria, igual excluirSessaoDoDia(), mas essa aqui
+// cobre os 7 dias exibidos no painel, não só o dia de hoje.
+function excluirSessaoHistorico7Dias(indice) {
+  const sessao = logsSessoes[indice];
+  if (!sessao) return;
+
+  const dataFormatada = sessao.data.split("-").reverse().join("/");
+  const confirmado = confirm(
+    `Excluir a sessão de "${sessao.materia}" (${sessao.duracao} min, ${dataFormatada} às ${sessao.hora})?\n\nIsso subtrai o tempo do total do dia e da matéria. O contador de pomodoros da meta não é alterado.`,
+  );
+  if (!confirmado) return;
+
+  historicoEstudos[sessao.data] = Math.max(
+    0,
+    (historicoEstudos[sessao.data] || 0) - sessao.duracao,
+  );
+  localStorage.setItem("historicoEstudos", JSON.stringify(historicoEstudos));
+
+  if (tempoPorMateria[sessao.materia] !== undefined) {
+    tempoPorMateria[sessao.materia] = Math.max(
+      0,
+      tempoPorMateria[sessao.materia] - sessao.duracao,
+    );
+    localStorage.setItem("tempoPorMateria", JSON.stringify(tempoPorMateria));
+  }
+
+  logsSessoes.splice(indice, 1);
+  localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
+
+  renderizarTodoOPainel();
+}
+
 function renderizarHistorico7Dias() {
   const container = document.getElementById("historico-7-dias");
   if (!container) return;
@@ -4308,10 +4387,24 @@ function renderizarHistorico7Dias() {
       [...sessoesDesseDia].reverse().forEach((s) => {
         let matObjeto = materias.find((m) => m.nome === s.materia);
         let corMat = matObjeto ? matObjeto.cor : "#64748b";
+        // Usa a posição real de "s" no array logsSessoes (não a posição
+        // dentro da lista filtrada/invertida deste dia) — como filter()
+        // preserva a mesma referência de objeto, indexOf() localiza o
+        // índice verdadeiro pra excluir exatamente essa sessão depois.
+        let indiceReal = logsSessoes.indexOf(s);
         HTMLDia += `
                         <div class="sessao-item">
                             <span class="materia-nome"><span style="display:inline-block; width:8px; height:8px; background:${corMat}; border-radius:50%; margin-right:6px;"></span>${s.materia}</span>
-                            <span class="detalhes"><span>+${s.duracao} min</span> <span style="color:#64748b;">🕒 ${s.hora}</span></span>
+                            <span class="detalhes">
+                                <span>+${s.duracao} min</span>
+                                <span style="color:#64748b;">🕒 ${s.hora}</span>
+                                <button
+                                  type="button"
+                                  class="sessao-item-excluir"
+                                  title="Excluir esta sessão"
+                                  onclick="excluirSessaoHistorico7Dias(${indiceReal})"
+                                >✕</button>
+                            </span>
                         </div>`;
       });
     } else {
