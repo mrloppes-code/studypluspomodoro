@@ -51,6 +51,7 @@ function _prepararModalAviso(mensagem, opcoes, modoConfirmacao) {
   if (botoesContainer) {
     botoesContainer.classList.toggle("somente-ok", !modoConfirmacao);
   }
+  btnCancelar.textContent = opcoes.textoCancelar || "Cancelar";
   btnConfirmar.textContent = modoConfirmacao
     ? opcoes.textoConfirmar || "Confirmar"
     : "OK";

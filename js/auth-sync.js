@@ -345,15 +345,18 @@ async function salvarNovaSenha(event) {
     return;
   }
 
-  alert("Senha atualizada com sucesso! Você já está logado.");
+  await mostrarAlerta("Senha atualizada com sucesso! Você já está logado.", {
+    icone: "✅",
+  });
   fecharModalLogin();
 }
 
 // --- LOGOUT ---
 async function fazerLogout() {
   if (!SUPABASE_CONFIGURADO) return;
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     "Sair da conta? Seus dados já ficam salvos na nuvem, então você pode entrar de novo em qualquer aparelho. O app continua funcionando neste aparelho como convidado, sem conta.",
+    { icone: "🚪", titulo: "Sair da conta", textoConfirmar: "Sair" },
   );
   if (!confirmado) return;
   await sincronizarParaNuvem(); // garante que a última alteração local subiu antes de sair
@@ -379,10 +382,14 @@ async function entrarComSessao(session) {
     // salvos NESSA conta — deixa a pessoa escolher qual lado vence, em vez
     // de sobrescrever silenciosamente um dos dois.
     definirCarregandoLogin(false);
-    const usarDadosDaConta = confirm(
-      "Você tem dados salvos nesta conta E também dados feitos aqui neste aparelho sem estar logado.\n\n" +
-        "OK = usar os dados da CONTA (substitui os deste aparelho)\n" +
-        "Cancelar = manter os dados DESTE APARELHO (substitui os da conta)",
+    const usarDadosDaConta = await mostrarConfirmacao(
+      "Você tem dados salvos nesta conta e também dados feitos aqui neste aparelho sem estar logado. Qual dos dois você quer manter?",
+      {
+        icone: "☁️",
+        titulo: "Dados encontrados em dois lugares",
+        textoConfirmar: "Usar dados da conta",
+        textoCancelar: "Manter deste aparelho",
+      },
     );
     if (usarDadosDaConta) {
       aplicarDadosDaNuvem(dadosNuvem);
