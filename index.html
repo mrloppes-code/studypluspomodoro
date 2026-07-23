@@ -230,6 +230,39 @@
       </div>
     </div>
 
+    <!-- MODAL: AVISO / CONFIRMAÇÃO GENÉRICO (substitui os antigos alert()/confirm() do navegador) -->
+    <div
+      id="modal-aviso-generico"
+      class="modal-distracao modal-aviso"
+      onclick="fecharModalAvisoSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-aviso-conteudo">
+        <div class="modal-aviso-icone" id="modal-aviso-icone">❓</div>
+        <h2 class="modal-aviso-titulo" id="modal-aviso-titulo">
+          Confirmar ação
+        </h2>
+        <p class="modal-aviso-mensagem" id="modal-aviso-mensagem"></p>
+        <div class="modal-aviso-botoes">
+          <button
+            type="button"
+            id="modal-aviso-btn-cancelar"
+            class="btn-aviso-cancelar"
+            onclick="_cancelarModalAviso()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="modal-aviso-btn-confirmar"
+            class="btn-aviso-confirmar"
+            onclick="_confirmarModalAviso()"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL: CONFIGURAR SIMULADO CRONOMETRADO -->
     <div id="modal-iniciar-simulado" class="modal-distracao">
       <div class="modal-conteudo">

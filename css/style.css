@@ -422,6 +422,77 @@ h2 {
   margin: 0;
 }
 
+/* Modal de Aviso / Confirmação genérico — substitui alert()/confirm() nativos
+   do navegador por uma janela flutuante no mesmo layout visual do app. Fica
+   acima de qualquer outro modal, já que pode ser aberto por cima deles
+   (ex: confirmar exclusão dentro do modal "Gerenciar Dados"). */
+.modal-aviso {
+  z-index: 100003 !important;
+}
+.modal-aviso-conteudo {
+  max-width: 420px;
+  text-align: center;
+}
+.modal-aviso-icone {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.modal-aviso-titulo {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  color: var(--text-main);
+}
+.modal-aviso-mensagem {
+  margin: 0 0 20px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.modal-aviso-botoes {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.modal-aviso-botoes button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.btn-aviso-cancelar {
+  background: var(--surface-inset);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+.btn-aviso-cancelar:hover {
+  border-color: var(--text-muted);
+}
+.btn-aviso-confirmar {
+  background: var(--primary);
+  color: white;
+  border: 1px solid var(--primary);
+}
+.btn-aviso-confirmar:hover {
+  filter: brightness(1.08);
+}
+.btn-aviso-confirmar.btn-aviso-perigo {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+/* Modo alerta (sem opção de cancelar): só o botão OK aparece, centralizado
+   em vez de dividir espaço com o Cancelar. */
+.modal-aviso-botoes.somente-ok {
+  justify-content: center;
+}
+.modal-aviso-botoes.somente-ok .btn-aviso-confirmar {
+  flex: none;
+  min-width: 160px;
+}
+
 /* Modal de sugestão de pausa: fica acima até da tela cheia do modo foco */
 .modal-pausa-sugerida {
   z-index: 100002 !important;
@@ -2035,11 +2106,24 @@ body.modo-isolamento-ativo .pomodoro {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  /* "safe center": tenta centralizar verticalmente, mas se o conteúdo for
+     mais alto que a janela real (ex: navegador em modo janela, sem usar a
+     tela cheia nativa do navegador, onde a barra de tarefas do sistema
+     "come" parte da altura), alinha pelo topo em vez de cortar o conteúdo
+     por igual dos dois lados — combinado com overflow-y abaixo, nada fica
+     inacessível, escondido atrás da barra de tarefas ou de botões. */
+  justify-content: safe center;
   align-items: center;
   padding: 40px;
-  padding-top: max(40px, env(safe-area-inset-top));
-  padding-bottom: max(40px, env(safe-area-inset-bottom));
+  padding-top: max(72px, calc(env(safe-area-inset-top) + 56px));
+  padding-bottom: max(56px, env(safe-area-inset-bottom));
   z-index: 99999 !important;
+  /* Permite rolar o painel inteiro quando o conteúdo (aviso + título +
+     timer + meta + botões) não cabe na altura disponível, em vez de
+     simplesmente cortar o topo/rodapé — é isso que fazia parecer que a
+     barra de tarefas do sistema "cobria" botões e informações. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 
   /* === NOVAS LINHAS PARA CORRIGIR A HERANÇA === */
   filter: none !important; /* remove qualquer desfoque herdado */
@@ -2086,7 +2170,10 @@ body.modo-isolamento-ativo .timer {
     font-size: 1.55rem;
   }
   body.modo-isolamento-ativo .pomodoro {
-    padding: 24px;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: max(64px, calc(env(safe-area-inset-top) + 48px));
+    padding-bottom: max(48px, env(safe-area-inset-bottom));
   }
 }
 @media (max-width: 480px) {
@@ -2101,7 +2188,10 @@ body.modo-isolamento-ativo .timer {
     font-size: 1.2rem;
   }
   body.modo-isolamento-ativo .pomodoro {
-    padding: 16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: max(56px, calc(env(safe-area-inset-top) + 40px));
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
     /* Usa a altura "dinâmica" de viewport quando o navegador suporta
        (Safari/iOS mais novos) — evita que a barra de endereço do iPhone,
        que aparece/some ao rolar, cause recorte ou distorção no layout. */

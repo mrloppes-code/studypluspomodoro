@@ -1,3 +1,90 @@
+// --- MODAL DE AVISO / CONFIRMAÇÃO GENÉRICO ---
+// Substitui os antigos alert()/confirm() nativos do navegador (que abrem
+// como popup do sistema, fora do layout do app) por uma janela flutuante
+// no mesmo estilo visual dos outros modais do Estude+. mostrarAlerta()
+// resolve a Promise quando o usuário fecha o aviso; mostrarConfirmacao()
+// resolve com true/false conforme o botão clicado — ambas devem ser usadas
+// com "await" no lugar de alert(...)/confirm(...).
+let _resolverModalAviso = null;
+
+function _fecharModalAvisoInterno(resultado) {
+  const modal = document.getElementById("modal-aviso-generico");
+  if (modal) modal.style.display = "none";
+  if (_resolverModalAviso) {
+    const resolver = _resolverModalAviso;
+    _resolverModalAviso = null;
+    resolver(resultado);
+  }
+}
+
+function _confirmarModalAviso() {
+  _fecharModalAvisoInterno(true);
+}
+
+function _cancelarModalAviso() {
+  _fecharModalAvisoInterno(false);
+}
+
+// Clicar no fundo escurecido fora da caixa do modal equivale a cancelar.
+function fecharModalAvisoSeClicouFora(event) {
+  if (event.target === event.currentTarget) {
+    _cancelarModalAviso();
+  }
+}
+
+function _prepararModalAviso(mensagem, opcoes, modoConfirmacao) {
+  const modal = document.getElementById("modal-aviso-generico");
+  if (!modal) return null;
+
+  document.getElementById("modal-aviso-icone").textContent =
+    opcoes.icone || (modoConfirmacao ? "❓" : "ℹ️");
+  document.getElementById("modal-aviso-titulo").textContent =
+    opcoes.titulo || (modoConfirmacao ? "Confirmar ação" : "Aviso");
+  document.getElementById("modal-aviso-mensagem").textContent =
+    String(mensagem);
+
+  const btnCancelar = document.getElementById("modal-aviso-btn-cancelar");
+  const btnConfirmar = document.getElementById("modal-aviso-btn-confirmar");
+  const botoesContainer = document.querySelector(".modal-aviso-botoes");
+
+  btnCancelar.style.display = modoConfirmacao ? "" : "none";
+  if (botoesContainer) {
+    botoesContainer.classList.toggle("somente-ok", !modoConfirmacao);
+  }
+  btnConfirmar.textContent = modoConfirmacao
+    ? opcoes.textoConfirmar || "Confirmar"
+    : "OK";
+  btnConfirmar.classList.toggle("btn-aviso-perigo", !!opcoes.perigo);
+
+  modal.style.display = "flex";
+  return modal;
+}
+
+// Substitui window.alert(mensagem). Ex: await mostrarAlerta("Perfil salvo.")
+function mostrarAlerta(mensagem, opcoes = {}) {
+  return new Promise((resolve) => {
+    const modal = _prepararModalAviso(mensagem, opcoes, false);
+    if (!modal) {
+      resolve();
+      return;
+    }
+    _resolverModalAviso = () => resolve();
+  });
+}
+
+// Substitui window.confirm(mensagem). Ex:
+// const ok = await mostrarConfirmacao("Excluir isso?", { perigo: true });
+function mostrarConfirmacao(mensagem, opcoes = {}) {
+  return new Promise((resolve) => {
+    const modal = _prepararModalAviso(mensagem, opcoes, true);
+    if (!modal) {
+      resolve(false);
+      return;
+    }
+    _resolverModalAviso = resolve;
+  });
+}
+
 // --- VARIÁVEIS DE ESTADO (LOCALSTORAGE) ---
 let historicoEstudos =
   JSON.parse(localStorage.getItem("historicoEstudos")) || {};
@@ -819,12 +906,12 @@ function tocarRadioLofi(videoId) {
   container.style.display = "block";
 }
 
-function tocarRadioLofiPorUrl() {
+async function tocarRadioLofiPorUrl() {
   const campo = document.getElementById("lofi-url-custom");
   if (!campo) return;
   const id = extrairIdYoutube(campo.value.trim());
   if (!id) {
-    alert(
+    await mostrarAlerta(
       "Não consegui identificar um vídeo do YouTube nesse link. Cole a URL completa (ex: https://www.youtube.com/watch?v=...).",
     );
     return;
@@ -926,9 +1013,9 @@ function adicionarItemBloco(quantidadeInicial, materiaPreselecionada) {
 // Essa é a principal utilidade prática do campo "Peso da Matéria" no app —
 // ele deixa de ser só uma informação guardada e passa a decidir quanto
 // tempo de estudo cada matéria puxa pra si quando você pede uma sugestão.
-function preencherBlocoPorPrioridade() {
+async function preencherBlocoPorPrioridade() {
   if (materias.length === 0) {
-    alert(
+    await mostrarAlerta(
       "Cadastre pelo menos uma matéria (com o peso de prioridade que preferir) antes de usar o preenchimento automático.",
     );
     return;
@@ -968,7 +1055,7 @@ function removerItemBloco(idx) {
 // Lê o formulário, valida e inicia o bloco: define a fila de matérias, a
 // pausa automática, e já dispara o primeiro pomodoro (economizando o
 // clique em "Iniciar Foco" também para o primeiro item da sequência).
-function iniciarBlocoEstudos() {
+async function iniciarBlocoEstudos() {
   const linhas = document.querySelectorAll(
     "#bloco-estudos-itens-lista .bloco-item-row",
   );
@@ -980,14 +1067,14 @@ function iniciarBlocoEstudos() {
   });
 
   if (itens.length === 0) {
-    alert(
+    await mostrarAlerta(
       "Adicione ao menos uma matéria com quantidade de pomodoros maior que zero.",
     );
     return;
   }
 
   if (emEstadoDeFocoAtivo || emPausaConfig) {
-    alert(
+    await mostrarAlerta(
       "Finalize ou resete a sessão atual antes de iniciar uma nova Sessão de Estudo Planejada.",
     );
     return;
@@ -1063,10 +1150,11 @@ function atualizarPainelBlocoEstudos() {
 // Interrupção manual do bloco (botão "Cancelar Bloco" no banner). A sessão
 // em andamento continua rodando normalmente — só a automação da fila e das
 // pausas é desligada, devolvendo o controle manual ao usuário.
-function cancelarBlocoEstudos() {
+async function cancelarBlocoEstudos() {
   if (!planoEstudo) return;
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     "Cancelar a Sessão de Estudo Planejada? A sessão atual continua rodando normalmente, mas a fila de matérias e as pausas automáticas serão interrompidas.",
+    { icone: "🛑", textoConfirmar: "Cancelar sessão" },
   );
   if (!confirmado) return;
   planoEstudo = null;
@@ -1886,7 +1974,7 @@ function confirmarRegistroDistracao() {
 // Só pede confirmação quando resetar realmente descartaria progresso: uma
 // sessão de foco (não pausa) com pelo menos 2 minutos decorridos. Resetar
 // no início ou durante uma pausa não precisa de confirmação.
-function confirmarEResetar() {
+async function confirmarEResetar() {
   const emSessaoDeFoco = emEstadoDeFocoAtivo && !emPausaConfig;
   const elapsedSegundos = emOvertime
     ? tempoBaseEscolhidoMinutos * 60 + tempoOvertimeAcumulado
@@ -1905,7 +1993,12 @@ function confirmarEResetar() {
         "Isso também vai cancelar a Sessão de Estudo Planejada em andamento, junto com o restante da fila de matérias e pausas automáticas. ";
     }
     mensagem += "Quer mesmo resetar?";
-    const confirmado = confirm(mensagem);
+    const confirmado = await mostrarConfirmacao(mensagem, {
+      icone: "🔄",
+      titulo: "Resetar sessão",
+      textoConfirmar: "Resetar",
+      perigo: true,
+    });
     if (!confirmado) return;
   }
 
@@ -2032,7 +2125,7 @@ function atualizarDisplay(s) {
 }
 
 // --- FORMULARIOS DO PERFIL E ESTATISTICAS ---
-function salvarDadosPerfil(e) {
+async function salvarDadosPerfil(e) {
   if (e) e.preventDefault();
   const nome = document.getElementById("perf-nome");
   const cargo = document.getElementById("perf-cargo");
@@ -2050,7 +2143,7 @@ function salvarDadosPerfil(e) {
   document.getElementById("perfil-form").reset();
   carregarDadosPerfil();
   calcularEMostrarEstatisticas();
-  alert("Perfil salvo com sucesso.");
+  await mostrarAlerta("Perfil salvo com sucesso.", { icone: "✅" });
 }
 function carregarDadosPerfil() {
   document.getElementById("lbl-nome-usuario").innerText = dadosPerfil.nome;
@@ -2089,12 +2182,12 @@ function carregarDadosPerfil() {
 // 256x256 antes de salvar — assim a imagem fica leve o bastante pra caber
 // no localStorage e ser sincronizada com a nuvem sem pesar, não importa
 // quão grande era a foto original.
-function selecionarFotoPerfil(event) {
+async function selecionarFotoPerfil(event) {
   const arquivo = event.target.files && event.target.files[0];
   if (!arquivo) return;
 
   if (!arquivo.type.startsWith("image/")) {
-    alert("Escolha um arquivo de imagem (JPG, PNG, etc.).");
+    await mostrarAlerta("Escolha um arquivo de imagem (JPG, PNG, etc.).");
     event.target.value = "";
     return;
   }
@@ -2118,13 +2211,15 @@ function selecionarFotoPerfil(event) {
       localStorage.setItem("fotoPerfilBase64", fotoPerfilBase64);
       aplicarFotoPerfilNaTela();
     };
-    img.onerror = () => {
-      alert("Não consegui abrir essa imagem. Tente outro arquivo.");
+    img.onerror = async () => {
+      await mostrarAlerta(
+        "Não consegui abrir essa imagem. Tente outro arquivo.",
+      );
     };
     img.src = leitor.result;
   };
-  leitor.onerror = () => {
-    alert("Não consegui ler esse arquivo. Tente novamente.");
+  leitor.onerror = async () => {
+    await mostrarAlerta("Não consegui ler esse arquivo. Tente novamente.");
   };
   leitor.readAsDataURL(arquivo);
 
@@ -2134,9 +2229,10 @@ function selecionarFotoPerfil(event) {
   event.target.value = "";
 }
 
-function removerFotoPerfil() {
-  const confirmado = confirm(
+async function removerFotoPerfil() {
+  const confirmado = await mostrarConfirmacao(
     "Remover a foto de perfil e voltar a mostrar as iniciais do nome?",
+    { icone: "🖼️", textoConfirmar: "Remover" },
   );
   if (!confirmado) return;
 
@@ -2312,7 +2408,7 @@ function salvarProgressoGeral(materia, minutos, nota) {
   renderizarTodoOPainel();
 }
 
-function adicionarNovaMateria(e) {
+async function adicionarNovaMateria(e) {
   e.preventDefault();
   let nome = document.getElementById("mat-only-nome").value.trim();
   let metaVinculada = document.getElementById("mat-vinc-meta").value;
@@ -2325,7 +2421,7 @@ function adicionarNovaMateria(e) {
     (m) => m.nome.trim().toLowerCase() === nome.toLowerCase(),
   );
   if (duplicada) {
-    alert(
+    await mostrarAlerta(
       `Já existe uma matéria chamada "${nome}". Escolha outro nome ou edite a existente na lista abaixo.`,
     );
     return;
@@ -2717,9 +2813,9 @@ function renderizarRevisaoPendente() {
 }
 
 // Atalho de um clique: já seleciona a matéria no timer e começa o foco.
-function iniciarRevisaoRapida(nomeMateria) {
+async function iniciarRevisaoRapida(nomeMateria) {
   if (emEstadoDeFocoAtivo || emPausaConfig) {
-    alert(
+    await mostrarAlerta(
       "Finalize ou resete a sessão atual antes de iniciar uma revisão rápida.",
     );
     return;
@@ -2736,7 +2832,7 @@ function iniciarRevisaoRapida(nomeMateria) {
 }
 
 // --- QUESTÕES RESOLVIDAS ---
-function registrarQuestoes(event) {
+async function registrarQuestoes(event) {
   event.preventDefault();
 
   const materia =
@@ -2748,15 +2844,17 @@ function registrarQuestoes(event) {
   );
 
   if (!total || total <= 0) {
-    alert("Informe a quantidade total de questões (maior que zero).");
+    await mostrarAlerta(
+      "Informe a quantidade total de questões (maior que zero).",
+    );
     return;
   }
   if (isNaN(acertos) || acertos < 0) {
-    alert("Informe quantas você acertou (0 ou mais).");
+    await mostrarAlerta("Informe quantas você acertou (0 ou mais).");
     return;
   }
   if (acertos > total) {
-    alert("Acertos não pode ser maior que o total de questões.");
+    await mostrarAlerta("Acertos não pode ser maior que o total de questões.");
     return;
   }
 
@@ -2864,7 +2962,7 @@ function renderizarQuestoesResolvidas() {
 // um simulado é um evento só, com nota final, que faz sentido acompanhar
 // como uma série própria ao longo do tempo — não misturado com questões
 // avulsas resolvidas estudando.
-function registrarSimulado(event) {
+async function registrarSimulado(event) {
   event.preventDefault();
 
   const nome = document.getElementById("simulado-nome").value.trim();
@@ -2876,21 +2974,23 @@ function registrarSimulado(event) {
   );
 
   if (!nome) {
-    alert(
+    await mostrarAlerta(
       "Dê um nome pro simulado (ex: 'Simulado SEDES 2026 - 2ª aplicação').",
     );
     return;
   }
   if (!total || total <= 0) {
-    alert("Informe o total de questões do simulado (maior que zero).");
+    await mostrarAlerta(
+      "Informe o total de questões do simulado (maior que zero).",
+    );
     return;
   }
   if (isNaN(acertos) || acertos < 0) {
-    alert("Informe quantas você acertou (0 ou mais).");
+    await mostrarAlerta("Informe quantas você acertou (0 ou mais).");
     return;
   }
   if (acertos > total) {
-    alert("Acertos não pode ser maior que o total de questões.");
+    await mostrarAlerta("Acertos não pode ser maior que o total de questões.");
     return;
   }
 
@@ -2952,7 +3052,7 @@ function fecharModalIniciarSimulado() {
   document.getElementById("modal-iniciar-simulado").style.display = "none";
 }
 
-function iniciarSimuladoCronometrado(event) {
+async function iniciarSimuladoCronometrado(event) {
   event.preventDefault();
 
   const nome = document.getElementById("simcron-nome").value.trim();
@@ -2965,12 +3065,12 @@ function iniciarSimuladoCronometrado(event) {
   const total = totalStr ? parseInt(totalStr, 10) : null;
 
   if (!nome) {
-    alert("Dê um nome pro simulado.");
+    await mostrarAlerta("Dê um nome pro simulado.");
     return;
   }
   const duracaoSegundos = horas * 3600 + minutos * 60;
   if (duracaoSegundos <= 0) {
-    alert("Informe a duração total da prova (maior que zero).");
+    await mostrarAlerta("Informe a duração total da prova (maior que zero).");
     return;
   }
 
@@ -3051,9 +3151,10 @@ function finalizarSimuladoCronometrado(porTempoEsgotado) {
   preencherFormularioSimuladoApósCronometro(dadosParaPreencher);
 }
 
-function cancelarSimuladoCronometrado() {
-  const confirmado = confirm(
+async function cancelarSimuladoCronometrado() {
+  const confirmado = await mostrarConfirmacao(
     "Cancelar o simulado cronometrado? O tempo contado até agora não será registrado em lugar nenhum.",
+    { icone: "🛑", textoConfirmar: "Cancelar simulado" },
   );
   if (!confirmado) return;
 
@@ -3283,7 +3384,7 @@ function adicionarTopicoMateria(event) {
 // Cola uma lista de tópicos (um por linha, ex: colado direto do edital em
 // PDF) e cadastra todos de uma vez, ignorando linhas em branco e tópicos
 // cujo nome já existe nessa matéria (não faz sentido duplicado).
-function importarTopicosEmLote(event) {
+async function importarTopicosEmLote(event) {
   if (event) event.preventDefault();
   const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
   const m = materias[indice];
@@ -3296,7 +3397,7 @@ function importarTopicosEmLote(event) {
     .filter((l) => l.length > 0);
 
   if (linhas.length === 0) {
-    alert("Cole ao menos um tópico, um por linha.");
+    await mostrarAlerta("Cole ao menos um tópico, um por linha.");
     return;
   }
 
@@ -3332,7 +3433,7 @@ function importarTopicosEmLote(event) {
   if (ignorados > 0) {
     msg += ` ${ignorados} repetido${ignorados === 1 ? "" : "s"} ${ignorados === 1 ? "foi ignorado" : "foram ignorados"} (já existia${ignorados === 1 ? "" : "m"} nessa matéria).`;
   }
-  alert(msg);
+  await mostrarAlerta(msg, { icone: "📥" });
 }
 
 // Anotação rápida do que errar/revisar naquele tópico específico. Aparece
@@ -3394,14 +3495,14 @@ function removerTopicoMateria(topicoId) {
   renderizarTopicosEdicao();
 }
 
-function salvarEdicaoMateria() {
+async function salvarEdicaoMateria() {
   const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
   const m = materias[indice];
   if (!m) return;
 
   const novoNome = document.getElementById("edit-mat-nome").value.trim();
   if (!novoNome) {
-    alert("O nome da matéria não pode ficar vazio.");
+    await mostrarAlerta("O nome da matéria não pode ficar vazio.");
     return;
   }
 
@@ -3411,7 +3512,7 @@ function salvarEdicaoMateria() {
       outra.nome.trim().toLowerCase() === novoNome.toLowerCase(),
   );
   if (duplicada) {
-    alert(`Já existe outra matéria chamada "${novoNome}".`);
+    await mostrarAlerta(`Já existe outra matéria chamada "${novoNome}".`);
     return;
   }
 
@@ -3451,12 +3552,13 @@ function salvarEdicaoMateria() {
   renderizarTodoOPainel();
 }
 
-function excluirMateria(indice) {
+async function excluirMateria(indice) {
   const m = materias[indice];
   if (!m) return;
 
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Excluir a matéria "${m.nome}"? O histórico de tempo já estudado nela permanece nas estatísticas, mas ela deixa de aparecer nos seletores e no cadastro.`,
+    { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
   );
   if (!confirmado) return;
 
@@ -3563,12 +3665,13 @@ function selecionarProvaAtiva(nomeObjetivo) {
 
 // Remove uma meta/prova. As matérias vinculadas a ela viram "Matéria
 // Isolada" (nada é apagado do histórico de tempo já estudado).
-function excluirMeta(indice) {
+async function excluirMeta(indice) {
   const meta = metas[indice];
   if (!meta) return;
 
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Excluir a prova "${meta.objetivoNome}"? As matérias vinculadas a ela passam a ficar como "Matéria Isolada" — o histórico de tempo estudado nelas é mantido.`,
+    { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
   );
   if (!confirmado) return;
 
@@ -4299,12 +4402,13 @@ function renderizarSessoesHoje() {
     .join("");
 }
 
-function excluirSessaoDoDia(indice) {
+async function excluirSessaoDoDia(indice) {
   const sessao = logsSessoes[indice];
   if (!sessao) return;
 
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Excluir a sessão de "${sessao.materia}" (${sessao.duracao} min, ${sessao.hora})?\n\nIsso subtrai o tempo do total do dia e da matéria. O contador de pomodoros da meta não é alterado.`,
+    { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
   );
   if (!confirmado) return;
 
@@ -4333,13 +4437,14 @@ function excluirSessaoDoDia(indice) {
 // pelo bug de clique duplo ao finalizar sessão). Reverte o tempo subtraído
 // do total do dia e da matéria, igual excluirSessaoDoDia(), mas essa aqui
 // cobre os 7 dias exibidos no painel, não só o dia de hoje.
-function excluirSessaoHistorico7Dias(indice) {
+async function excluirSessaoHistorico7Dias(indice) {
   const sessao = logsSessoes[indice];
   if (!sessao) return;
 
   const dataFormatada = sessao.data.split("-").reverse().join("/");
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Excluir a sessão de "${sessao.materia}" (${sessao.duracao} min, ${dataFormatada} às ${sessao.hora})?\n\nIsso subtrai o tempo do total do dia e da matéria. O contador de pomodoros da meta não é alterado.`,
+    { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
   );
   if (!confirmado) return;
 
@@ -6073,15 +6178,16 @@ function importarDados(event) {
   if (!arquivo) return;
 
   const leitor = new FileReader();
-  leitor.onload = (e) => {
+  leitor.onload = async (e) => {
     try {
       const backup = JSON.parse(e.target.result);
       if (!backup || typeof backup.dados !== "object") {
         throw new Error("Arquivo de backup inválido.");
       }
 
-      const confirmado = confirm(
+      const confirmado = await mostrarConfirmacao(
         "Importar esse backup vai SUBSTITUIR todos os dados atuais (matérias, histórico, XP, conquistas, tarefas, tudo). Essa ação não pode ser desfeita. Quer continuar?",
+        { icone: "⚠️", textoConfirmar: "Importar", perigo: true },
       );
       if (!confirmado) {
         event.target.value = "";
@@ -6094,11 +6200,16 @@ function importarDados(event) {
         }
       });
 
-      alert("Backup importado com sucesso! A página vai recarregar agora.");
+      await mostrarAlerta(
+        "Backup importado com sucesso! A página vai recarregar agora.",
+        {
+          icone: "✅",
+        },
+      );
       location.reload();
     } catch (err) {
       console.error("Erro ao importar backup:", err);
-      alert(
+      await mostrarAlerta(
         "Não foi possível importar esse arquivo. Verifique se é um backup válido do Estude+.",
       );
     } finally {
@@ -6628,30 +6739,37 @@ function preencherSelectsGerenciarDados() {
 // Apaga TODO o histórico/estatística do app (foco, heatmap, sequência, XP,
 // conquistas, questões e simulados). Matérias, metas, tarefas e perfil
 // continuam cadastrados — só o "progresso registrado" some.
-function apagarEstatisticasGerais() {
-  const confirmado = confirm(
+async function apagarEstatisticasGerais() {
+  const confirmado = await mostrarConfirmacao(
     "Apagar TODAS as estatísticas gerais? Isso zera histórico de foco, heatmap, sequência, XP, conquistas, questões e simulados registrados. Matérias, metas e tarefas cadastradas continuam. Essa ação não pode ser desfeita.",
+    { icone: "🗑️", textoConfirmar: "Apagar tudo", perigo: true },
   );
   if (!confirmado) return;
 
   CHAVES_ESTATISTICAS_GERAIS.forEach((chave) => localStorage.removeItem(chave));
 
-  alert("Estatísticas gerais apagadas! A página vai recarregar agora.");
+  await mostrarAlerta(
+    "Estatísticas gerais apagadas! A página vai recarregar agora.",
+    {
+      icone: "✅",
+    },
+  );
   location.reload();
 }
 
 // Apaga só o tempo estudado, as sessões e as questões registradas de UMA
 // matéria (a escolhida no select). A matéria em si continua cadastrada.
-function apagarEstatisticasMateria() {
+async function apagarEstatisticasMateria() {
   const seletor = document.getElementById("gerenciar-dados-materia");
   const nome = seletor ? seletor.value : "";
   if (!nome) {
-    alert("Escolha uma matéria.");
+    await mostrarAlerta("Escolha uma matéria.");
     return;
   }
 
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Apagar todas as estatísticas de "${nome}"? Isso remove o tempo estudado, as sessões e as questões registradas dessa matéria. A matéria continua cadastrada. Essa ação não pode ser desfeita.`,
+    { icone: "🗑️", textoConfirmar: "Apagar", perigo: true },
   );
   if (!confirmado) return;
 
@@ -6680,22 +6798,28 @@ function apagarEstatisticasMateria() {
   registrosQuestoes = registrosQuestoes.filter((r) => r.materia !== nome);
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
-  alert(`Estatísticas de "${nome}" apagadas! A página vai recarregar agora.`);
+  await mostrarAlerta(
+    `Estatísticas de "${nome}" apagadas! A página vai recarregar agora.`,
+    {
+      icone: "✅",
+    },
+  );
   location.reload();
 }
 
 // Apaga só os simulados registrados vinculados a UMA meta/prova (a
 // escolhida no select). A meta em si continua cadastrada.
-function apagarEstatisticasMeta() {
+async function apagarEstatisticasMeta() {
   const seletor = document.getElementById("gerenciar-dados-meta");
   const nomeMeta = seletor ? seletor.value : "";
   if (!nomeMeta) {
-    alert("Escolha uma prova/meta.");
+    await mostrarAlerta("Escolha uma prova/meta.");
     return;
   }
 
-  const confirmado = confirm(
+  const confirmado = await mostrarConfirmacao(
     `Apagar as estatísticas de simulados vinculados a "${nomeMeta}"? A meta continua cadastrada. Essa ação não pode ser desfeita.`,
+    { icone: "🗑️", textoConfirmar: "Apagar", perigo: true },
   );
   if (!confirmado) return;
 
@@ -6707,8 +6831,9 @@ function apagarEstatisticasMeta() {
     JSON.stringify(registrosSimulados),
   );
 
-  alert(
+  await mostrarAlerta(
     `Estatísticas de "${nomeMeta}" apagadas! A página vai recarregar agora.`,
+    { icone: "✅" },
   );
   location.reload();
 }
