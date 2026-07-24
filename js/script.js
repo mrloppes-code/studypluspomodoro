@@ -6395,6 +6395,16 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.19",
+    titulo: "Sala de Estudos, avisos flutuantes e ajustes de tela cheia",
+    itens: [
+      "Novo botão 🏆 Sala: crie uma sala com um código e compare com amigos quanto cada um estudou hoje e na semana, com ranking em tempo real (precisa estar logado).",
+      "Todos os avisos e confirmações do app (excluir matéria, apagar estatísticas, importar backup, etc.) agora aparecem como uma janela flutuante no estilo do app, em vez do popup cinza do navegador.",
+      "Corrigido: no modo foco em tela cheia, botões e informações podiam ficar cortados quando o navegador não estava em tela cheia nativa — agora o painel rola internamente e nada fica inacessível.",
+      "Mais espaçamento entre os botões flutuantes de conta, Dados e Sala no canto superior direito.",
+    ],
+  },
+  {
     versao: "1.18",
     titulo: "Taxa de Conclusão de Pomodoros",
     itens: [
@@ -6573,6 +6583,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "XP, níveis e conquistas desbloqueáveis",
       "Sequência de dias seguidos de foco",
       "Tarefas do dia a dia",
+      "Sala de Estudos: crie ou entre com um código e veja o ranking de minutos estudados (hoje e na semana) atualizando em tempo real",
     ],
   },
   {

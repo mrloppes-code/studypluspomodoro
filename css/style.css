@@ -2900,7 +2900,7 @@ body.modo-isolamento-ativo .btn-abrir-login {
    no topo direito da tela. */
 .btn-gerenciar-dados {
   position: fixed;
-  top: 64px;
+  top: 76px;
   right: 20px;
   z-index: 500;
   background: var(--surface-inset);
@@ -2922,7 +2922,7 @@ body.modo-isolamento-ativo .btn-gerenciar-dados {
 }
 @media (max-width: 640px) {
   .btn-gerenciar-dados {
-    top: 50px;
+    top: 58px;
     right: 12px;
     padding: 6px 12px;
     font-size: 0.78rem;
@@ -4119,7 +4119,7 @@ body.modo-isolamento-ativo .btn-novidades {
    se ninguém estiver logado (o ranking precisa de uma conta). */
 .btn-abrir-sala {
   position: fixed;
-  top: 108px;
+  top: 136px;
   right: 20px;
   z-index: 500;
   background: var(--surface-inset);
@@ -4141,7 +4141,7 @@ body.modo-isolamento-ativo .btn-abrir-sala {
 }
 @media (max-width: 640px) {
   .btn-abrir-sala {
-    top: 88px;
+    top: 104px;
     right: 12px;
     padding: 6px 12px;
     font-size: 0.78rem;
