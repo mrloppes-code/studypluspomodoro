@@ -4336,3 +4336,48 @@ body.modo-isolamento-ativo .btn-abrir-sala {
   text-align: center;
   padding: 20px 0;
 }
+
+/* ===== CARTÃO DE CONQUISTA COMPARTILHÁVEL ===== */
+.btn-compartilhar-conquista {
+  margin-top: 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-compartilhar-conquista:hover {
+  filter: brightness(1.08);
+}
+
+.modal-cartao-conquista-conteudo {
+  max-width: 420px;
+  text-align: center;
+}
+.cartao-conquista-preview-wrap {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  margin: 4px 0 18px;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cartao-conquista-preview {
+  width: 100%;
+  max-width: 260px;
+  border-radius: 8px;
+  display: block;
+}
+.cartao-conquista-botoes {
+  display: flex;
+  gap: 10px;
+}
+.cartao-conquista-botoes button {
+  flex: 1;
+}

@@ -1655,7 +1655,7 @@ function tickTimer() {
         // Tenta tocar o som agora (pode não funcionar se a aba estiver oculta)
         testarSomAtual();
         // Notificação do sistema (funciona mesmo em segundo plano)
-        notificarSemSegundoPlano(
+        notificarSeEmSegundoPlano(
           "🎉 Foco concluído!",
           "Você terminou o ciclo de foco. Hora de uma pausa.",
         );
@@ -6112,6 +6112,296 @@ function renderizarGamificacao() {
   novasDesbloqueadas.forEach((c) => {
     mostrarToastGamificacao(c.icone, "Conquista Desbloqueada!", c.nome);
   });
+}
+
+// --- CARTÃO DE CONQUISTA COMPARTILHÁVEL ---
+// Gera uma imagem (streak, XP, horas da semana) em formato de story
+// (1080x1920) pra compartilhar no WhatsApp/Instagram, usando só o que já
+// está calculado em obterStatsGamificacao()/calcularXPTotal() — nenhum
+// dado novo, é o mesmo XP/nível/streak mostrados no Perfil.
+let blobCartaoConquistaAtual = null;
+
+function calcularMinutosUltimos7Dias() {
+  let minutos = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    minutos += historicoEstudos[obterDataLocalString(d)] || 0;
+  }
+  return minutos;
+}
+
+// Desenho auxiliar: retângulo com cantos arredondados (com fallback pra
+// navegadores sem CanvasRenderingContext2D.roundRect nativo).
+function desenharRetanguloArredondado(ctx, x, y, largura, altura, raio) {
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(x, y, largura, altura, raio);
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + raio, y);
+  ctx.arcTo(x + largura, y, x + largura, y + altura, raio);
+  ctx.arcTo(x + largura, y + altura, x, y + altura, raio);
+  ctx.arcTo(x, y + altura, x, y, raio);
+  ctx.arcTo(x, y, x + largura, y, raio);
+  ctx.closePath();
+}
+
+async function desenharCartaoConquista() {
+  const canvas = document.getElementById("cartao-conquista-canvas");
+  const ctx = canvas.getContext("2d");
+  const L = canvas.width; // 1080
+  const A = canvas.height; // 1920
+
+  // --- Dados (mesma fonte usada no Perfil) ---
+  const stats = obterStatsGamificacao();
+  const xpTotal = calcularXPTotal(stats);
+  const nivel = calcularNivelPorXp(xpTotal);
+  const titulo = obterTituloPorNivel(nivel);
+  const minutosSemana = calcularMinutosUltimos7Dias();
+  const horasSemana = Math.floor(minutosSemana / 60);
+  const minutosRestoSemana = minutosSemana % 60;
+  const nome = (dadosPerfil.nome || "Estudante").trim() || "Estudante";
+
+  // --- Fundo: gradiente escuro + brilho radial atrás do avatar ---
+  const gradFundo = ctx.createLinearGradient(0, 0, 0, A);
+  gradFundo.addColorStop(0, "#0f172a");
+  gradFundo.addColorStop(1, "#0b1220");
+  ctx.fillStyle = gradFundo;
+  ctx.fillRect(0, 0, L, A);
+
+  const gradBrilho = ctx.createRadialGradient(L / 2, 430, 40, L / 2, 430, 620);
+  gradBrilho.addColorStop(0, "rgba(59, 130, 246, 0.35)");
+  gradBrilho.addColorStop(1, "rgba(59, 130, 246, 0)");
+  ctx.fillStyle = gradBrilho;
+  ctx.fillRect(0, 0, L, A);
+
+  // --- Cabeçalho: nome do app ---
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#60a5fa";
+  ctx.font = "600 42px system-ui, sans-serif";
+  ctx.fillText("📚 Estude+", L / 2, 140);
+
+  // --- Avatar (foto real se houver, senão iniciais) ---
+  const raioAvatar = 130;
+  const centroAvatarY = 400;
+
+  async function carregarImagem(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(L / 2, centroAvatarY, raioAvatar, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+
+  if (fotoPerfilBase64) {
+    try {
+      const img = await carregarImagem(fotoPerfilBase64);
+      ctx.drawImage(
+        img,
+        L / 2 - raioAvatar,
+        centroAvatarY - raioAvatar,
+        raioAvatar * 2,
+        raioAvatar * 2,
+      );
+    } catch {
+      desenharIniciaisAvatar();
+    }
+  } else {
+    desenharIniciaisAvatar();
+  }
+  ctx.restore();
+
+  function desenharIniciaisAvatar() {
+    const gradAvatar = ctx.createLinearGradient(
+      L / 2 - raioAvatar,
+      centroAvatarY - raioAvatar,
+      L / 2 + raioAvatar,
+      centroAvatarY + raioAvatar,
+    );
+    gradAvatar.addColorStop(0, "#3b82f6");
+    gradAvatar.addColorStop(1, "#1d4ed8");
+    ctx.fillStyle = gradAvatar;
+    ctx.fillRect(
+      L / 2 - raioAvatar,
+      centroAvatarY - raioAvatar,
+      raioAvatar * 2,
+      raioAvatar * 2,
+    );
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 100px system-ui, sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText(nome.substring(0, 2).toUpperCase(), L / 2, centroAvatarY + 8);
+    ctx.textBaseline = "alphabetic";
+  }
+
+  // Anel ao redor do avatar
+  ctx.beginPath();
+  ctx.arc(L / 2, centroAvatarY, raioAvatar + 6, 0, Math.PI * 2);
+  ctx.strokeStyle = "#3b82f6";
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // --- Nome + nível/título ---
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "700 58px system-ui, sans-serif";
+  ctx.fillText(nome, L / 2, centroAvatarY + raioAvatar + 90);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "500 36px system-ui, sans-serif";
+  ctx.fillText(
+    `Nível ${nivel} — ${titulo}`,
+    L / 2,
+    centroAvatarY + raioAvatar + 145,
+  );
+
+  // --- Cards de estatísticas ---
+  const statsParaCartao = [
+    { icone: "🔥", valor: `${stats.streakAtual}`, label: "dias seguidos" },
+    { icone: "⭐", valor: `${xpTotal}`, label: "XP total" },
+    {
+      icone: "⏱️",
+      valor:
+        horasSemana > 0
+          ? `${horasSemana}h ${minutosRestoSemana.toString().padStart(2, "0")}m`
+          : `${minutosRestoSemana}m`,
+      label: "essa semana",
+    },
+  ];
+
+  const margemLateral = 70;
+  const gapCards = 24;
+  const larguraCard = (L - margemLateral * 2 - gapCards * 2) / 3;
+  const alturaCard = 260;
+  const topoCards = centroAvatarY + raioAvatar + 220;
+
+  statsParaCartao.forEach((item, i) => {
+    const x = margemLateral + i * (larguraCard + gapCards);
+
+    ctx.fillStyle = "rgba(30, 41, 59, 0.85)";
+    desenharRetanguloArredondado(
+      ctx,
+      x,
+      topoCards,
+      larguraCard,
+      alturaCard,
+      24,
+    );
+    ctx.fill();
+    ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const centroX = x + larguraCard / 2;
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "64px system-ui, sans-serif";
+    ctx.fillText(item.icone, centroX, topoCards + 90);
+
+    ctx.font = "700 54px system-ui, sans-serif";
+    ctx.fillStyle = "#60a5fa";
+    ctx.fillText(item.valor, centroX, topoCards + 165);
+
+    ctx.font = "500 28px system-ui, sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText(item.label, centroX, topoCards + 210);
+  });
+
+  // --- Rodapé: frase motivacional + data ---
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "600 40px system-ui, sans-serif";
+  ctx.fillText("Constância todos os dias 💪", L / 2, A - 160);
+
+  const hoje = new Date();
+  const dataFormatada = hoje.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  ctx.fillStyle = "#64748b";
+  ctx.font = "400 30px system-ui, sans-serif";
+  ctx.fillText(dataFormatada, L / 2, A - 100);
+  ctx.fillText("Feito com Estude+", L / 2, A - 60);
+}
+
+async function abrirCartaoConquista() {
+  const modal = document.getElementById("modal-cartao-conquista");
+  const preview = document.getElementById("cartao-conquista-preview");
+  if (!modal || !preview) return;
+
+  modal.style.display = "flex";
+  preview.src = "";
+  blobCartaoConquistaAtual = null;
+
+  await desenharCartaoConquista();
+
+  const canvas = document.getElementById("cartao-conquista-canvas");
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    blobCartaoConquistaAtual = blob;
+    preview.src = URL.createObjectURL(blob);
+  }, "image/png");
+}
+
+function fecharModalCartaoConquista() {
+  const modal = document.getElementById("modal-cartao-conquista");
+  if (modal) modal.style.display = "none";
+}
+
+function fecharModalCartaoConquistaSeClicouFora(event) {
+  if (event.target === event.currentTarget) fecharModalCartaoConquista();
+}
+
+// Compartilha direto pro app nativo de compartilhamento (WhatsApp,
+// Instagram Stories, etc.) quando o navegador suporta Web Share API com
+// arquivos (a maioria dos navegadores mobile modernos). No desktop, ou se
+// não suportar, cai pro download simples do PNG.
+async function compartilharCartaoConquista() {
+  if (!blobCartaoConquistaAtual) {
+    await mostrarAlerta(
+      "A imagem ainda está sendo gerada, tente de novo em um instante.",
+    );
+    return;
+  }
+
+  const arquivo = new File([blobCartaoConquistaAtual], "minha-conquista.png", {
+    type: "image/png",
+  });
+
+  if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+    try {
+      await navigator.share({
+        files: [arquivo],
+        title: "Minha conquista no Estude+",
+        text: "Olha meu progresso nos estudos! 📚🔥",
+      });
+      return;
+    } catch (err) {
+      // Usuário cancelou o compartilhamento — não faz nada, sem cair no
+      // download automático (evita baixar sem querer depois de cancelar).
+      if (err && err.name === "AbortError") return;
+      console.error("Erro ao compartilhar cartão:", err);
+    }
+  }
+
+  baixarCartaoConquista();
+}
+
+function baixarCartaoConquista() {
+  if (!blobCartaoConquistaAtual) return;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blobCartaoConquistaAtual);
+  link.download = "minha-conquista-estude-mais.png";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 // --- BACKUP: EXPORTAR / IMPORTAR DADOS ---

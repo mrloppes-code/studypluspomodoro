@@ -242,6 +242,61 @@
       </div>
     </div>
 
+    <!-- MODAL: CARTÃO DE CONQUISTA COMPARTILHÁVEL -->
+    <div
+      id="modal-cartao-conquista"
+      class="modal-distracao"
+      onclick="fecharModalCartaoConquistaSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-cartao-conquista-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalCartaoConquista()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">📤 Compartilhar Conquista</h2>
+        <p class="sala-subtitulo">
+          Uma imagem com seu progresso, pronta pra postar no story ou mandar no
+          WhatsApp.
+        </p>
+
+        <div class="cartao-conquista-preview-wrap">
+          <canvas
+            id="cartao-conquista-canvas"
+            width="1080"
+            height="1920"
+            style="display: none"
+          ></canvas>
+          <img
+            id="cartao-conquista-preview"
+            alt="Cartão de conquista"
+            class="cartao-conquista-preview"
+          />
+        </div>
+
+        <div class="cartao-conquista-botoes">
+          <button
+            type="button"
+            class="btn-primario-sala"
+            onclick="compartilharCartaoConquista()"
+          >
+            📤 Compartilhar
+          </button>
+          <button
+            type="button"
+            class="btn-secundario-sala"
+            onclick="baixarCartaoConquista()"
+          >
+            ⬇️ Baixar imagem
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL: SALA DE ESTUDOS (grupo/competição) -->
     <div
       id="modal-sala-estudo"
@@ -330,39 +385,6 @@
           <div id="sala-ranking-lista" class="sala-ranking-lista">
             <p class="sala-ranking-vazio">Carregando ranking...</p>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: AVISO / CONFIRMAÇÃO GENÉRICO (substitui os antigos alert()/confirm() do navegador) -->
-    <div
-      id="modal-aviso-generico"
-      class="modal-distracao modal-aviso"
-      onclick="fecharModalAvisoSeClicouFora(event)"
-    >
-      <div class="modal-conteudo modal-aviso-conteudo">
-        <div class="modal-aviso-icone" id="modal-aviso-icone">❓</div>
-        <h2 class="modal-aviso-titulo" id="modal-aviso-titulo">
-          Confirmar ação
-        </h2>
-        <p class="modal-aviso-mensagem" id="modal-aviso-mensagem"></p>
-        <div class="modal-aviso-botoes">
-          <button
-            type="button"
-            id="modal-aviso-btn-cancelar"
-            class="btn-aviso-cancelar"
-            onclick="_cancelarModalAviso()"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            id="modal-aviso-btn-confirmar"
-            class="btn-aviso-confirmar"
-            onclick="_confirmarModalAviso()"
-          >
-            OK
-          </button>
         </div>
       </div>
     </div>
@@ -781,61 +803,6 @@
               "
             >
               Computar e Fechar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MODAL PAUSA SUGERIDA -->
-      <div
-        id="modal-pausa-sugerida"
-        class="modal-distracao modal-pausa-sugerida"
-      >
-        <div class="modal-conteudo modal-pausa-conteudo">
-          <h2
-            style="
-              color: var(--accent-text);
-              border-bottom: 1px solid var(--border);
-              padding-bottom: 10px;
-            "
-          >
-            ☕ Hora da Pausa!
-          </h2>
-          <p
-            style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0"
-          >
-            Quanto tempo você quer descansar antes do próximo ciclo?
-          </p>
-
-          <p
-            id="pausa-longa-aviso"
-            class="pausa-longa-aviso"
-            style="display: none"
-          >
-            🎉 4 pomodoros completos! Que tal uma pausa mais longa dessa vez?
-          </p>
-
-          <div class="grade-opcoes-pausa">
-            <button id="btn-pausa-5" onclick="iniciarPausaComDuracao(5)">
-              5 min
-            </button>
-            <button id="btn-pausa-10" onclick="iniciarPausaComDuracao(10)">
-              10 min
-            </button>
-            <button id="btn-pausa-15" onclick="iniciarPausaComDuracao(15)">
-              15 min
-            </button>
-            <button id="btn-pausa-20" onclick="iniciarPausaComDuracao(20)">
-              20 min
-            </button>
-            <button id="btn-pausa-30" onclick="iniciarPausaComDuracao(30)">
-              30 min
-            </button>
-            <button id="btn-pausa-45" onclick="iniciarPausaComDuracao(45)">
-              45 min
-            </button>
-            <button id="btn-pausa-60" onclick="iniciarPausaComDuracao(60)">
-              60 min
             </button>
           </div>
         </div>
@@ -2229,6 +2196,14 @@ Licitações e Contratos"
                     >0 / 100 XP</span
                   >
                 </div>
+
+                <button
+                  type="button"
+                  class="btn-compartilhar-conquista"
+                  onclick="abrirCartaoConquista()"
+                >
+                  📤 Compartilhar Conquista
+                </button>
               </div>
             </div>
 
@@ -2523,6 +2498,100 @@ Licitações e Contratos"
       </div>
     </div>
     <!-- fecha #app-conteudo -->
+
+    <!-- Os dois modais abaixo ficam FORA de #app-conteudo de propósito: no
+         modo foco em tela cheia, #app-conteudo recebe filter:blur()+opacity
+         baixa+pointer-events:none (pra desfocar o resto da tela atrás do
+         timer). Um filter CSS num elemento borra e desativa TODOS os
+         descendentes, sem exceção — não tem como um filho "escapar" disso
+         com o próprio CSS. Por isso o modal de pausa (mostrado sem sair da
+         tela cheia) e o modal de aviso/confirmação genérico (usado por
+         "Resetar", que também fica disponível em tela cheia) precisam morar
+         aqui fora, como irmãos de #app-conteudo — a mesma solução já usada
+         pro próprio card do pomodoro (função moverPomodoroParaTelaCheia). -->
+
+    <!-- MODAL PAUSA SUGERIDA -->
+    <div id="modal-pausa-sugerida" class="modal-distracao modal-pausa-sugerida">
+      <div class="modal-conteudo modal-pausa-conteudo">
+        <h2
+          style="
+            color: var(--accent-text);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+          "
+        >
+          ☕ Hora da Pausa!
+        </h2>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin: 10px 0">
+          Quanto tempo você quer descansar antes do próximo ciclo?
+        </p>
+
+        <p
+          id="pausa-longa-aviso"
+          class="pausa-longa-aviso"
+          style="display: none"
+        >
+          🎉 4 pomodoros completos! Que tal uma pausa mais longa dessa vez?
+        </p>
+
+        <div class="grade-opcoes-pausa">
+          <button id="btn-pausa-5" onclick="iniciarPausaComDuracao(5)">
+            5 min
+          </button>
+          <button id="btn-pausa-10" onclick="iniciarPausaComDuracao(10)">
+            10 min
+          </button>
+          <button id="btn-pausa-15" onclick="iniciarPausaComDuracao(15)">
+            15 min
+          </button>
+          <button id="btn-pausa-20" onclick="iniciarPausaComDuracao(20)">
+            20 min
+          </button>
+          <button id="btn-pausa-30" onclick="iniciarPausaComDuracao(30)">
+            30 min
+          </button>
+          <button id="btn-pausa-45" onclick="iniciarPausaComDuracao(45)">
+            45 min
+          </button>
+          <button id="btn-pausa-60" onclick="iniciarPausaComDuracao(60)">
+            60 min
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: AVISO / CONFIRMAÇÃO GENÉRICO (substitui os antigos alert()/confirm() do navegador) -->
+    <div
+      id="modal-aviso-generico"
+      class="modal-distracao modal-aviso"
+      onclick="fecharModalAvisoSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-aviso-conteudo">
+        <div class="modal-aviso-icone" id="modal-aviso-icone">❓</div>
+        <h2 class="modal-aviso-titulo" id="modal-aviso-titulo">
+          Confirmar ação
+        </h2>
+        <p class="modal-aviso-mensagem" id="modal-aviso-mensagem"></p>
+        <div class="modal-aviso-botoes">
+          <button
+            type="button"
+            id="modal-aviso-btn-cancelar"
+            class="btn-aviso-cancelar"
+            onclick="_cancelarModalAviso()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="modal-aviso-btn-confirmar"
+            class="btn-aviso-confirmar"
+            onclick="_confirmarModalAviso()"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Conteúdo do relatório exportável em PDF: fica escondido na tela
          normal e só aparece quando a página é impressa (window.print),
