@@ -175,10 +175,12 @@ function atualizarUiUsuarioLogado() {
   const badge = document.getElementById("conta-usuario-badge");
   const btnEntrar = document.getElementById("btn-abrir-login");
   const emailEl = document.getElementById("usuario-logado-email");
+  const btnSala = document.getElementById("btn-abrir-sala");
 
   if (!SUPABASE_CONFIGURADO) {
     if (badge) badge.style.display = "none";
     if (btnEntrar) btnEntrar.style.display = "none";
+    if (btnSala) btnSala.style.display = "none";
     return;
   }
 
@@ -186,9 +188,11 @@ function atualizarUiUsuarioLogado() {
     if (emailEl) emailEl.innerText = usuarioAtual.email;
     if (badge) badge.style.display = "flex";
     if (btnEntrar) btnEntrar.style.display = "none";
+    if (btnSala) btnSala.style.display = "flex";
   } else {
     if (badge) badge.style.display = "none";
     if (btnEntrar) btnEntrar.style.display = "flex";
+    if (btnSala) btnSala.style.display = "none";
   }
 
   const avisoBackup = document.getElementById("texto-aviso-backup");
@@ -413,6 +417,7 @@ async function entrarComSessao(session) {
   atualizarProgressoPomodoros();
   if (typeof atualizarBolinhaNovidades === "function")
     atualizarBolinhaNovidades();
+  if (typeof restaurarSalaSalva === "function") restaurarSalaSalva();
 }
 
 async function iniciarAutenticacao() {

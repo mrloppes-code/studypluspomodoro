@@ -4112,3 +4112,227 @@ body.modo-isolamento-ativo .btn-novidades {
     box-shadow: 0 0 0 3px var(--primary);
   }
 }
+
+/* ===== SALA DE ESTUDOS (grupo / competição) ===== */
+
+/* Botão flutuante — mesma coluna do "🗑️ Dados", logo abaixo dele; só some
+   se ninguém estiver logado (o ranking precisa de uma conta). */
+.btn-abrir-sala {
+  position: fixed;
+  top: 108px;
+  right: 20px;
+  z-index: 500;
+  background: var(--surface-inset);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.btn-abrir-sala:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+body.modo-isolamento-ativo .btn-abrir-sala {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-abrir-sala {
+    top: 88px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+}
+
+.modal-sala-conteudo {
+  max-width: 460px;
+}
+.sala-subtitulo {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.sala-form label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.sala-form-linha {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.sala-form-linha input {
+  margin: 0;
+  flex: 1;
+}
+.sala-form-linha button {
+  margin: 0;
+  white-space: nowrap;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.btn-primario-sala {
+  background: var(--primary);
+  color: white;
+  border: 1px solid var(--primary);
+}
+.btn-primario-sala:hover {
+  filter: brightness(1.08);
+}
+.btn-secundario-sala {
+  background: var(--surface-inset);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+.btn-secundario-sala:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.sala-separador {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin: 4px 0 18px;
+}
+.sala-separador::before,
+.sala-separador::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+.sala-separador span {
+  padding: 0 10px;
+}
+
+.sala-cabecalho-atual {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sala-cabecalho-atual strong {
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+.sala-codigo-linha {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sala-codigo-linha code {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--primary);
+}
+.sala-btn-copiar {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 2px 4px;
+}
+.sala-btn-copiar:hover {
+  text-decoration: underline;
+}
+.sala-btn-sair {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sala-btn-sair:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.sala-ranking-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.sala-ranking-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-areas: "posicao nome minutos" ". nome hoje";
+  align-items: center;
+  gap: 4px 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.sala-ranking-item-eu {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-inset));
+}
+.sala-ranking-posicao {
+  grid-area: posicao;
+  font-size: 1rem;
+  text-align: center;
+}
+.sala-ranking-nome {
+  grid-area: nome;
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sala-ranking-minutos {
+  grid-area: minutos;
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.sala-ranking-minutos small {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.sala-ranking-minutos-hoje {
+  grid-area: hoje;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+.sala-ranking-vazio {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 20px 0;
+}

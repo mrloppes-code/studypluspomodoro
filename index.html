@@ -96,6 +96,18 @@
       🗑️ Dados
     </button>
 
+    <!-- BOTÃO: SALA DE ESTUDOS (grupo/competição) — só aparece logado -->
+    <button
+      type="button"
+      id="btn-abrir-sala"
+      class="btn-abrir-sala"
+      onclick="abrirModalSala()"
+      title="Sala de estudos em grupo: veja e compare seu progresso com amigos"
+      style="display: none"
+    >
+      🏆 Sala
+    </button>
+
     <!-- BOTÃO FLUTUANTE DE NOVIDADES / FUNCIONALIDADES -->
     <button
       type="button"
@@ -226,6 +238,98 @@
           >
             🗑️ Apagar estatísticas desta meta
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SALA DE ESTUDOS (grupo/competição) -->
+    <div
+      id="modal-sala-estudo"
+      class="modal-distracao"
+      onclick="fecharModalSalaSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-sala-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalSala()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">🏆 Sala de Estudos</h2>
+        <p class="sala-subtitulo">
+          Crie uma sala e chame amigos pra estudar junto — compare quanto cada
+          um focou hoje e na semana, tudo em tempo real.
+        </p>
+
+        <!-- ESTADO: sem sala (criar ou entrar com código) -->
+        <div id="sala-sem-sala">
+          <form
+            id="sala-form-criar"
+            class="sala-form"
+            onsubmit="criarSalaPeloFormulario(event)"
+          >
+            <label for="sala-input-nome">Criar uma sala nova</label>
+            <div class="sala-form-linha">
+              <input
+                type="text"
+                id="sala-input-nome"
+                placeholder="Ex: Turma do cursinho"
+                maxlength="40"
+              />
+              <button type="submit" class="btn-primario-sala">Criar</button>
+            </div>
+          </form>
+
+          <div class="sala-separador"><span>ou</span></div>
+
+          <form
+            id="sala-form-entrar"
+            class="sala-form"
+            onsubmit="entrarNaSalaPeloFormulario(event)"
+          >
+            <label for="sala-input-codigo">Entrar com um código</label>
+            <div class="sala-form-linha">
+              <input
+                type="text"
+                id="sala-input-codigo"
+                placeholder="Ex: A3F9K2"
+                maxlength="6"
+                style="text-transform: uppercase"
+              />
+              <button type="submit" class="btn-secundario-sala">Entrar</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ESTADO: já está em uma sala -->
+        <div id="sala-com-sala" style="display: none">
+          <div class="sala-cabecalho-atual">
+            <div>
+              <strong id="sala-nome-atual">—</strong>
+              <div class="sala-codigo-linha">
+                Código:
+                <code id="sala-codigo-atual">—</code>
+                <button
+                  type="button"
+                  class="sala-btn-copiar"
+                  onclick="copiarCodigoSala()"
+                  title="Copiar código pra convidar alguém"
+                >
+                  📋 Copiar
+                </button>
+              </div>
+            </div>
+            <button type="button" class="sala-btn-sair" onclick="sairDaSala()">
+              Sair da sala
+            </button>
+          </div>
+
+          <div id="sala-ranking-lista" class="sala-ranking-lista">
+            <p class="sala-ranking-vazio">Carregando ranking...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -2428,6 +2532,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=4"></script>
+    <script src="js/salas.js?v=1"></script>
     <script src="js/script.js?v=41"></script>
 
     <script>
