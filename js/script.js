@@ -1421,6 +1421,233 @@ function gerenciarBotaoFocoPrincipal() {
   }
 }
 
+// --- PERSISTÊNCIA DA SESSÃO ATIVA (foco/pausa em andamento) ---
+// Sem isso, fechar o app (ou reiniciar o PC) NO MEIO de um ciclo de foco ou
+// de uma pausa perdia esse progresso: o timer só existia em variáveis na
+// memória, não em localStorage — ao reabrir, tudo voltava zerado. Isso é
+// diferente do bug de sessão-não-salva corrigido antes (que era sobre uma
+// sessão JÁ FINALIZADA falhando ao persistir); aqui é sobre uma sessão
+// AINDA EM ANDAMENTO no momento em que o app fecha. Mesmo padrão usado pelo
+// Simulado Cronometrado (verificarSimuladoCronometradoEmAndamento), só que
+// pro pomodoro normal. Fica só neste aparelho (não sincroniza entre
+// dispositivos — cada aparelho tem seu próprio timer rodando ou não).
+function salvarEstadoSessaoAtiva() {
+  if (!emEstadoDeFocoAtivo) {
+    limparEstadoSessaoAtiva();
+    return;
+  }
+  const seletorMateria = document.getElementById("pomo-materia");
+  const estado = {
+    fase: emPausaConfig ? "pausa" : "foco",
+    materia: seletorMateria ? seletorMateria.value : "",
+    tempoBaseEscolhidoMinutos,
+    emOvertime,
+    pausadoManualmente,
+    timestampAlvo: pausadoManualmente ? null : timestampAlvo,
+    timestampInicioOvertime: pausadoManualmente
+      ? null
+      : timestampInicioOvertime,
+    tempoRestanteCongelado:
+      pausadoManualmente && !emOvertime ? tempoRestante : null,
+    tempoOvertimeCongelado:
+      pausadoManualmente && emOvertime ? tempoOvertimeAcumulado : null,
+    planoEstudo: planoEstudo,
+  };
+  try {
+    localStorage.setItem("sessaoTimerAtiva", JSON.stringify(estado));
+  } catch (err) {
+    console.error("Erro ao salvar estado da sessão ativa:", err);
+  }
+}
+
+function limparEstadoSessaoAtiva() {
+  localStorage.removeItem("sessaoTimerAtiva");
+}
+
+// Roda uma vez, ao abrir o app: se havia um foco ou uma pausa em andamento
+// quando o app foi fechado, retoma exatamente de onde parou (os alvos são
+// baseados em Date.now(), então o tempo passado de verdade enquanto o app
+// estava fechado conta normalmente — inclusive virando overtime sozinho se
+// o ciclo já teria zerado nesse meio tempo).
+function restaurarSessaoAtivaSalva() {
+  let estado;
+  try {
+    estado = JSON.parse(localStorage.getItem("sessaoTimerAtiva"));
+  } catch {
+    estado = null;
+  }
+  if (!estado) return;
+
+  const agora = Date.now();
+  tempoBaseEscolhidoMinutos =
+    estado.tempoBaseEscolhidoMinutos || tempoBaseEscolhidoMinutos;
+  if (estado.planoEstudo) {
+    planoEstudo = estado.planoEstudo;
+    atualizarPainelBlocoEstudos();
+  }
+
+  const seletorMateria = document.getElementById("pomo-materia");
+  if (seletorMateria && estado.materia) {
+    const existeOpcao = Array.from(seletorMateria.options).some(
+      (o) => o.value === estado.materia,
+    );
+    if (existeOpcao) seletorMateria.value = estado.materia;
+  }
+
+  emEstadoDeFocoAtivo = true;
+  processandoFinalizacaoSessao = false;
+
+  if (estado.fase === "pausa") {
+    emPausaConfig = true;
+    emOvertime = false;
+
+    if (estado.pausadoManualmente) {
+      tempoRestante = estado.tempoRestanteCongelado || 0;
+      if (tempoRestante <= 0) {
+        limparEstadoSessaoAtiva();
+        resetTimer();
+        return;
+      }
+      timestampAlvo = agora + tempoRestante * 1000;
+      pausadoManualmente = true;
+      timestampPausaManualInicio = agora;
+    } else {
+      const restante = Math.round((estado.timestampAlvo - agora) / 1000);
+      if (restante <= 0) {
+        // A pausa já teria terminado enquanto o app estava fechado. Pausa
+        // não guarda minutos de estudo em risco, então só volta pro estado
+        // "pronto pra começar" — sem precisar do app aberto o tempo todo.
+        limparEstadoSessaoAtiva();
+        resetTimer();
+        return;
+      }
+      tempoRestante = restante;
+      timestampAlvo = estado.timestampAlvo;
+      pausadoManualmente = false;
+    }
+
+    const display = document.getElementById("timer-display");
+    if (display) {
+      display.classList.remove("overtime");
+      display.classList.add("pausa-ativa");
+    }
+    document
+      .querySelectorAll(".aba-tempo-foco, .aba-tempo-preparo")
+      .forEach((b) => (b.disabled = true));
+    const pomoPausaSel = document.getElementById("pomo-pausa");
+    if (pomoPausaSel) pomoPausaSel.disabled = true;
+
+    const btnPrincipal = document.getElementById("btn-start");
+    if (btnPrincipal) {
+      btnPrincipal.innerText = "Finalizar";
+      btnPrincipal.style.background = "var(--danger)";
+    }
+    const btnPause = document.getElementById("btn-pause");
+    if (btnPause)
+      btnPause.innerText = pausadoManualmente ? "Retomar" : "Pausar";
+    const status = document.getElementById("pomodoro-status");
+    if (status) {
+      status.innerText = pausadoManualmente
+        ? "⏸️ Pausa em espera (retome quando quiser)"
+        : "☕ Pausa em andamento...";
+    }
+
+    atualizarBotaoVoltarModoFoco();
+    atualizarBotaoCompletarSessao();
+
+    if (!pausadoManualmente) timer = setInterval(tickTimer, 250);
+    mostrarToastGamificacao(
+      "☕",
+      "Pausa retomada",
+      "Continuando de onde parou.",
+    );
+    return;
+  }
+
+  // fase === "foco"
+  emPausaConfig = false;
+
+  if (estado.pausadoManualmente) {
+    if (estado.emOvertime) {
+      emOvertime = true;
+      tempoOvertimeAcumulado = estado.tempoOvertimeCongelado || 0;
+      timestampInicioOvertime = agora - tempoOvertimeAcumulado * 1000;
+    } else {
+      emOvertime = false;
+      tempoRestante = estado.tempoRestanteCongelado || 0;
+      timestampAlvo = agora + tempoRestante * 1000;
+    }
+    pausadoManualmente = true;
+    timestampPausaManualInicio = agora;
+  } else if (estado.emOvertime) {
+    emOvertime = true;
+    timestampInicioOvertime = estado.timestampInicioOvertime || agora;
+    tempoOvertimeAcumulado = Math.max(
+      0,
+      Math.round((agora - timestampInicioOvertime) / 1000),
+    );
+    pausadoManualmente = false;
+  } else {
+    const restante = Math.round((estado.timestampAlvo - agora) / 1000);
+    if (restante <= 0) {
+      // O ciclo já teria zerado enquanto o app estava fechado — entra
+      // direto em overtime, com o tempo excedente já calculado a partir do
+      // instante em que teria zerado.
+      emOvertime = true;
+      timestampInicioOvertime = estado.timestampAlvo;
+      tempoOvertimeAcumulado = Math.round(
+        (agora - estado.timestampAlvo) / 1000,
+      );
+    } else {
+      tempoRestante = restante;
+      timestampAlvo = estado.timestampAlvo;
+    }
+    pausadoManualmente = false;
+  }
+
+  ativarModoIsolamento();
+  const headerTitulo = document.getElementById("pomodoro-header-titulo");
+  if (headerTitulo) headerTitulo.style.display = "none";
+  const mSel = estado.materia || "Estudo Geral";
+  const elTop = document.getElementById("pomo-texto-top");
+  const elSub = document.getElementById("pomo-texto-sub");
+  if (elTop) elTop.innerText = "Foco absoluto";
+  if (elSub) elSub.innerText = mSel;
+  const containerTitulos = document.getElementById("pomo-container-titulos");
+  if (containerTitulos) containerTitulos.style.display = "flex";
+
+  document
+    .querySelectorAll(".aba-tempo-foco, .aba-tempo-preparo")
+    .forEach((b) => (b.disabled = true));
+  const pomoPausaSel2 = document.getElementById("pomo-pausa");
+  if (pomoPausaSel2) pomoPausaSel2.disabled = true;
+
+  const btnPrincipal2 = document.getElementById("btn-start");
+  if (btnPrincipal2) {
+    btnPrincipal2.innerText = "Finalizar";
+    btnPrincipal2.style.background = "var(--danger)";
+  }
+  const btnPause2 = document.getElementById("btn-pause");
+  if (btnPause2)
+    btnPause2.innerText = pausadoManualmente ? "Retomar" : "Pausar";
+
+  const display2 = document.getElementById("timer-display");
+  if (display2) {
+    display2.classList.remove("pausa-ativa");
+    display2.classList.toggle("overtime", emOvertime);
+  }
+
+  atualizarBotaoCompletarSessao();
+  atualizarBotaoVoltarModoFoco();
+
+  if (!pausadoManualmente) timer = setInterval(tickTimer, 250);
+  mostrarToastGamificacao(
+    "⏱️",
+    "Sessão retomada",
+    "Continuando de onde você parou.",
+  );
+}
+
 function startTimer() {
   iniciarAudioContext();
   clearInterval(timer);
@@ -1475,6 +1702,7 @@ function startTimer() {
   timer = setInterval(tickTimer, 250);
 
   atualizarBotaoVoltarModoFoco();
+  salvarEstadoSessaoAtiva();
 }
 
 // Sai da tela cheia do modo foco SEM finalizar o pomodoro — a contagem
@@ -1523,7 +1751,7 @@ function atualizarBotaoCompletarSessao() {
 // Clique em "Completar Sessão": persiste a sessão (conta na meta na hora),
 // mostra a legenda com o tempo concluído e abre o seletor de pausa — tudo
 // sem sair da tela de foco.
-function abrirSeletorPausa() {
+async function abrirSeletorPausa() {
   // Trava contra duplo-clique: se já tem uma finalização em andamento
   // (por exemplo, o usuário clicou em "Finalizar" e em "Completar Sessão"
   // em sequência rápida, ou clicou duas vezes no mesmo botão), ignora a
@@ -1541,11 +1769,21 @@ function abrirSeletorPausa() {
 
   // Persiste o tempo estudado e soma +1 na meta imediatamente (o ciclo já
   // foi cumprido na íntegra, chegou a entrar em overtime).
+  //
+  // IMPORTANTE: se isso falhar (ex: localStorage cheio/quota excedida),
+  // avisa a pessoa NA HORA em vez de só logar no console e seguir como se
+  // nada tivesse acontecido — um erro engolido em silêncio aqui já causou
+  // sessão inteira perdida sem nenhum aviso.
   try {
     persistirSessaoFinalizada();
   } catch (err) {
     console.error("Erro ao persistir sessão:", err);
+    await mostrarAlerta(
+      `Não consegui salvar essa sessão de estudo (${minutosEstudados} min). Erro: ${err && err.message ? err.message : err}.\n\nAnote o tempo estudado por segurança e, se o problema persistir, tente exportar/verificar seu backup em Perfil → Dados.`,
+      { icone: "⚠️", titulo: "Sessão não foi salva" },
+    );
   }
+  limparEstadoSessaoAtiva();
 
   // Essa sessão já foi contada acima. Zera o overtime aqui — sem isso, se
   // o fluxo cair na Auditoria de Foco logo abaixo (meta batida) ou o
@@ -1680,6 +1918,7 @@ function tickTimer() {
       timestampInicioOvertime = Date.now();
       document.getElementById("timer-display").classList.add("overtime");
       atualizarBotaoCompletarSessao();
+      salvarEstadoSessaoAtiva();
     }
   } else if (emOvertime) {
     tempoOvertimeAcumulado = Math.floor(
@@ -1840,6 +2079,7 @@ function finalizarSessao() {
 
   processandoFinalizacaoSessao = true;
   clearInterval(timer);
+  limparEstadoSessaoAtiva();
 
   // Clicar em "Finalizar" manualmente é uma intervenção direta do usuário
   // no meio do fluxo automático — devolve o controle a ele cancelando o
@@ -1922,7 +2162,7 @@ function persistirSessaoFinalizada() {
   cacheMateriaSessaoAtual = "";
 }
 
-function pularRegistroDistracao() {
+async function pularRegistroDistracao() {
   // 1. Limpa qualquer checkbox que possa ter sido marcado por engano
   const checkboxes = document.querySelectorAll(
     ".grade-checkbox-distracao input",
@@ -1933,12 +2173,18 @@ function pularRegistroDistracao() {
   console.log("Foco 100% limpo registrado!");
   localStorage.setItem("ultimaAuditoria", JSON.stringify([]));
 
-  // 3. Persiste a sessão e reseta o timer para a próxima. Envolvido em
-  // try/catch para o modal nunca ficar "preso" na tela caso algo falhe aqui.
+  // 3. Persiste a sessão e reseta o timer para a próxima. Se falhar, avisa
+  // a pessoa visivelmente em vez de só logar no console — sem isso, uma
+  // sessão inteira podia sumir sem nenhum sinal de que algo deu errado.
+  const minutosDaSessao = cacheMinutosSessaoAtual;
   try {
     persistirSessaoFinalizada();
   } catch (err) {
     console.error("Erro ao persistir sessão:", err);
+    await mostrarAlerta(
+      `Não consegui salvar essa sessão de estudo (${minutosDaSessao} min). Erro: ${err && err.message ? err.message : err}.\n\nAnote o tempo estudado por segurança e, se o problema persistir, tente exportar/verificar seu backup em Perfil → Dados.`,
+      { icone: "⚠️", titulo: "Sessão não foi salva" },
+    );
   }
   resetTimer();
 
@@ -1952,7 +2198,7 @@ function pularRegistroDistracao() {
   renderizarTodoOPainel();
 }
 
-function confirmarRegistroDistracao() {
+async function confirmarRegistroDistracao() {
   // 1. Capturar distrações selecionadas
   const checkboxes = document.querySelectorAll(
     ".grade-checkbox-distracao input:checked",
@@ -1964,12 +2210,18 @@ function confirmarRegistroDistracao() {
   console.log("Distrações registradas:", distracoes);
 
   // 3. Persiste a sessão (tempo estudado + meta de pomodoros) e reseta o
-  // estado do Pomodoro (isso zera o display). Envolvido em try/catch para
-  // o modal nunca ficar "preso" na tela caso algo falhe aqui.
+  // estado do Pomodoro (isso zera o display). Se falhar, avisa a pessoa
+  // visivelmente em vez de só logar no console — sem isso, uma sessão
+  // inteira podia sumir sem nenhum sinal de que algo deu errado.
+  const minutosDaSessao = cacheMinutosSessaoAtual;
   try {
     persistirSessaoFinalizada();
   } catch (err) {
     console.error("Erro ao persistir sessão:", err);
+    await mostrarAlerta(
+      `Não consegui salvar essa sessão de estudo (${minutosDaSessao} min). Erro: ${err && err.message ? err.message : err}.\n\nAnote o tempo estudado por segurança e, se o problema persistir, tente exportar/verificar seu backup em Perfil → Dados.`,
+      { icone: "⚠️", titulo: "Sessão não foi salva" },
+    );
   }
   resetTimer();
 
@@ -2026,6 +2278,8 @@ async function confirmarEResetar() {
 }
 
 function resetTimer() {
+  limparEstadoSessaoAtiva();
+
   // Interrompe o contador
   if (timer) {
     clearInterval(timer);
@@ -2092,6 +2346,7 @@ function pauseTimer() {
     pausadoManualmente = true;
     if (btn) btn.innerText = "Retomar";
   }
+  salvarEstadoSessaoAtiva();
 }
 function salvarSessaoIncompleta() {
   // Calcula quanto tempo passou desde o início (exemplo usando uma variável global 'tempoInicio')
@@ -6765,6 +7020,15 @@ function recarregarEstadoDoLocalStorage() {
     JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
   registrosSimulados =
     JSON.parse(localStorage.getItem("registrosSimulados")) || [];
+  metaHorasSemanaisAlvo =
+    parseInt(localStorage.getItem("metaHorasSemanaisAlvo"), 10) || 10;
+  freezesDisponiveis = (() => {
+    const salvo = JSON.parse(localStorage.getItem("freezesDisponiveis"));
+    return salvo === null || salvo === undefined ? 1 : salvo;
+  })();
+  semanaReferenciaFreeze = localStorage.getItem("semanaReferenciaFreeze") || "";
+  diasCongeladosStreak =
+    JSON.parse(localStorage.getItem("diasCongeladosStreak")) || [];
 }
 
 // Carga Geral Inicial
@@ -6780,6 +7044,7 @@ function iniciarAppEstudeMais() {
   renderizarTarefas();
   atualizarProgressoPomodoros();
   verificarSimuladoCronometradoEmAndamento();
+  restaurarSessaoAtivaSalva();
 }
 
 // ============================================================
@@ -6900,6 +7165,15 @@ window.addEventListener("appinstalled", () => {
 // o app saber que tem novidade não vista ainda (compara com
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
+  {
+    versao: "1.21",
+    titulo: "Sincronização entre aparelhos mais confiável",
+    itens: [
+      'Corrigido: o app podia mostrar toda vez a pergunta "dados da conta ou deste aparelho?" mesmo sem nenhum conflito real — agora só aparece na primeira vez que uma conta é usada nesse aparelho.',
+      "Sessões, questões, simulados e tarefas feitos em aparelhos diferentes (ou no mesmo aparelho, em momentos diferentes do dia) agora são combinados, em vez de um substituir o outro — nenhuma sessão se perde mais por causa de sincronização.",
+      "O app agora também sincroniza sozinho ao voltar de segundo plano (celular/PWA), sem precisar recarregar a página.",
+    ],
+  },
   {
     versao: "1.20",
     titulo: "Meta de Horas, Congelamento de Sequência e Cartão de Conquista",
