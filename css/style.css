@@ -310,6 +310,23 @@ body {
   white-space: nowrap;
 }
 
+/* Indicador de congelamento de sequência: fica ao lado do badge de streak,
+   opaco/colorido quando há 1 disponível essa semana, apagado quando já foi
+   usado (repõe toda segunda-feira). */
+.streak-freeze-indicador {
+  font-size: 1.3rem;
+  margin-left: 10px;
+  cursor: default;
+  filter: grayscale(1);
+  opacity: 0.35;
+  transition: all 0.2s;
+}
+.streak-freeze-indicador.freeze-disponivel {
+  filter: none;
+  opacity: 1;
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+}
+
 .secao-topo-pomo {
   max-width: 1100px;
   margin: 0 auto 20px auto;
@@ -1912,6 +1929,93 @@ body.modo-isolamento-ativo .timer-preparacao {
 }
 .widget-meta-topo.compacto .meta-countdown {
   font-size: 1.15rem;
+}
+
+/* Card de Meta de Horas Semanais (recorrente, independente de prova) */
+.widget-meta-horas {
+  padding: 16px 18px;
+}
+.meta-horas-texto {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+.meta-horas-texto #meta-horas-atual {
+  font-weight: 700;
+  color: var(--primary);
+}
+.meta-horas-barra-fundo {
+  background: var(--surface-inset);
+  border-radius: 50px;
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.meta-horas-barra-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 50px;
+  transition: width 0.3s ease;
+}
+.meta-horas-barra-fill.meta-horas-completa {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+.meta-horas-rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  gap: 8px;
+}
+.meta-horas-mes-total {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.meta-horas-btn-editar {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.meta-horas-btn-editar:hover {
+  text-decoration: underline;
+}
+.meta-horas-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.meta-horas-editor label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.meta-horas-editor-linha {
+  display: flex;
+  gap: 8px;
+}
+.meta-horas-editor-linha input {
+  margin: 0;
+  flex: 1;
+}
+.meta-horas-editor-linha button {
+  margin: 0;
+  white-space: nowrap;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.meta-horas-editor-linha button:hover {
+  filter: brightness(1.08);
 }
 
 /* Card de Tarefas */

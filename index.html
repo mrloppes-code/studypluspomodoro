@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=52" />
+    <link rel="stylesheet" href="css/style.css?v=54" />
   </head>
   <body>
     <button
@@ -728,6 +728,12 @@
           🔥 Sequência:
           <span class="numero" id="streak-contador-val">0 dias</span>
         </button>
+        <span
+          class="streak-freeze-indicador"
+          id="streak-freeze-indicador"
+          title="Congelamento de sequência"
+          >❄️</span
+        >
       </div>
 
       <!-- SELETOR DE PROVA/EXAME ATIVO: aparece em qualquer aba assim que
@@ -1468,6 +1474,51 @@
             >
               <h2>🎯 Alvo e Meta Recente</h2>
               <div id="widget-meta-conteudo"></div>
+            </div>
+
+            <div class="card widget-meta-horas" id="widget-meta-horas">
+              <h2>🗓️ Meta de Horas</h2>
+              <div class="meta-horas-texto">
+                <span id="meta-horas-atual">0min</span> /
+                <span id="meta-horas-alvo-texto">10h</span> essa semana
+              </div>
+              <div class="meta-horas-barra-fundo">
+                <div
+                  class="meta-horas-barra-fill"
+                  id="meta-horas-barra-fill"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div class="meta-horas-rodape">
+                <span id="meta-horas-mes-total" class="meta-horas-mes-total"
+                  >Total do mês: 0h</span
+                >
+                <button
+                  type="button"
+                  class="meta-horas-btn-editar"
+                  onclick="alternarEdicaoMetaHoras()"
+                >
+                  ✏️ Ajustar meta
+                </button>
+              </div>
+              <form
+                id="meta-horas-editor"
+                class="meta-horas-editor"
+                style="display: none"
+                onsubmit="salvarMetaHorasSemanais(event)"
+              >
+                <label for="input-meta-horas-semanais">Horas por semana:</label>
+                <div class="meta-horas-editor-linha">
+                  <input
+                    type="number"
+                    id="input-meta-horas-semanais"
+                    min="1"
+                    max="100"
+                    step="1"
+                  />
+                  <button type="submit">Salvar</button>
+                </div>
+              </form>
             </div>
 
             <div class="card card-tarefas" id="widget-tarefas">
@@ -2600,9 +2651,9 @@ Licitações e Contratos"
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=4"></script>
-    <script src="js/salas.js?v=1"></script>
-    <script src="js/script.js?v=41"></script>
+    <script src="js/auth-sync.js?v=5"></script>
+    <script src="js/salas.js?v=2"></script>
+    <script src="js/script.js?v=43"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

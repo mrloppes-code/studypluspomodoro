@@ -113,6 +113,20 @@ let bancoDistracoes = JSON.parse(localStorage.getItem("bancoDistracoes")) || {
   Televisão: 0,
 };
 
+// Meta de Horas Semanais (recorrente, independente de prova) + Congelamento
+// de Sequência (1 "perdão" por semana pra não estudar 1 dia sem quebrar o
+// streak). Ambos guardados no localStorage pra persistir entre sessões.
+let metaHorasSemanaisAlvo =
+  parseInt(localStorage.getItem("metaHorasSemanaisAlvo"), 10) || 10; // horas
+let freezesDisponiveis = (() => {
+  const salvo = JSON.parse(localStorage.getItem("freezesDisponiveis"));
+  return salvo === null || salvo === undefined ? 1 : salvo;
+})();
+let semanaReferenciaFreeze =
+  localStorage.getItem("semanaReferenciaFreeze") || "";
+let diasCongeladosStreak =
+  JSON.parse(localStorage.getItem("diasCongeladosStreak")) || [];
+
 // Simulado Cronometrado: cronômetro regressivo do tempo total de uma prova,
 // em tela cheia. Persistido no localStorage (não só em variável) porque uma
 // prova real dura horas — se a pessoa recarregar a página ou fechar o
@@ -2347,7 +2361,115 @@ function calcularEMostrarEstatisticas() {
     eficiencia + "%";
 }
 
+// --- CONGELAMENTO DE SEQUÊNCIA (streak freeze) ---
+// Repõe 1 congelamento por semana (segunda a segunda). Se o dia de ontem
+// não teve estudo mas havia um streak rolando até anteontem, consome 1
+// congelamento automaticamente e marca ontem como "protegido" — o streak
+// não quebra, mas nenhum minuto de estudo é inventado nas estatísticas.
+function obterSegundaFeiraDaSemana(data) {
+  const d = new Date(data);
+  const diaSemana = d.getDay(); // 0 = domingo
+  const diff = diaSemana === 0 ? -6 : 1 - diaSemana;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function verificarEAplicarFreezeDeStreak() {
+  const hoje = new Date();
+  const chaveSemanaAtual = obterDataLocalString(
+    obterSegundaFeiraDaSemana(hoje),
+  );
+
+  if (semanaReferenciaFreeze !== chaveSemanaAtual) {
+    // Virou a semana: repõe o congelamento (não acumula além de 1).
+    freezesDisponiveis = 1;
+    semanaReferenciaFreeze = chaveSemanaAtual;
+    localStorage.setItem(
+      "freezesDisponiveis",
+      JSON.stringify(freezesDisponiveis),
+    );
+    localStorage.setItem("semanaReferenciaFreeze", semanaReferenciaFreeze);
+  }
+
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  const ontemStr = obterDataLocalString(ontem);
+
+  const anteontem = new Date(hoje);
+  anteontem.setDate(anteontem.getDate() - 2);
+  const anteontemStr = obterDataLocalString(anteontem);
+
+  const ontemFoiEstudado = historicoEstudos[ontemStr] > 0;
+  const ontemJaCongelado = diasCongeladosStreak.includes(ontemStr);
+  const haviaStreakAntesDeOntem =
+    historicoEstudos[anteontemStr] > 0 ||
+    diasCongeladosStreak.includes(anteontemStr);
+
+  if (
+    !ontemFoiEstudado &&
+    !ontemJaCongelado &&
+    haviaStreakAntesDeOntem &&
+    freezesDisponiveis > 0
+  ) {
+    diasCongeladosStreak.push(ontemStr);
+    freezesDisponiveis -= 1;
+    localStorage.setItem(
+      "diasCongeladosStreak",
+      JSON.stringify(diasCongeladosStreak),
+    );
+    localStorage.setItem(
+      "freezesDisponiveis",
+      JSON.stringify(freezesDisponiveis),
+    );
+    if (typeof mostrarToastGamificacao === "function") {
+      mostrarToastGamificacao(
+        "❄️",
+        "Sequência protegida!",
+        "Você não estudou ontem, mas o congelamento semanal salvou seu streak.",
+      );
+    }
+  }
+
+  // Limpeza: mantém só os últimos 60 dias no registro de congelados.
+  if (diasCongeladosStreak.length > 0) {
+    const limite = new Date();
+    limite.setDate(limite.getDate() - 60);
+    const antesLen = diasCongeladosStreak.length;
+    diasCongeladosStreak = diasCongeladosStreak.filter(
+      (d) => new Date(d) >= limite,
+    );
+    if (diasCongeladosStreak.length !== antesLen) {
+      localStorage.setItem(
+        "diasCongeladosStreak",
+        JSON.stringify(diasCongeladosStreak),
+      );
+    }
+  }
+}
+
+function atualizarIndicadorFreeze() {
+  const el = document.getElementById("streak-freeze-indicador");
+  if (!el) return;
+  if (freezesDisponiveis > 0) {
+    el.classList.add("freeze-disponivel");
+    el.classList.remove("freeze-usado");
+    el.title =
+      "Congelamento de sequência disponível: se faltar um dia essa semana, seu streak continua.";
+  } else {
+    el.classList.remove("freeze-disponivel");
+    el.classList.add("freeze-usado");
+    el.title = "Congelamento já usado essa semana — repõe na próxima segunda.";
+  }
+}
+
 function atualizarCalculoStreak() {
+  verificarEAplicarFreezeDeStreak();
+  atualizarIndicadorFreeze();
+
+  const contaComoEstudado = (dataStr) =>
+    historicoEstudos[dataStr] > 0 || diasCongeladosStreak.includes(dataStr);
+
   let hoje = new Date();
   let streak = 0;
   let verificandoData = new Date(hoje);
@@ -2355,18 +2477,16 @@ function atualizarCalculoStreak() {
   verificandoData.setDate(verificandoData.getDate() - 1);
   let dataStrOntem = obterDataLocalString(verificandoData);
 
-  if (
-    !(historicoEstudos[dataStrHoje] > 0) &&
-    !(historicoEstudos[dataStrOntem] > 0)
-  ) {
+  if (!contaComoEstudado(dataStrHoje) && !contaComoEstudado(dataStrOntem)) {
     document.getElementById("streak-contador-val").innerText = `0 dias`;
     return 0;
   }
-  verificandoData =
-    historicoEstudos[dataStrHoje] > 0 ? new Date(hoje) : verificandoData;
+  verificandoData = contaComoEstudado(dataStrHoje)
+    ? new Date(hoje)
+    : verificandoData;
   while (true) {
     let dataCheckStr = obterDataLocalString(verificandoData);
-    if (historicoEstudos[dataCheckStr] > 0) {
+    if (contaComoEstudado(dataCheckStr)) {
       streak++;
       verificandoData.setDate(verificandoData.getDate() - 1);
     } else {
@@ -2376,6 +2496,97 @@ function atualizarCalculoStreak() {
   document.getElementById("streak-contador-val").innerText =
     `${streak} ${streak === 1 ? "dia" : "dias"}`;
   return streak;
+}
+
+// --- META DE HORAS SEMANAIS (recorrente, independente de prova) ---
+function calcularMinutosSemanaCalendario() {
+  const segunda = obterSegundaFeiraDaSemana(new Date());
+  const hoje = new Date();
+  let minutos = 0;
+  for (let d = new Date(segunda); d <= hoje; d.setDate(d.getDate() + 1)) {
+    minutos += historicoEstudos[obterDataLocalString(d)] || 0;
+  }
+  return minutos;
+}
+
+function calcularMinutosMesAtual() {
+  const hoje = new Date();
+  let minutos = 0;
+  Object.keys(historicoEstudos).forEach((dataStr) => {
+    const partes = dataStr.split("-").map(Number);
+    const ano = partes[0];
+    const mes = partes[1];
+    if (ano === hoje.getFullYear() && mes === hoje.getMonth() + 1) {
+      minutos += historicoEstudos[dataStr] || 0;
+    }
+  });
+  return minutos;
+}
+
+function atualizarMetaHorasSemanais() {
+  const elAtual = document.getElementById("meta-horas-atual");
+  const elAlvo = document.getElementById("meta-horas-alvo-texto");
+  const elFill = document.getElementById("meta-horas-barra-fill");
+  const elMes = document.getElementById("meta-horas-mes-total");
+  if (!elAtual || !elAlvo || !elFill) return;
+
+  const minutosSemana = calcularMinutosSemanaCalendario();
+  const horasAtual = Math.floor(minutosSemana / 60);
+  const minRestoAtual = minutosSemana % 60;
+
+  elAtual.innerText =
+    horasAtual > 0
+      ? `${horasAtual}h ${minRestoAtual.toString().padStart(2, "0")}min`
+      : `${minRestoAtual}min`;
+  elAlvo.innerText = `${metaHorasSemanaisAlvo}h`;
+
+  const minutosAlvo = metaHorasSemanaisAlvo * 60;
+  const pct =
+    minutosAlvo > 0
+      ? Math.min(100, Math.round((minutosSemana / minutosAlvo) * 100))
+      : 0;
+  elFill.style.width = pct + "%";
+  elFill.classList.toggle("meta-horas-completa", pct >= 100);
+
+  if (elMes) {
+    const horasMes = Math.floor(calcularMinutosMesAtual() / 60);
+    elMes.innerText = `Total do mês: ${horasMes}h`;
+  }
+
+  const input = document.getElementById("input-meta-horas-semanais");
+  if (input && document.activeElement !== input) {
+    input.value = metaHorasSemanaisAlvo;
+  }
+}
+
+function alternarEdicaoMetaHoras() {
+  const editor = document.getElementById("meta-horas-editor");
+  if (!editor) return;
+  const abrindo = editor.style.display === "none" || !editor.style.display;
+  editor.style.display = abrindo ? "block" : "none";
+  if (abrindo) {
+    const input = document.getElementById("input-meta-horas-semanais");
+    if (input) {
+      input.value = metaHorasSemanaisAlvo;
+      input.focus();
+    }
+  }
+}
+
+async function salvarMetaHorasSemanais(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById("input-meta-horas-semanais");
+  if (!input) return;
+  const valor = parseInt(input.value, 10);
+  if (!valor || valor <= 0) {
+    await mostrarAlerta("Informe um número de horas maior que zero.");
+    return;
+  }
+  metaHorasSemanaisAlvo = valor;
+  localStorage.setItem("metaHorasSemanaisAlvo", String(metaHorasSemanaisAlvo));
+  const editor = document.getElementById("meta-horas-editor");
+  if (editor) editor.style.display = "none";
+  atualizarMetaHorasSemanais();
 }
 
 function salvarProgressoGeral(materia, minutos, nota) {
@@ -4838,6 +5049,7 @@ function renderizarTodoOPainel() {
   renderizarEvolucaoTemporal();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
+  atualizarMetaHorasSemanais();
 }
 
 // Inicialização do formulário de cadastro de matéria (estrelas + swatches)
@@ -6413,18 +6625,22 @@ const CHAVES_BACKUP = [
   "bancoDistracoes",
   "conquistasDesbloqueadas",
   "dadosPerfil",
+  "diasCongeladosStreak",
+  "freezesDisponiveis",
   "fotoPerfilBase64",
   "historicoEstudos",
   "historicoFoco",
   "logsSessoes",
   "materias",
   "metaFiltroAtivo",
+  "metaHorasSemanaisAlvo",
   "metaPomodorosDiaria",
   "metas",
   "pomosIniciadosPorDia",
   "pomosPorDia",
   "registrosQuestoes",
   "registrosSimulados",
+  "semanaReferenciaFreeze",
   "tarefas",
   "tempoPorMateria",
   "totalOvertimeGeralMinutos",
@@ -6685,6 +6901,17 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.20",
+    titulo: "Meta de Horas, Congelamento de Sequência e Cartão de Conquista",
+    itens: [
+      "Novo card 🗓️ Meta de Horas no painel: defina quantas horas quer estudar por semana e acompanhe o progresso (independente de prova/meta).",
+      "Novo ❄️ Congelamento de Sequência: 1 vez por semana, se você não estudar um dia, seu streak não quebra — repõe toda segunda-feira.",
+      "Novo botão 📤 Compartilhar Conquista no Perfil: gera uma imagem com seu streak, XP e horas da semana pra postar no story ou mandar no WhatsApp.",
+      "Corrigido: o botão Finalizar podia deixar o app parado (notificação e cor do timer excedente não atualizavam) por causa de um erro no código — resolvido.",
+      "Corrigido: o aviso de pausa e as confirmações podiam ficar invisíveis/travadas durante o modo foco em tela cheia — resolvido.",
+    ],
+  },
+  {
     versao: "1.19",
     titulo: "Sala de Estudos, avisos flutuantes e ajustes de tela cheia",
     itens: [
@@ -6852,6 +7079,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "Matérias com cor, peso de prioridade e vínculo a uma meta",
       "Sub-tópicos do edital por matéria, com progresso",
       "Metas com data da prova e contagem regressiva",
+      "Meta de Horas Semanais: alvo recorrente de horas por semana, independente de prova",
       "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
       "Questões resolvidas e simulados/provas completas, com histórico",
     ],
@@ -6871,9 +7099,10 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
     categoria: "🏆 Gamificação",
     itens: [
       "XP, níveis e conquistas desbloqueáveis",
-      "Sequência de dias seguidos de foco",
+      "Sequência de dias seguidos de foco, com 1 congelamento por semana pra não quebrar o streak",
       "Tarefas do dia a dia",
       "Sala de Estudos: crie ou entre com um código e veja o ranking de minutos estudados (hoje e na semana) atualizando em tempo real",
+      "Cartão de Conquista compartilhável: gera uma imagem com streak, XP e horas da semana pra postar no story/WhatsApp",
     ],
   },
   {
@@ -6991,6 +7220,9 @@ const CHAVES_ESTATISTICAS_GERAIS = [
   "registrosQuestoes",
   "registrosSimulados",
   "ultimoNivelVisto",
+  "diasCongeladosStreak",
+  "freezesDisponiveis",
+  "semanaReferenciaFreeze",
 ];
 
 function abrirModalGerenciarDados() {
