@@ -1401,14 +1401,55 @@ function restaurarPomodoroNaPosicaoOriginal() {
   }
 }
 
+// O seletor de matéria (#pomo-materia) fica escondido por CSS durante o
+// modo foco (.vinculo-materia-container some) — sem isso, a única forma de
+// ver/trocar a matéria era um texto estático que não reagia a nada. Em vez
+// de duplicar o <select> (o que criaria dois IDs iguais e risco de
+// ficarem dessincronizados), o MESMO elemento é movido pra dentro do
+// título da tela cheia enquanto o foco está ativo, e devolvido pro lugar
+// original ao sair — igual já era feito com o card inteiro do pomodoro.
+function moverSeletorMateriaParaTelaCheia() {
+  const select = document.getElementById("pomo-materia");
+  const destino = document.getElementById("pomo-texto-sub");
+  if (!select || !destino || select.parentElement === destino) return;
+  destino.innerHTML = "";
+  destino.appendChild(select);
+  select.classList.add("pomo-materia-tela-cheia");
+}
+
+function restaurarSeletorMateriaNaPosicaoOriginal() {
+  const select = document.getElementById("pomo-materia");
+  const marcador = document.getElementById("pomo-materia-placeholder");
+  if (!select || !marcador) return;
+  if (select.parentElement !== marcador.parentElement) {
+    select.classList.remove("pomo-materia-tela-cheia");
+    marcador.parentElement.insertBefore(select, marcador.nextSibling);
+  }
+}
+
+// Disparado quando a matéria é trocada (seja na tela normal, seja dentro
+// do modo foco, já que agora é o mesmo <select> nos dois lugares). Mantém
+// o título "Foco absoluto" visível e, se houver uma sessão em andamento,
+// atualiza na hora o estado salvo — pra uma troca de matéria no meio da
+// sessão não se perder se o app fechar logo depois.
+function aoMudarMateriaSessao() {
+  const elTop = document.getElementById("pomo-texto-top");
+  if (elTop && emEstadoDeFocoAtivo && !emPausaConfig) {
+    elTop.innerText = "Foco absoluto";
+  }
+  if (emEstadoDeFocoAtivo) salvarEstadoSessaoAtiva();
+}
+
 function ativarModoIsolamento() {
   document.body.classList.add("modo-isolamento-ativo");
   moverPomodoroParaTelaCheia();
+  moverSeletorMateriaParaTelaCheia();
 }
 
 function desativarModoIsolamento() {
   document.body.classList.remove("modo-isolamento-ativo");
   restaurarPomodoroNaPosicaoOriginal();
+  restaurarSeletorMateriaNaPosicaoOriginal();
 }
 
 // --- TIMING / POMODORO ---
@@ -1527,6 +1568,7 @@ function restaurarSessaoAtivaSalva() {
     }
 
     const display = document.getElementById("timer-display");
+    ativarModoIsolamento();
     if (display) {
       display.classList.remove("overtime");
       display.classList.add("pausa-ativa");
@@ -1608,11 +1650,14 @@ function restaurarSessaoAtivaSalva() {
   ativarModoIsolamento();
   const headerTitulo = document.getElementById("pomodoro-header-titulo");
   if (headerTitulo) headerTitulo.style.display = "none";
-  const mSel = estado.materia || "Estudo Geral";
+  // NÃO mexer em #pomo-texto-sub diretamente aqui: ativarModoIsolamento()
+  // (linha acima) já chama moverSeletorMateriaParaTelaCheia(), que move o
+  // <select id="pomo-materia"> de verdade pra dentro desse container. Setar
+  // innerText nele por cima substituiria o <select> por texto estático,
+  // quebrando o vínculo entre o que aparece na tela cheia e a matéria
+  // realmente selecionada (e as estatísticas registradas depois).
   const elTop = document.getElementById("pomo-texto-top");
-  const elSub = document.getElementById("pomo-texto-sub");
   if (elTop) elTop.innerText = "Foco absoluto";
-  if (elSub) elSub.innerText = mSel;
   const containerTitulos = document.getElementById("pomo-container-titulos");
   if (containerTitulos) containerTitulos.style.display = "flex";
 
@@ -1751,9 +1796,7 @@ function startTimer() {
     solicitarPermissaoNotificacao();
     ativarModoIsolamento();
     document.getElementById("pomodoro-header-titulo").style.display = "none";
-    let mSel = document.getElementById("pomo-materia").value || "Estudo Geral";
     document.getElementById("pomo-texto-top").innerText = "Foco absoluto";
-    document.getElementById("pomo-texto-sub").innerText = mSel;
     document.getElementById("pomo-container-titulos").style.display = "flex";
     exibirFraseMotivacional();
 
