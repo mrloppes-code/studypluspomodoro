@@ -2018,6 +2018,50 @@ body.modo-isolamento-ativo .timer-preparacao {
   filter: brightness(1.08);
 }
 
+/* ===== Reordenar cards do painel (arrastar e soltar) ===== */
+.widgets-dica-arrastar {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+  text-align: center;
+}
+.widget-handle-exemplo {
+  color: var(--primary);
+  font-weight: 700;
+}
+.widget-arrastavel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.widget-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+.widget-handle:hover {
+  color: var(--primary);
+}
+.widget-handle:active {
+  cursor: grabbing;
+}
+.widget-arrastavel {
+  transition:
+    opacity 0.15s ease,
+    outline-color 0.15s ease;
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+}
+.widget-arrastavel.widget-sendo-arrastado {
+  opacity: 0.4;
+}
+.widget-arrastavel.widget-drop-alvo {
+  outline-color: var(--primary);
+}
+
 /* Card de Tarefas */
 .card-tarefas {
   display: flex;

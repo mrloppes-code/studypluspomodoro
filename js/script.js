@@ -1648,6 +1648,88 @@ function restaurarSessaoAtivaSalva() {
   );
 }
 
+// --- REORDENAR CARDS DO PAINEL (arrastar e soltar) ---
+// Só os 3 cards da coluna lateral (Alvo/Meta, Meta de Horas, Tarefas) são
+// reordenáveis — o card do pomodoro em si fica fixo, já que tem tratamento
+// especial pro modo foco em tela cheia (ver moverPomodoroParaTelaCheia).
+let elementoArrastadoWidget = null;
+
+function iniciarArrastoWidget(event) {
+  const card = event.target.closest(".widget-arrastavel");
+  if (!card) return;
+  elementoArrastadoWidget = card;
+  event.dataTransfer.effectAllowed = "move";
+  // Alguns navegadores exigem um setData real pro drag funcionar de fato.
+  event.dataTransfer.setData("text/plain", card.id);
+  card.classList.add("widget-sendo-arrastado");
+}
+
+function finalizarArrastoWidget(event) {
+  const card = event.target.closest(".widget-arrastavel");
+  if (card) card.classList.remove("widget-sendo-arrastado");
+  document
+    .querySelectorAll(".widget-arrastavel.widget-drop-alvo")
+    .forEach((el) => el.classList.remove("widget-drop-alvo"));
+  elementoArrastadoWidget = null;
+}
+
+function permitirDropWidget(event) {
+  event.preventDefault();
+  const alvo = event.currentTarget;
+  if (!elementoArrastadoWidget || alvo === elementoArrastadoWidget) return;
+  alvo.classList.add("widget-drop-alvo");
+}
+
+function soltarWidget(event) {
+  event.preventDefault();
+  const alvo = event.currentTarget;
+  alvo.classList.remove("widget-drop-alvo");
+  if (!elementoArrastadoWidget || alvo === elementoArrastadoWidget) return;
+
+  const container = alvo.parentElement;
+  const cards = Array.from(container.querySelectorAll(".widget-arrastavel"));
+  const indiceArrastado = cards.indexOf(elementoArrastadoWidget);
+  const indiceAlvo = cards.indexOf(alvo);
+  if (indiceArrastado === -1 || indiceAlvo === -1) return;
+
+  if (indiceArrastado < indiceAlvo) {
+    alvo.after(elementoArrastadoWidget);
+  } else {
+    alvo.before(elementoArrastadoWidget);
+  }
+
+  salvarOrdemWidgetsPainel();
+}
+
+function salvarOrdemWidgetsPainel() {
+  const container = document.querySelector(".coluna-lateral-pomo");
+  if (!container) return;
+  const ordem = Array.from(
+    container.querySelectorAll(".widget-arrastavel"),
+  ).map((el) => el.id);
+  try {
+    localStorage.setItem("ordemWidgetsPainel", JSON.stringify(ordem));
+  } catch (err) {
+    console.error("Erro ao salvar ordem dos widgets:", err);
+  }
+}
+
+function restaurarOrdemWidgetsPainel() {
+  const container = document.querySelector(".coluna-lateral-pomo");
+  if (!container) return;
+  let ordem;
+  try {
+    ordem = JSON.parse(localStorage.getItem("ordemWidgetsPainel"));
+  } catch {
+    ordem = null;
+  }
+  if (!Array.isArray(ordem) || ordem.length === 0) return;
+  ordem.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement === container) container.appendChild(el);
+  });
+}
+
 function startTimer() {
   iniciarAudioContext();
   clearInterval(timer);
@@ -7045,6 +7127,7 @@ function iniciarAppEstudeMais() {
   atualizarProgressoPomodoros();
   verificarSimuladoCronometradoEmAndamento();
   restaurarSessaoAtivaSalva();
+  restaurarOrdemWidgetsPainel();
 }
 
 // ============================================================

@@ -31,6 +31,7 @@ function obterChavesSincronizaveis() {
     "volumeSomNeural",
     "tempoPreparoMinutos",
     "metaFiltroAtivo",
+    "ordemWidgetsPainel",
   ];
   const base = typeof CHAVES_BACKUP !== "undefined" ? CHAVES_BACKUP : [];
   return Array.from(new Set([...base, ...extras]));
@@ -65,6 +66,7 @@ function limparDadosLocaisDeConta() {
   obterChavesSincronizaveis().forEach((chave) => {
     localStorage.removeItem(chave);
   });
+  localStorage.removeItem("contaVinculadaId");
 }
 
 // Um jeito simples de saber se já existe progresso real neste aparelho
@@ -78,6 +80,152 @@ function localTemProgressoSignificativo() {
   } catch {
     return false;
   }
+}
+
+// --- MESCLA (em vez de sobrescrever) os dados vindos da nuvem com os
+// dados locais ---
+// Isso é o que permite fazer quantas sessões de estudo quiser ao longo do
+// dia — fechando e reabrindo o app, ou trocando de aparelho no meio — sem
+// perder nenhuma: em vez de um lado simplesmente substituir o outro (o que
+// apagaria silenciosamente qualquer sessão feita num aparelho que ainda não
+// tinha sincronizado quando o outro aparelho subiu os dados dele), cada
+// sessão/registro é somado ao conjunto todo, nunca descartado.
+function mesclarDadosDaNuvem(dadosNuvem) {
+  if (!dadosNuvem) return;
+
+  function lerLocal(chave, padrao) {
+    try {
+      const valor = JSON.parse(localStorage.getItem(chave));
+      return valor === null || valor === undefined ? padrao : valor;
+    } catch {
+      return padrao;
+    }
+  }
+  function lerNuvem(chave, padrao) {
+    if (dadosNuvem[chave] === undefined || dadosNuvem[chave] === null)
+      return padrao;
+    try {
+      const valor = JSON.parse(dadosNuvem[chave]);
+      return valor === null || valor === undefined ? padrao : valor;
+    } catch {
+      return padrao;
+    }
+  }
+
+  // 1. Listas com "id" único (sessões avulsas de foco, questões,
+  // simulados, tarefas): une os dois lados por id, sem duplicar.
+  function mesclarListaPorId(chave) {
+    const local = lerLocal(chave, []);
+    const nuvem = lerNuvem(chave, []);
+    const porId = new Map();
+    [...nuvem, ...local].forEach((item) => {
+      if (item && item.id !== undefined) porId.set(item.id, item);
+    });
+    const mesclada = Array.from(porId.values());
+    localStorage.setItem(chave, JSON.stringify(mesclada));
+    return mesclada;
+  }
+  mesclarListaPorId("registrosQuestoes");
+  mesclarListaPorId("registrosSimulados");
+  mesclarListaPorId("tarefas");
+  const logsMesclados = mesclarListaPorId("logsSessoes");
+
+  // 2. historicoFoco: não tem "id" próprio, mas a combinação data (com
+  // milissegundos) + minutos + matéria já é, na prática, única por sessão.
+  const historicoLocal = lerLocal("historicoFoco", []);
+  const historicoNuvem = lerNuvem("historicoFoco", []);
+  const historicoPorChave = new Map();
+  [...historicoNuvem, ...historicoLocal].forEach((item) => {
+    if (!item) return;
+    historicoPorChave.set(`${item.data}|${item.minutos}|${item.materia}`, item);
+  });
+  localStorage.setItem(
+    "historicoFoco",
+    JSON.stringify(Array.from(historicoPorChave.values())),
+  );
+
+  // 3. historicoEstudos e tempoPorMateria: em vez de tentar adivinhar qual
+  // dos dois números é "mais certo", recalcula os dois DO ZERO a partir do
+  // logsSessoes já mesclado no passo 1 — como cada sessão só existe uma vez
+  // ali, é impossível perder minutos ou contar a mesma sessão duas vezes.
+  const historicoEstudosRecalculado = {};
+  const tempoPorMateriaRecalculado = {};
+  logsMesclados.forEach((sessao) => {
+    if (!sessao || !sessao.duracao) return;
+    historicoEstudosRecalculado[sessao.data] =
+      (historicoEstudosRecalculado[sessao.data] || 0) + sessao.duracao;
+    if (sessao.materia) {
+      tempoPorMateriaRecalculado[sessao.materia] =
+        (tempoPorMateriaRecalculado[sessao.materia] || 0) + sessao.duracao;
+    }
+  });
+  localStorage.setItem(
+    "historicoEstudos",
+    JSON.stringify(historicoEstudosRecalculado),
+  );
+  localStorage.setItem(
+    "tempoPorMateria",
+    JSON.stringify(tempoPorMateriaRecalculado),
+  );
+
+  // 4. Contadores por dia sem log individual (pomodoros concluídos e
+  // iniciados): usa o maior valor de cada dia entre os dois lados — nunca
+  // fica menor do que o que qualquer um dos dois aparelhos já tinha
+  // registrado.
+  function mesclarContadorPorDia(chave) {
+    const local = lerLocal(chave, {});
+    const nuvem = lerNuvem(chave, {});
+    const mesclado = { ...local };
+    Object.keys(nuvem).forEach((dia) => {
+      mesclado[dia] = Math.max(mesclado[dia] || 0, nuvem[dia] || 0);
+    });
+    localStorage.setItem(chave, JSON.stringify(mesclado));
+  }
+  mesclarContadorPorDia("pomosPorDia");
+  mesclarContadorPorDia("pomosIniciadosPorDia");
+
+  // 5. Congelamentos de sequência: união simples das datas protegidas.
+  const congeladosLocal = lerLocal("diasCongeladosStreak", []);
+  const congeladosNuvem = lerNuvem("diasCongeladosStreak", []);
+  localStorage.setItem(
+    "diasCongeladosStreak",
+    JSON.stringify(
+      Array.from(new Set([...congeladosLocal, ...congeladosNuvem])),
+    ),
+  );
+
+  // 6. Tempo extra total (contador único, sem chave por dia): usa o maior
+  // dos dois valores.
+  const overtimeLocal =
+    parseInt(localStorage.getItem("totalOvertimeGeralMinutos"), 10) || 0;
+  const overtimeNuvem =
+    parseInt(lerNuvem("totalOvertimeGeralMinutos", 0), 10) || 0;
+  localStorage.setItem(
+    "totalOvertimeGeralMinutos",
+    String(Math.max(overtimeLocal, overtimeNuvem)),
+  );
+
+  // 7. Todo o resto (matérias, metas, perfil, preferências, tema...) são
+  // dados de "estado atual" — não eventos acumulados — então continuam
+  // simplesmente usando o valor da nuvem quando ele existir, como sempre.
+  const chavesJaTratadas = new Set([
+    "registrosQuestoes",
+    "registrosSimulados",
+    "tarefas",
+    "logsSessoes",
+    "historicoFoco",
+    "historicoEstudos",
+    "tempoPorMateria",
+    "pomosPorDia",
+    "pomosIniciadosPorDia",
+    "diasCongeladosStreak",
+    "totalOvertimeGeralMinutos",
+  ]);
+  Object.keys(dadosNuvem).forEach((chave) => {
+    if (!chavesJaTratadas.has(chave) && dadosNuvem[chave] !== null) {
+      localStorage.setItem(chave, dadosNuvem[chave]);
+    }
+  });
 }
 
 // --- ENVIO PARA A NUVEM (com debounce, pra não disparar 1 request a cada
@@ -379,33 +527,49 @@ async function entrarComSessao(session) {
 
   const dadosNuvem = await buscarDadosDaNuvem();
   const nuvemTemDados = Object.keys(dadosNuvem).length > 0;
-  const localTemDados = localTemProgressoSignificativo();
 
-  if (nuvemTemDados && localTemDados) {
-    // Tem progresso feito como convidado NESTE aparelho e também dados já
-    // salvos NESSA conta — deixa a pessoa escolher qual lado vence, em vez
-    // de sobrescrever silenciosamente um dos dois.
-    definirCarregandoLogin(false);
-    const usarDadosDaConta = await mostrarConfirmacao(
-      "Você tem dados salvos nesta conta e também dados feitos aqui neste aparelho sem estar logado. Qual dos dois você quer manter?",
-      {
-        icone: "☁️",
-        titulo: "Dados encontrados em dois lugares",
-        textoConfirmar: "Usar dados da conta",
-        textoCancelar: "Manter deste aparelho",
-      },
-    );
-    if (usarDadosDaConta) {
+  // Este aparelho já esteve logado NESSA MESMA conta antes (marcador
+  // gravado abaixo, na primeira vez). Se sim, os dados locais são dados
+  // DESSA conta — nunca é um "convidado" pedindo pra escolher lado, então
+  // some com aquele diálogo de conflito que, sem essa checagem, aparecia
+  // TODA VEZ que o app abria, mesmo sem nenhum conflito real. Em vez
+  // disso, mescla os dois lados (sem perder nenhuma sessão feita em
+  // qualquer aparelho desde a última sincronização) e sobe o resultado.
+  const contaJaVinculadaAquiAntes =
+    localStorage.getItem("contaVinculadaId") === session.user.id;
+
+  if (contaJaVinculadaAquiAntes) {
+    if (nuvemTemDados) mesclarDadosDaNuvem(dadosNuvem);
+    await sincronizarParaNuvem();
+  } else {
+    const localTemDados = localTemProgressoSignificativo();
+    if (nuvemTemDados && localTemDados) {
+      // Tem progresso feito como convidado NESTE aparelho e também dados já
+      // salvos NESSA conta — deixa a pessoa escolher qual lado vence, em vez
+      // de sobrescrever silenciosamente um dos dois.
+      definirCarregandoLogin(false);
+      const usarDadosDaConta = await mostrarConfirmacao(
+        "Você tem dados salvos nesta conta e também dados feitos aqui neste aparelho sem estar logado. Qual dos dois você quer manter?",
+        {
+          icone: "☁️",
+          titulo: "Dados encontrados em dois lugares",
+          textoConfirmar: "Usar dados da conta",
+          textoCancelar: "Manter deste aparelho",
+        },
+      );
+      if (usarDadosDaConta) {
+        aplicarDadosDaNuvem(dadosNuvem);
+      } else {
+        await sincronizarParaNuvem();
+      }
+    } else if (nuvemTemDados) {
       aplicarDadosDaNuvem(dadosNuvem);
-    } else {
+    } else if (localTemDados) {
+      // Conta nova (nuvem vazia) mas já tem progresso de convidado aqui —
+      // sobe esse progresso pra não perder nada.
       await sincronizarParaNuvem();
     }
-  } else if (nuvemTemDados) {
-    aplicarDadosDaNuvem(dadosNuvem);
-  } else if (localTemDados) {
-    // Conta nova (nuvem vazia) mas já tem progresso de convidado aqui —
-    // sobe esse progresso pra não perder nada.
-    await sincronizarParaNuvem();
+    localStorage.setItem("contaVinculadaId", session.user.id);
   }
 
   definirCarregandoLogin(false);
@@ -419,6 +583,37 @@ async function entrarComSessao(session) {
     atualizarBolinhaNovidades();
   if (typeof restaurarSalaSalva === "function") restaurarSalaSalva();
 }
+
+// --- RECONCILIAÇÃO AO VOLTAR PRO APP (sem precisar recarregar a página) ---
+// Cobre o caso de PWA/celular: sair do app (ele vai pro segundo plano, sem
+// fechar de verdade) e voltar depois — o navegador normalmente só retoma a
+// mesma página, sem disparar o carregamento inicial de novo. Sem isso, uma
+// sessão feita nesse meio tempo em OUTRO aparelho só apareceria aqui depois
+// de um recarregamento manual.
+let ultimaReconciliacaoEm = 0;
+async function reconciliarComANuvem() {
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual) return;
+  const dadosNuvem = await buscarDadosDaNuvem();
+  if (Object.keys(dadosNuvem).length > 0) {
+    mesclarDadosDaNuvem(dadosNuvem);
+    recarregarEstadoDoLocalStorage();
+    renderizarTodoOPainel();
+    renderizarTarefas();
+    atualizarProgressoPomodoros();
+  }
+  await sincronizarParaNuvem();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual) return;
+  const agora = Date.now();
+  // Só reconcilia se a aba ficou fora de foco por um tempo (evita refazer
+  // a mesma checagem toda hora que a pessoa só troca de aba e volta).
+  if (agora - ultimaReconciliacaoEm < 30000) return;
+  ultimaReconciliacaoEm = agora;
+  reconciliarComANuvem();
+});
 
 async function iniciarAutenticacao() {
   // O app já abre direto, no modo convidado — login é 100% opcional.

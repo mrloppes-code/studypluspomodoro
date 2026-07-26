@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=54" />
+    <link rel="stylesheet" href="css/style.css?v=55" />
   </head>
   <body>
     <button
@@ -1468,16 +1468,54 @@
           </div>
 
           <div class="coluna-lateral-pomo">
+            <p class="widgets-dica-arrastar">
+              ↕️ Arraste pelo <span class="widget-handle-exemplo">⠿</span> pra
+              reordenar os cards
+            </p>
+
             <div
-              class="card widget-meta-topo compacto"
+              class="card widget-meta-topo compacto widget-arrastavel"
               id="widget-meta-container"
+              ondragover="permitirDropWidget(event)"
+              ondragleave="
+                event.currentTarget.classList.remove('widget-drop-alvo')
+              "
+              ondrop="soltarWidget(event)"
             >
-              <h2>🎯 Alvo e Meta Recente</h2>
+              <h2>
+                <span
+                  class="widget-handle"
+                  draggable="true"
+                  ondragstart="iniciarArrastoWidget(event)"
+                  ondragend="finalizarArrastoWidget(event)"
+                  title="Arraste para reordenar"
+                  >⠿</span
+                >
+                🎯 Alvo e Meta Recente
+              </h2>
               <div id="widget-meta-conteudo"></div>
             </div>
 
-            <div class="card widget-meta-horas" id="widget-meta-horas">
-              <h2>🗓️ Meta de Horas</h2>
+            <div
+              class="card widget-meta-horas widget-arrastavel"
+              id="widget-meta-horas"
+              ondragover="permitirDropWidget(event)"
+              ondragleave="
+                event.currentTarget.classList.remove('widget-drop-alvo')
+              "
+              ondrop="soltarWidget(event)"
+            >
+              <h2>
+                <span
+                  class="widget-handle"
+                  draggable="true"
+                  ondragstart="iniciarArrastoWidget(event)"
+                  ondragend="finalizarArrastoWidget(event)"
+                  title="Arraste para reordenar"
+                  >⠿</span
+                >
+                🗓️ Meta de Horas
+              </h2>
               <div class="meta-horas-texto">
                 <span id="meta-horas-atual">0min</span> /
                 <span id="meta-horas-alvo-texto">10h</span> essa semana
@@ -1521,8 +1559,26 @@
               </form>
             </div>
 
-            <div class="card card-tarefas" id="widget-tarefas">
-              <h2>📋 Tarefas</h2>
+            <div
+              class="card card-tarefas widget-arrastavel"
+              id="widget-tarefas"
+              ondragover="permitirDropWidget(event)"
+              ondragleave="
+                event.currentTarget.classList.remove('widget-drop-alvo')
+              "
+              ondrop="soltarWidget(event)"
+            >
+              <h2>
+                <span
+                  class="widget-handle"
+                  draggable="true"
+                  ondragstart="iniciarArrastoWidget(event)"
+                  ondragend="finalizarArrastoWidget(event)"
+                  title="Arraste para reordenar"
+                  >⠿</span
+                >
+                📋 Tarefas
+              </h2>
               <div class="tarefas-input-row">
                 <input
                   type="text"
@@ -2651,9 +2707,9 @@ Licitações e Contratos"
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=6"></script>
+    <script src="js/auth-sync.js?v=7"></script>
     <script src="js/salas.js?v=2"></script>
-    <script src="js/script.js?v=46"></script>
+    <script src="js/script.js?v=47"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
