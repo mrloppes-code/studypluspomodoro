@@ -1705,9 +1705,9 @@
             ></div>
           </div>
           <div class="card">
-            <h2>🎯 Cadastrar Nova Meta de Estudo</h2>
+            <h2>🎯 Cadastrar Prova de Concurso</h2>
             <form id="meta-only-form" onsubmit="adicionarNovaMeta(event)">
-              <label for="meta-objetivo-nome">Nome do Objetivo / Meta:</label>
+              <label for="meta-objetivo-nome">Nome da Prova / Concurso:</label>
               <input
                 type="text"
                 id="meta-objetivo-nome"
@@ -1716,11 +1716,11 @@
               />
               <div class="flex-inputs">
                 <div>
-                  <label for="meta-prova-data">Data da Prova:</label>
+                  <label for="meta-prova-data">Data da Prova Objetiva:</label>
                   <input type="date" id="meta-prova-data" required />
                 </div>
                 <div>
-                  <label for="meta-qtd-materias">Qtd. Tópicos:</label>
+                  <label for="meta-qtd-materias">Qtd. Tópicos do Edital:</label>
                   <input
                     type="number"
                     id="meta-qtd-materias"
@@ -1730,6 +1730,36 @@
                   />
                 </div>
               </div>
+
+              <label for="meta-remuneracao">Remuneração (opcional):</label>
+              <input
+                type="number"
+                id="meta-remuneracao"
+                min="0"
+                step="0.01"
+                placeholder="Ex: 8000.00"
+              />
+
+              <div class="flex-inputs">
+                <div>
+                  <label for="meta-inscricao-inicio"
+                    >Início das Inscrições (opcional):</label
+                  >
+                  <input type="date" id="meta-inscricao-inicio" />
+                </div>
+                <div>
+                  <label for="meta-inscricao-fim"
+                    >Fim das Inscrições (opcional):</label
+                  >
+                  <input type="date" id="meta-inscricao-fim" />
+                </div>
+              </div>
+              <span class="campo-ajuda">
+                Cadastrando a data final de inscrição, o app te avisa (banner
+                aqui na tela + notificação do navegador, se permitida) quando
+                faltarem 3 dias ou menos pro prazo encerrar.
+              </span>
+
               <button
                 type="submit"
                 style="
@@ -1737,15 +1767,29 @@
                   padding: 10px;
                   background: var(--success);
                   color: white;
+                  margin-top: 10px;
                 "
               >
-                Fixar Nova Meta
+                Cadastrar Prova
               </button>
             </form>
           </div>
           <div class="card full-width">
-            <h2>📋 Registro de Metas Fixadas</h2>
-            <div id="lista-materias"></div>
+            <h2>📋 Provas Cadastradas</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Vincule as matérias que você cadastrar ao lado a uma destas provas
+              (campo "Vincular a uma Meta") pra acompanhar peso, desempenho e
+              tempo de estudo separados por concurso.
+            </p>
+            <p
+              id="alerta-inscricoes-proximas"
+              class="questoes-desempenho-alerta"
+              style="display: none"
+            ></p>
+            <div id="lista-materias" class="provas-grid"></div>
           </div>
         </div>
 

@@ -4851,11 +4851,135 @@ function adicionarNovaMeta(e) {
     document.getElementById("meta-qtd-materias").value,
   );
 
-  metas.push({ objetivoNome, dataLimite, qtdMaterias });
+  // Campos da prova de concurso — todos opcionais, pra não quebrar o
+  // cadastro de quem só quer registrar uma meta simples de estudo.
+  const remuneracaoValor = document.getElementById("meta-remuneracao").value;
+  const remuneracao =
+    remuneracaoValor !== "" ? parseFloat(remuneracaoValor) : null;
+  const inscricaoInicio =
+    document.getElementById("meta-inscricao-inicio").value || null;
+  const inscricaoFim =
+    document.getElementById("meta-inscricao-fim").value || null;
+
+  metas.push({
+    objetivoNome,
+    dataLimite,
+    qtdMaterias,
+    remuneracao,
+    inscricaoInicio,
+    inscricaoFim,
+  });
   localStorage.setItem("metas", JSON.stringify(metas));
+
+  // Se a pessoa cadastrou uma data final de inscrição, já aproveita esse
+  // gesto do usuário (o submit do formulário) pra pedir permissão de
+  // notificação — é o mesmo padrão usado ao iniciar um Pomodoro.
+  if (inscricaoFim) solicitarPermissaoNotificacao();
 
   document.getElementById("meta-only-form").reset();
   renderizarTodoOPainel();
+}
+
+// --- ALARME DE INSCRIÇÃO (provas de concurso) ---
+// Calcula quantos dias faltam pro fim da inscrição de uma prova e devolve
+// um "status" pronto pra exibir: encerrada, ainda não aberta, terminando
+// (<=3 dias) ou aberta normalmente. Provas sem data de inscrição cadastrada
+// simplesmente não mostram nenhum selo.
+function calcularStatusInscricao(meta) {
+  if (!meta.inscricaoFim) return null;
+
+  const hojeStr = obterDataLocalString(new Date());
+  const diffDias = Math.ceil(
+    (new Date(meta.inscricaoFim + "T23:59:59") - new Date()) /
+      (1000 * 60 * 60 * 24),
+  );
+
+  if (meta.inscricaoFim < hojeStr) {
+    return { texto: "🔒 Inscrições encerradas", classe: "status-overtime" };
+  }
+  if (meta.inscricaoInicio && hojeStr < meta.inscricaoInicio) {
+    return { texto: "⏳ Inscrições ainda não abertas", classe: "status-foco" };
+  }
+  if (diffDias <= 3) {
+    return {
+      texto:
+        diffDias === 0
+          ? "⚠️ Inscrição encerra hoje!"
+          : `⚠️ Encerra em ${diffDias} dia(s)!`,
+      classe: "status-atencao",
+    };
+  }
+  return {
+    texto: `✅ Inscrições abertas · ${diffDias} dias restantes`,
+    classe: "status-pausa",
+  };
+}
+
+// Roda a cada atualização do painel: monta o banner de "inscrição
+// terminando" (quando faltam 3 dias ou menos) e dispara UMA notificação do
+// navegador por prova por dia — sem repetir a cada re-render, senão o
+// alerta apareceria dezenas de vezes enquanto o app está aberto.
+function verificarAlarmesInscricao() {
+  const hojeStr = obterDataLocalString(new Date());
+
+  const proximas = metas.filter((meta) => {
+    if (!meta.inscricaoFim) return false;
+    const diffDias = Math.ceil(
+      (new Date(meta.inscricaoFim + "T23:59:59") - new Date()) /
+        (1000 * 60 * 60 * 24),
+    );
+    return diffDias >= 0 && diffDias <= 3;
+  });
+
+  const banner = document.getElementById("alerta-inscricoes-proximas");
+  if (banner) {
+    if (proximas.length === 0) {
+      banner.style.display = "none";
+      banner.innerHTML = "";
+    } else {
+      banner.style.display = "block";
+      banner.innerHTML = proximas
+        .map((m) => {
+          const diffDias = Math.ceil(
+            (new Date(m.inscricaoFim + "T23:59:59") - new Date()) /
+              (1000 * 60 * 60 * 24),
+          );
+          const quando =
+            diffDias === 0
+              ? "encerra <strong>hoje</strong>"
+              : `encerra em <strong>${diffDias} dia(s)</strong>`;
+          return `⏰ Inscrição de <strong>${escapeHtml(m.objetivoNome)}</strong> ${quando}!`;
+        })
+        .join("<br>");
+    }
+  }
+
+  const jaAvisadoHoje =
+    JSON.parse(localStorage.getItem("alarmesInscricaoAvisados")) || {};
+
+  proximas.forEach((meta) => {
+    if (jaAvisadoHoje[meta.objetivoNome] === hojeStr) return;
+
+    const diffDias = Math.ceil(
+      (new Date(meta.inscricaoFim + "T23:59:59") - new Date()) /
+        (1000 * 60 * 60 * 24),
+    );
+    const corpo =
+      diffDias === 0
+        ? "A inscrição encerra hoje — não deixe pra depois!"
+        : `Faltam ${diffDias} dia(s) para o fim da inscrição.`;
+
+    notificarSeEmSegundoPlano(
+      `⏰ ${meta.objetivoNome}: inscrição acabando`,
+      corpo,
+    );
+    jaAvisadoHoje[meta.objetivoNome] = hojeStr;
+  });
+
+  localStorage.setItem(
+    "alarmesInscricaoAvisados",
+    JSON.stringify(jaAvisadoHoje),
+  );
 }
 
 function atualizarDropdowns() {
@@ -5607,9 +5731,40 @@ function renderizarMetasEGraficos() {
         meta.dataLimite + "T23:59:59",
       ).toLocaleDateString("pt-BR");
       const destacada = filtroAtivo && filtroAtivo === meta.objetivoNome;
-      return `<div class="materia-item"${destacada ? ' style="border-left:5px solid var(--success); outline:2px solid var(--accent-text);"' : ' style="border-left:5px solid var(--success);"'}>
-        <strong>🎯 ${escapeHtml(meta.objetivoNome)}</strong> - Prova planejada para: ${dataFormatada} (Tópicos do edital: ${meta.qtdMaterias})
-        <button type="button" title="Excluir esta prova" onclick="excluirMeta(${i})" style="float:right; background:none; border:none; color:var(--danger); cursor:pointer; font-size:1rem;">✕</button>
+
+      const remuneracaoFormatada =
+        meta.remuneracao != null
+          ? meta.remuneracao.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })
+          : "—";
+
+      let periodoInscricao = "—";
+      if (meta.inscricaoFim) {
+        const fimFormatado = new Date(
+          meta.inscricaoFim + "T23:59:59",
+        ).toLocaleDateString("pt-BR");
+        periodoInscricao = meta.inscricaoInicio
+          ? `${new Date(meta.inscricaoInicio + "T00:00:00").toLocaleDateString("pt-BR")} a ${fimFormatado}`
+          : `até ${fimFormatado}`;
+      }
+
+      const qtdMateriasVinculadas = materias.filter(
+        (m) => m.metaVinculada === meta.objetivoNome,
+      ).length;
+
+      const status = calcularStatusInscricao(meta);
+
+      return `<div class="prova-card${destacada ? " prova-card-ativa" : ""}">
+        <button type="button" class="prova-card-excluir" title="Excluir esta prova" onclick="excluirMeta(${i})">✕</button>
+        <div class="prova-card-titulo">🎯 ${escapeHtml(meta.objetivoNome)}</div>
+        <div class="prova-card-linha"><span>📅 Prova objetiva</span><strong>${dataFormatada}</strong></div>
+        <div class="prova-card-linha"><span>💰 Remuneração</span><strong>${remuneracaoFormatada}</strong></div>
+        <div class="prova-card-linha"><span>📝 Inscrições</span><strong>${periodoInscricao}</strong></div>
+        <div class="prova-card-linha"><span>📚 Tópicos do edital</span><strong>${meta.qtdMaterias}</strong></div>
+        <div class="prova-card-linha"><span>🔗 Matérias vinculadas</span><strong>${qtdMateriasVinculadas}</strong></div>
+        ${status ? `<span class="status-badge ${status.classe} prova-card-status">${status.texto}</span>` : ""}
       </div>`;
     })
     .join("");
@@ -6099,6 +6254,7 @@ function renderizarTodoOPainel() {
   renderizarSessoesHoje();
   renderizarHistorico7Dias();
   renderizarMetasEGraficos();
+  verificarAlarmesInscricao();
   renderizarGrafico();
   atualizarProgressoPomodoros();
   renderizarTaxaConclusao();
