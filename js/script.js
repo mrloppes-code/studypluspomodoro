@@ -168,6 +168,11 @@ let processandoFinalizacaoSessao = false;
 let timestampAlvo = null; // instante (epoch ms) em que a contagem regressiva zera
 let timestampInicioOvertime = null; // instante (epoch ms) em que o overtime começou
 let meuGrafico = null;
+let graficoQuestoesPorMateria = null;
+let graficoMatrizPrioridade = null;
+let graficoQuestoesPorTopico = null;
+let graficoAvulsasVsSimulados = null;
+let registrosQuestoesFiltroAtual = [];
 let audioCtx = null;
 
 // Timer de Preparação: conta antes do foco começar de verdade (tanto no
@@ -3429,6 +3434,8 @@ async function registrarQuestoes(event) {
 
   const materia =
     document.getElementById("questoes-materia").value || "Estudo Geral";
+  const topicoEl = document.getElementById("questoes-topico");
+  const topico = topicoEl && topicoEl.value ? topicoEl.value : null;
   const total = parseInt(document.getElementById("questoes-total").value, 10);
   const acertos = parseInt(
     document.getElementById("questoes-acertos").value,
@@ -3454,24 +3461,62 @@ async function registrarQuestoes(event) {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     data: obterDataLocalString(new Date()),
     materia,
+    topico,
     total,
     acertos,
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
   document.getElementById("form-questoes").reset();
+  atualizarOpcoesTopicoQuestoes();
   mostrarToastGamificacao(
     "📝",
     "Questões registradas",
-    `${acertos}/${total} acertos em ${materia}`,
+    topico
+      ? `${acertos}/${total} acertos em ${materia} › ${topico}`
+      : `${acertos}/${total} acertos em ${materia}`,
   );
   renderizarQuestoesResolvidas();
+  renderizarMatrizPrioridade();
+  renderizarComparativoAvulsasSimulados();
+}
+
+// Preenche o select de tópico com o conteúdo programático já cadastrado
+// pra matéria escolhida (o mesmo usado na revisão espaçada). Sem tópicos
+// cadastrados nessa matéria, esconde o campo — não faz sentido obrigar
+// a pessoa a criar tópicos só pra registrar uma questão avulsa.
+function atualizarOpcoesTopicoQuestoes() {
+  const selectMateria = document.getElementById("questoes-materia");
+  const wrapper = document.getElementById("questoes-topico-wrapper");
+  const selectTopico = document.getElementById("questoes-topico");
+  if (!selectMateria || !wrapper || !selectTopico) return;
+
+  const materia = materias.find((m) => m.nome === selectMateria.value);
+  const topicos = (materia && materia.topicos) || [];
+
+  if (topicos.length === 0) {
+    wrapper.style.display = "none";
+    selectTopico.innerHTML = '<option value="">Não especificar</option>';
+    return;
+  }
+
+  wrapper.style.display = "block";
+  selectTopico.innerHTML =
+    '<option value="">Não especificar</option>' +
+    topicos
+      .map(
+        (t) =>
+          `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`,
+      )
+      .join("");
 }
 
 function excluirRegistroQuestoes(id) {
   registrosQuestoes = registrosQuestoes.filter((r) => r.id !== id);
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
   renderizarQuestoesResolvidas();
+  renderizarMatrizPrioridade();
+  renderizarComparativoAvulsasSimulados();
 }
 
 function renderizarQuestoesResolvidas() {
@@ -3487,6 +3532,7 @@ function renderizarQuestoesResolvidas() {
       seletorMateria.value = valorAtual;
     }
   }
+  atualizarOpcoesTopicoQuestoes();
 
   // Com uma prova em foco, considera só as questões de matérias vinculadas
   // a ela (mais "Estudo Geral", que não pertence a nenhuma prova específica
@@ -3536,10 +3582,13 @@ function renderizarQuestoesResolvidas() {
   lista.innerHTML = recentes
     .map((r) => {
       const pct = Math.round((r.acertos / r.total) * 100);
+      const materiaLabel = r.topico
+        ? `${escapeHtml(r.materia)} › ${escapeHtml(r.topico)}`
+        : escapeHtml(r.materia);
       return `
         <div class="questoes-item">
           <div class="questoes-item-info">
-            <span class="questoes-item-materia">${escapeHtml(r.materia)}</span>
+            <span class="questoes-item-materia">${materiaLabel}</span>
             <span class="questoes-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${r.data.split("-").reverse().join("/")}</span>
           </div>
           <button type="button" onclick="excluirRegistroQuestoes('${r.id}')" title="Excluir registro">✕</button>
@@ -3547,6 +3596,634 @@ function renderizarQuestoesResolvidas() {
       `;
     })
     .join("");
+
+  renderizarDesempenhoQuestoes(registrosDoFiltro);
+}
+
+// --- DESEMPENHO POR MATÉRIA (questões) ---
+// Agrupa os registros de questões por matéria e devolve, pra cada uma, o
+// total resolvido, os acertos e o % de acerto — ordenado do pior pro
+// melhor desempenho, porque o que a pessoa mais precisa ver de cara é
+// onde ela está errando mais, não onde já vai bem.
+function calcularDesempenhoPorMateria(registros) {
+  const mapa = {};
+  registros.forEach((r) => {
+    if (!mapa[r.materia]) mapa[r.materia] = { total: 0, acertos: 0 };
+    mapa[r.materia].total += r.total;
+    mapa[r.materia].acertos += r.acertos;
+  });
+
+  return Object.entries(mapa)
+    .map(([materia, dados]) => ({
+      materia,
+      total: dados.total,
+      acertos: dados.acertos,
+      pct: Math.round((dados.acertos / dados.total) * 100),
+    }))
+    .sort((a, b) => a.pct - b.pct);
+}
+
+// Renderiza o gráfico de barras horizontais com o % de acerto por matéria
+// e destaca, em texto, a matéria com pior desempenho — só quando ela já
+// tem um número mínimo de questões resolvidas, pra não apontar "ponto
+// fraco" em cima de uma amostra pequena demais (tipo 1 acerto em 1).
+function renderizarDesempenhoQuestoes(registrosDoFiltro) {
+  registrosQuestoesFiltroAtual = registrosDoFiltro;
+  const bloco = document.getElementById("questoes-desempenho-bloco");
+  const canvas = document.getElementById("chartQuestoesPorMateria");
+  const alerta = document.getElementById("questoes-desempenho-alerta");
+  if (!bloco || !canvas) return;
+
+  const desempenho = calcularDesempenhoPorMateria(registrosDoFiltro);
+
+  // Com 0 ou 1 matéria não há o que comparar — esconde o bloco inteiro.
+  if (desempenho.length < 2) {
+    bloco.style.display = "none";
+    if (graficoQuestoesPorMateria) {
+      graficoQuestoesPorMateria.destroy();
+      graficoQuestoesPorMateria = null;
+    }
+    return;
+  }
+  bloco.style.display = "block";
+
+  const AMOSTRA_MINIMA = 5;
+  const maisFraca = desempenho.find((d) => d.total >= AMOSTRA_MINIMA);
+  if (maisFraca && maisFraca.pct < 70) {
+    alerta.style.display = "block";
+    alerta.innerHTML = `⚠️ Seu menor rendimento é em <strong>${escapeHtml(maisFraca.materia)}</strong>: ${maisFraca.pct}% de acerto em ${maisFraca.total} questões. Pode valer a pena reforçar essa matéria.`;
+  } else {
+    alerta.style.display = "none";
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  // Altura dinâmica: cada matéria precisa de espaço próprio na barra
+  // horizontal, senão o Chart.js espreme tudo numa faixa ilegível.
+  canvas.parentElement.style.height = `${Math.max(120, desempenho.length * 42)}px`;
+
+  const cores = desempenho.map((d) => {
+    if (d.pct < 60) return "#ef4444";
+    if (d.pct < 80) return "#f59e0b";
+    return "#10b981";
+  });
+
+  if (graficoQuestoesPorMateria) {
+    graficoQuestoesPorMateria.destroy();
+  }
+
+  graficoQuestoesPorMateria = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: desempenho.map((d) => d.materia),
+      datasets: [
+        {
+          label: "% de acerto",
+          data: desempenho.map((d) => d.pct),
+          backgroundColor: cores,
+          borderRadius: 6,
+          maxBarThickness: 22,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        y: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const d = desempenho[ctx.dataIndex];
+              return ` ${d.acertos}/${d.total} acertos (${d.pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  atualizarSelectTopicoDetalhe(registrosDoFiltro);
+}
+
+// Só oferece o drill-down por tópico pras matérias que já têm ao menos
+// um registro de questão marcado com tópico — não faz sentido oferecer
+// a opção pra uma matéria onde tudo foi lançado como "Não especificar".
+function atualizarSelectTopicoDetalhe(registrosDoFiltro) {
+  const wrapper = document.getElementById("questoes-topico-detalhe-wrapper");
+  const select = document.getElementById("questoes-topico-detalhe-select");
+  if (!wrapper || !select) return;
+
+  const materiasComTopico = [
+    ...new Set(registrosDoFiltro.filter((r) => r.topico).map((r) => r.materia)),
+  ].sort();
+
+  if (materiasComTopico.length === 0) {
+    wrapper.style.display = "none";
+    if (graficoQuestoesPorTopico) {
+      graficoQuestoesPorTopico.destroy();
+      graficoQuestoesPorTopico = null;
+    }
+    return;
+  }
+
+  wrapper.style.display = "block";
+  const valorAtual = select.value;
+  select.innerHTML =
+    '<option value="">Selecione uma matéria</option>' +
+    materiasComTopico
+      .map(
+        (nome) =>
+          `<option value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`,
+      )
+      .join("");
+  if (materiasComTopico.includes(valorAtual)) {
+    select.value = valorAtual;
+    renderizarDesempenhoPorTopico(valorAtual);
+  }
+}
+
+// Mesmo cálculo do desempenho por matéria, só que agrupando por tópico
+// dentro de UMA matéria só — reaproveita a mesma lógica de ordenação
+// (pior desempenho primeiro).
+function calcularDesempenhoPorTopico(materiaNome, registros) {
+  const registrosComTopico = registros.filter(
+    (r) => r.materia === materiaNome && r.topico,
+  );
+  const mapa = {};
+  registrosComTopico.forEach((r) => {
+    if (!mapa[r.topico]) mapa[r.topico] = { total: 0, acertos: 0 };
+    mapa[r.topico].total += r.total;
+    mapa[r.topico].acertos += r.acertos;
+  });
+
+  return Object.entries(mapa)
+    .map(([topico, dados]) => ({
+      topico,
+      total: dados.total,
+      acertos: dados.acertos,
+      pct: Math.round((dados.acertos / dados.total) * 100),
+    }))
+    .sort((a, b) => a.pct - b.pct);
+}
+
+function renderizarDesempenhoPorTopico(materiaNome) {
+  const wrapperChart = document.getElementById("questoes-topico-chart-wrapper");
+  const canvas = document.getElementById("chartQuestoesPorTopico");
+  const alerta = document.getElementById("questoes-topico-alerta");
+  if (!wrapperChart || !canvas || !alerta) return;
+
+  if (!materiaNome) {
+    wrapperChart.style.display = "none";
+    alerta.style.display = "none";
+    if (graficoQuestoesPorTopico) {
+      graficoQuestoesPorTopico.destroy();
+      graficoQuestoesPorTopico = null;
+    }
+    return;
+  }
+
+  const desempenho = calcularDesempenhoPorTopico(
+    materiaNome,
+    registrosQuestoesFiltroAtual,
+  );
+
+  if (desempenho.length === 0) {
+    wrapperChart.style.display = "none";
+    alerta.style.display = "none";
+    return;
+  }
+  wrapperChart.style.display = "block";
+
+  const AMOSTRA_MINIMA = 3;
+  const maisFraco = desempenho.find((d) => d.total >= AMOSTRA_MINIMA);
+  if (maisFraco && maisFraco.pct < 70) {
+    alerta.style.display = "block";
+    alerta.innerHTML = `⚠️ Dentro de <strong>${escapeHtml(materiaNome)}</strong>, o tópico com pior rendimento é <strong>${escapeHtml(maisFraco.topico)}</strong>: ${maisFraco.pct}% de acerto em ${maisFraco.total} questões.`;
+  } else {
+    alerta.style.display = "none";
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  wrapperChart.style.height = `${Math.max(100, desempenho.length * 40)}px`;
+
+  const cores = desempenho.map((d) => {
+    if (d.pct < 60) return "#ef4444";
+    if (d.pct < 80) return "#f59e0b";
+    return "#10b981";
+  });
+
+  if (graficoQuestoesPorTopico) {
+    graficoQuestoesPorTopico.destroy();
+  }
+
+  graficoQuestoesPorTopico = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: desempenho.map((d) => d.topico),
+      datasets: [
+        {
+          label: "% de acerto",
+          data: desempenho.map((d) => d.pct),
+          backgroundColor: cores,
+          borderRadius: 6,
+          maxBarThickness: 20,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        y: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const d = desempenho[ctx.dataIndex];
+              return ` ${d.acertos}/${d.total} acertos (${d.pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+// A ideia é simples mas costuma faltar em app de estudo pra concurso:
+// nem toda fraqueza importa igual. Uma matéria que cai pouco na prova
+// não compete, em prioridade, com uma que cai muito — então em vez de
+// só rankear por % de acerto, cruza com o peso que a pessoa já dá pra
+// cada matéria (o mesmo peso usado no ritmo sugerido e na ordenação de
+// matérias).
+function renderizarMatrizPrioridade() {
+  const card = document.getElementById("card-matriz-prioridade");
+  const canvas = document.getElementById("chartMatrizPrioridade");
+  const legenda = document.getElementById("matriz-prioridade-legenda");
+  if (!card || !canvas) return;
+
+  const desempenho = calcularDesempenhoPorMateria(registrosQuestoes);
+  const AMOSTRA_MINIMA = 5;
+
+  // Só entra na matriz quem já tem amostra mínima de questões — um ponto
+  // solto com 1 questão erraria o diagnóstico e poluiria o gráfico.
+  const pontos = desempenho
+    .filter((d) => d.total >= AMOSTRA_MINIMA)
+    .map((d) => {
+      const materia = materias.find((m) => m.nome === d.materia);
+      return {
+        materia: d.materia,
+        pct: d.pct,
+        peso: (materia && materia.peso) || 1,
+        total: d.total,
+        acertos: d.acertos,
+      };
+    });
+
+  if (pontos.length < 2) {
+    card.style.display = "none";
+    if (graficoMatrizPrioridade) {
+      graficoMatrizPrioridade.destroy();
+      graficoMatrizPrioridade = null;
+    }
+    return;
+  }
+  card.style.display = "block";
+
+  // Limiar de desempenho: a própria média geral do usuário, não um número
+  // fixo — assim o diagnóstico é relativo ao nível dele mesmo, não a uma
+  // meta arbitrária.
+  const totalGeral = pontos.reduce((s, p) => s + p.total, 0);
+  const acertosGeral = pontos.reduce((s, p) => s + p.acertos, 0);
+  const limiarPct = totalGeral > 0 ? (acertosGeral / totalGeral) * 100 : 70;
+  const limiarPeso = 3.5;
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  const corPonto = (p) => {
+    if (p.peso >= limiarPeso && p.pct < limiarPct) return "#ef4444"; // prioridade máxima
+    if (p.peso >= limiarPeso && p.pct >= limiarPct) return "#10b981"; // ponto forte estratégico
+    if (p.peso < limiarPeso && p.pct < limiarPct) return "#f59e0b"; // fraqueza, mas pode esperar
+    return "#3b82f6"; // já domina, baixo risco
+  };
+
+  if (graficoMatrizPrioridade) {
+    graficoMatrizPrioridade.destroy();
+  }
+
+  // Plugin próprio (sem depender de biblioteca extra) só pra pintar o
+  // fundo dos 4 quadrantes antes dos pontos serem desenhados por cima.
+  const pluginQuadrantes = {
+    id: "pluginQuadrantes",
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea) return;
+      const xPix = scales.x.getPixelForValue(limiarPct);
+      const yPix = scales.y.getPixelForValue(limiarPeso);
+      ctx.save();
+      ctx.fillStyle = "rgba(239,68,68,0.07)"; // topo-esquerda: prioridade máxima
+      ctx.fillRect(
+        chartArea.left,
+        chartArea.top,
+        xPix - chartArea.left,
+        yPix - chartArea.top,
+      );
+      ctx.fillStyle = "rgba(16,185,129,0.07)"; // topo-direita: ponto forte estratégico
+      ctx.fillRect(
+        xPix,
+        chartArea.top,
+        chartArea.right - xPix,
+        yPix - chartArea.top,
+      );
+      ctx.fillStyle = "rgba(245,158,11,0.06)"; // baixo-esquerda: fraqueza, pode esperar
+      ctx.fillRect(
+        chartArea.left,
+        yPix,
+        xPix - chartArea.left,
+        chartArea.bottom - yPix,
+      );
+      ctx.fillStyle = "rgba(59,130,246,0.06)"; // baixo-direita: já domina
+      ctx.fillRect(xPix, yPix, chartArea.right - xPix, chartArea.bottom - yPix);
+      ctx.restore();
+    },
+  };
+
+  graficoMatrizPrioridade = new Chart(canvas.getContext("2d"), {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "Matérias",
+          data: pontos.map((p) => ({ x: p.pct, y: p.peso })),
+          backgroundColor: pontos.map(corPonto),
+          pointRadius: 8,
+          pointHoverRadius: 10,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: 0,
+          max: 100,
+          title: {
+            display: true,
+            text: "% de acerto",
+            color: corTextoMuted,
+            font: { family: fonteApp },
+          },
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        y: {
+          min: 0.5,
+          max: 5.5,
+          title: {
+            display: true,
+            text: "Peso na prova",
+            color: corTextoMuted,
+            font: { family: fonteApp },
+          },
+          ticks: {
+            stepSize: 1,
+            color: corTextoMuted,
+            font: { family: fonteApp },
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            title: (ctx) => pontos[ctx[0].dataIndex].materia,
+            label: (ctx) => {
+              const p = pontos[ctx.dataIndex];
+              return [
+                `${p.acertos}/${p.total} acertos (${p.pct}%)`,
+                `Peso: ${p.peso}★`,
+              ];
+            },
+          },
+        },
+      },
+    },
+    plugins: [pluginQuadrantes],
+  });
+
+  if (legenda) {
+    legenda.innerHTML = `
+      <div class="matriz-legenda-item"><span class="matriz-legenda-dot" style="background:#ef4444"></span>Prioridade máxima (peso alto, desempenho baixo)</div>
+      <div class="matriz-legenda-item"><span class="matriz-legenda-dot" style="background:#10b981"></span>Ponto forte estratégico (peso alto, desempenho alto)</div>
+      <div class="matriz-legenda-item"><span class="matriz-legenda-dot" style="background:#f59e0b"></span>Fraqueza, mas pode esperar (peso baixo, desempenho baixo)</div>
+      <div class="matriz-legenda-item"><span class="matriz-legenda-dot" style="background:#3b82f6"></span>Já domina (peso baixo, desempenho alto)</div>
+    `;
+  }
+}
+
+// --- QUESTÕES AVULSAS x SIMULADOS COMPLETOS ---
+// Questões soltas do dia a dia medem domínio de conteúdo. Simulados
+// completos medem conteúdo + gestão de tempo + ansiedade de prova real.
+// Um gap grande entre os dois pede um tipo de correção diferente de
+// simplesmente "estudar mais" — pede treino em condição de prova.
+function renderizarComparativoAvulsasSimulados() {
+  const card = document.getElementById("card-avulsas-vs-simulados");
+  const canvas = document.getElementById("chartAvulsasVsSimulados");
+  const elMediaAvulsas = document.getElementById(
+    "avulsas-simulados-media-avulsas",
+  );
+  const elMediaSimulados = document.getElementById(
+    "avulsas-simulados-media-simulados",
+  );
+  const diagnostico = document.getElementById("avulsas-simulados-diagnostico");
+  if (!card || !canvas) return;
+
+  // Respeita a mesma prova em foco usada no resto da tela: avulsas filtra
+  // pelas matérias vinculadas a ela, simulados filtra pelo próprio vínculo.
+  const filtroProva = obterMetaFiltroAtiva();
+  const nomesFiltro = filtroProva
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const avulsasFiltradas = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+  const simuladosFiltrados = filtroProva
+    ? registrosSimulados.filter((r) => r.metaVinculada === filtroProva)
+    : registrosSimulados;
+
+  const totalAvulsas = avulsasFiltradas.reduce((s, r) => s + r.total, 0);
+  const acertosAvulsas = avulsasFiltradas.reduce((s, r) => s + r.acertos, 0);
+
+  if (totalAvulsas === 0 || simuladosFiltrados.length === 0) {
+    card.style.display = "none";
+    if (graficoAvulsasVsSimulados) {
+      graficoAvulsasVsSimulados.destroy();
+      graficoAvulsasVsSimulados = null;
+    }
+    return;
+  }
+  card.style.display = "block";
+
+  const mediaAvulsas = Math.round((acertosAvulsas / totalAvulsas) * 100);
+
+  const simuladosOrdenados = [...simuladosFiltrados].sort((a, b) =>
+    a.data.localeCompare(b.data),
+  );
+  const totalSimulados = simuladosOrdenados.reduce((s, r) => s + r.total, 0);
+  const acertosSimulados = simuladosOrdenados.reduce(
+    (s, r) => s + r.acertos,
+    0,
+  );
+  const mediaSimulados = Math.round((acertosSimulados / totalSimulados) * 100);
+
+  elMediaAvulsas.textContent = `${mediaAvulsas}%`;
+  elMediaSimulados.textContent = `${mediaSimulados}%`;
+
+  const diff = mediaAvulsas - mediaSimulados;
+  if (diff >= 10) {
+    diagnostico.style.display = "block";
+    diagnostico.innerHTML = `⚠️ Seu % de acerto cai <strong>${diff} pontos</strong> nos simulados em relação às questões soltas. Isso costuma indicar dificuldade de gestão de tempo ou ansiedade em condição de prova real — vale treinar mais simulados cronometrados, não necessariamente mais teoria.`;
+  } else if (diff <= -10) {
+    diagnostico.style.display = "block";
+    diagnostico.innerHTML = `📌 Curioso: seu desempenho é <strong>${Math.abs(diff)} pontos maior</strong> nos simulados do que nas questões soltas. Pode ser que o contexto de prova completa ajude seu foco, ou que os simulados registrados sejam de um período diferente das questões avulsas.`;
+  } else {
+    diagnostico.style.display = "block";
+    diagnostico.innerHTML = `✅ Seu desempenho se mantém consistente entre questões soltas e simulados completos (diferença de ${Math.abs(diff)} pontos). Bom sinal — o que você sabe estudando se sustenta sob prova real.`;
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  const labels = simuladosOrdenados.map(
+    (r) => `${r.nome} (${r.data.split("-").reverse().join("/")})`,
+  );
+  const pctsSimulados = simuladosOrdenados.map((r) =>
+    Math.round((r.acertos / r.total) * 100),
+  );
+  const coresBarras = pctsSimulados.map((pct) =>
+    pct >= mediaAvulsas ? "#10b981" : "#ef4444",
+  );
+
+  if (graficoAvulsasVsSimulados) {
+    graficoAvulsasVsSimulados.destroy();
+  }
+
+  graficoAvulsasVsSimulados = new Chart(canvas.getContext("2d"), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: "bar",
+          label: "% no simulado",
+          data: pctsSimulados,
+          backgroundColor: coresBarras,
+          borderRadius: 6,
+          maxBarThickness: 34,
+          order: 2,
+        },
+        {
+          type: "line",
+          label: `Média em questões avulsas (${mediaAvulsas}%)`,
+          data: labels.map(() => mediaAvulsas),
+          borderColor: "#6366f1",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false,
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        x: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMuted,
+            font: { family: fonteApp, size: 12 },
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+        },
+      },
+    },
+  });
 }
 
 // --- SIMULADOS E PROVAS COMPLETAS ---
@@ -3607,6 +4284,7 @@ async function registrarSimulado(event) {
     `${nome}: ${pct}% de acerto`,
   );
   renderizarSimulados();
+  renderizarComparativoAvulsasSimulados();
 }
 
 function excluirRegistroSimulado(id) {
@@ -3616,6 +4294,7 @@ function excluirRegistroSimulado(id) {
     JSON.stringify(registrosSimulados),
   );
   renderizarSimulados();
+  renderizarComparativoAvulsasSimulados();
 }
 
 // --- SIMULADO CRONOMETRADO ---
@@ -5427,6 +6106,8 @@ function renderizarTodoOPainel() {
   renderizarComparativoProvas();
   renderizarRitmoSugerido();
   renderizarEvolucaoTemporal();
+  renderizarMatrizPrioridade();
+  renderizarComparativoAvulsasSimulados();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
   atualizarMetaHorasSemanais();
