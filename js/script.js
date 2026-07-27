@@ -456,6 +456,7 @@ function mostrarSubAbaEstudos(subaba) {
   const grupos = {
     cadastro: "estudos-sub-cadastro",
     registros: "estudos-sub-registros",
+    desempenho: "estudos-sub-desempenho",
     analises: "estudos-sub-analises",
   };
 
@@ -3632,6 +3633,7 @@ function renderizarDesempenhoQuestoes(registrosDoFiltro) {
   const bloco = document.getElementById("questoes-desempenho-bloco");
   const canvas = document.getElementById("chartQuestoesPorMateria");
   const alerta = document.getElementById("questoes-desempenho-alerta");
+  const vazio = document.getElementById("questoes-desempenho-vazio");
   if (!bloco || !canvas) return;
 
   const desempenho = calcularDesempenhoPorMateria(registrosDoFiltro);
@@ -3639,6 +3641,7 @@ function renderizarDesempenhoQuestoes(registrosDoFiltro) {
   // Com 0 ou 1 matéria não há o que comparar — esconde o bloco inteiro.
   if (desempenho.length < 2) {
     bloco.style.display = "none";
+    if (vazio) vazio.style.display = "block";
     if (graficoQuestoesPorMateria) {
       graficoQuestoesPorMateria.destroy();
       graficoQuestoesPorMateria = null;
@@ -3646,6 +3649,7 @@ function renderizarDesempenhoQuestoes(registrosDoFiltro) {
     return;
   }
   bloco.style.display = "block";
+  if (vazio) vazio.style.display = "none";
 
   const AMOSTRA_MINIMA = 5;
   const maisFraca = desempenho.find((d) => d.total >= AMOSTRA_MINIMA);

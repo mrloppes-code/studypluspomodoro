@@ -256,8 +256,9 @@ body {
   align-items: center;
 }
 
-/* Sub-navegação da aba Estudos (Cadastro / Hoje & Registros / Análises) —
-   mesma pílula do toggle de período, só que fixa acima dos cards. */
+/* Sub-navegação da aba Estudos (Cadastro / Hoje & Registros / Desempenho /
+   Análises) — mesma pílula do toggle de período, só que fixa acima dos
+   cards. */
 .estudos-subnav {
   display: flex;
   justify-content: center;
@@ -3495,6 +3496,11 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+}
+.questoes-desempenho-bloco-solo {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 .questoes-desempenho-titulo {
   font-size: 0.95rem;
