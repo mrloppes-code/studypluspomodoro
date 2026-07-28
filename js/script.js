@@ -458,6 +458,7 @@ function mostrarSubAbaEstudos(subaba) {
     registros: "estudos-sub-registros",
     desempenho: "estudos-sub-desempenho",
     analises: "estudos-sub-analises",
+    retafinal: "estudos-sub-retafinal",
   };
 
   Object.entries(grupos).forEach(([chave, idGrupo]) => {
@@ -5498,6 +5499,196 @@ function renderizarRecomendacaoHoje() {
     .join("");
 }
 
+// --- MODO RETA FINAL ---
+// Ativa sozinho quando alguma prova cadastrada estiver a N dias ou menos
+// da data da prova objetiva, e junta num único checklist diário: revisões
+// atrasadas + matérias com pior desempenho em questões + matérias de peso
+// alto ainda não estudadas hoje. Sempre olha as matérias vinculadas à
+// prova em questão — não depende do filtro "Prova em foco" selecionado
+// em outras abas, porque a urgência da reta final vale independente do
+// que estiver marcado ali.
+const LIMITE_DIAS_RETA_FINAL = 30;
+
+function obterProvasEmRetaFinal(limiteDias = LIMITE_DIAS_RETA_FINAL) {
+  return metas
+    .map((meta) => {
+      const diasRestantes = Math.ceil(
+        (new Date(meta.dataLimite + "T23:59:59") - new Date()) / 86400000,
+      );
+      return { meta, diasRestantes };
+    })
+    .filter(
+      ({ diasRestantes }) => diasRestantes >= 0 && diasRestantes <= limiteDias,
+    )
+    .sort((a, b) => a.diasRestantes - b.diasRestantes);
+}
+
+function calcularChecklistRetaFinal(meta) {
+  const materiasAlvo = materias.filter(
+    (m) => m.metaVinculada === meta.objetivoNome,
+  );
+  const hojeStr = obterDataLocalString(new Date());
+  const itens = [];
+
+  // 1) Revisões atrasadas (tópicos com SM-2 vencido) — uma linha por
+  // matéria, com a contagem de quantos tópicos estão pendentes nela.
+  garantirSrsEmTopicosConcluidos();
+  materiasAlvo.forEach((m) => {
+    const vencidos = (m.topicos || []).filter(
+      (t) => t.concluido && t.srs && t.srs.proximaRevisao <= hojeStr,
+    );
+    if (vencidos.length > 0) {
+      itens.push({
+        chave: `revisao:${meta.objetivoNome}:${m.nome}`,
+        icone: "🔁",
+        cor: m.cor || "#64748b",
+        texto: `Revisar ${vencidos.length} tópico${vencidos.length === 1 ? "" : "s"} vencido${vencidos.length === 1 ? "" : "s"} de ${escapeHtml(m.nome)}`,
+      });
+    }
+  });
+
+  // 2) Matérias com pior desempenho em questões — exige pelo menos 5
+  // questões registradas pra entrar na conta (amostra mínima), senão vira
+  // ruído. Pega até as 3 piores abaixo de 70% de acerto.
+  const porMateriaQuestoes = {};
+  registrosQuestoes
+    .filter((r) => materiasAlvo.some((m) => m.nome === r.materia))
+    .forEach((r) => {
+      if (!porMateriaQuestoes[r.materia]) {
+        porMateriaQuestoes[r.materia] = { total: 0, acertos: 0 };
+      }
+      porMateriaQuestoes[r.materia].total += r.total;
+      porMateriaQuestoes[r.materia].acertos += r.acertos;
+    });
+
+  Object.keys(porMateriaQuestoes)
+    .map((nome) => ({ nome, ...porMateriaQuestoes[nome] }))
+    .filter((d) => d.total >= 5)
+    .map((d) => ({
+      nome: d.nome,
+      pct: Math.round((d.acertos / d.total) * 100),
+    }))
+    .filter((d) => d.pct < 70)
+    .sort((a, b) => a.pct - b.pct)
+    .slice(0, 3)
+    .forEach((d) => {
+      const materiaObj = materiasAlvo.find((m) => m.nome === d.nome);
+      itens.push({
+        chave: `questoes:${meta.objetivoNome}:${d.nome}`,
+        icone: "🎯",
+        cor: (materiaObj && materiaObj.cor) || "#64748b",
+        texto: `Fazer questões de ${escapeHtml(d.nome)} (${d.pct}% de acerto até agora)`,
+      });
+    });
+
+  // 3) Matérias de peso alto (4 ou 5 estrelas) que ainda não tiveram
+  // nenhuma sessão de estudo hoje.
+  materiasAlvo
+    .filter((m) => (m.peso || 1) >= 4)
+    .forEach((m) => {
+      const estudouHoje = logsSessoes.some(
+        (l) => l.materia === m.nome && l.data === hojeStr,
+      );
+      if (!estudouHoje) {
+        itens.push({
+          chave: `peso:${meta.objetivoNome}:${m.nome}`,
+          icone: "⭐",
+          cor: m.cor || "#64748b",
+          texto: `Estudar ${escapeHtml(m.nome)} hoje (matéria de peso alto)`,
+        });
+      }
+    });
+
+  return itens;
+}
+
+// O checklist marcado fica salvo por dia — vira meia-noite, reseta
+// sozinho, igual um checklist de "afazeres de hoje" de verdade.
+function obterMarcadosRetaFinalHoje() {
+  const hojeStr = obterDataLocalString(new Date());
+  const armazenado =
+    JSON.parse(localStorage.getItem("retaFinalMarcados")) || {};
+  if (armazenado.data !== hojeStr) return {};
+  return armazenado.concluidos || {};
+}
+
+function alternarItemRetaFinal(chave) {
+  const hojeStr = obterDataLocalString(new Date());
+  const armazenado =
+    JSON.parse(localStorage.getItem("retaFinalMarcados")) || {};
+  const concluidos =
+    armazenado.data === hojeStr ? armazenado.concluidos || {} : {};
+  concluidos[chave] = !concluidos[chave];
+  localStorage.setItem(
+    "retaFinalMarcados",
+    JSON.stringify({ data: hojeStr, concluidos }),
+  );
+  renderizarModoRetaFinal();
+}
+
+function renderizarModoRetaFinal() {
+  const container = document.getElementById("reta-final-conteudo");
+  const dotBadge = document.getElementById("reta-final-badge-dot");
+  if (!container) return;
+
+  const provasProximas = obterProvasEmRetaFinal();
+
+  if (dotBadge) {
+    dotBadge.style.display =
+      provasProximas.length > 0 ? "inline-block" : "none";
+  }
+
+  if (provasProximas.length === 0) {
+    container.innerHTML = `
+      <p class="sessoes-hoje-vazio">
+        Nenhuma prova cadastrada está a ${LIMITE_DIAS_RETA_FINAL} dias ou
+        menos. O Modo Reta Final ativa sozinho quando faltar isso — por
+        enquanto pode seguir estudando normalmente pelas outras abas. 💪
+      </p>`;
+    return;
+  }
+
+  const marcadosHoje = obterMarcadosRetaFinalHoje();
+
+  container.innerHTML = provasProximas
+    .map(({ meta, diasRestantes }) => {
+      const itens = calcularChecklistRetaFinal(meta);
+      const concluidosCount = itens.filter(
+        (it) => marcadosHoje[it.chave],
+      ).length;
+
+      const listaHtml =
+        itens.length === 0
+          ? '<p class="recomendacao-vazia">Tudo em dia pra essa prova agora — nenhuma revisão atrasada, nenhum ponto fraco crítico e as matérias de peso alto já foram estudadas hoje. 🎉</p>'
+          : itens
+              .map(
+                (it) => `
+              <div class="reta-final-item${marcadosHoje[it.chave] ? " concluido" : ""}">
+                <input
+                  type="checkbox"
+                  ${marcadosHoje[it.chave] ? "checked" : ""}
+                  onchange="alternarItemRetaFinal('${it.chave}')"
+                />
+                <span class="recomendacao-dot" style="background:${it.cor}"></span>
+                <span class="recomendacao-icone">${it.icone}</span>
+                <span class="reta-final-texto">${it.texto}</span>
+              </div>`,
+              )
+              .join("");
+
+      return `
+        <div class="reta-final-prova-card">
+          <div class="reta-final-prova-cabecalho">
+            <strong>🎯 ${escapeHtml(meta.objetivoNome)}</strong>
+            <span class="reta-final-contagem">${diasRestantes === 0 ? "Prova é HOJE!" : `Faltam ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}`}</span>
+          </div>
+          ${itens.length > 0 ? `<p class="reta-final-progresso">${concluidosCount}/${itens.length} concluídos hoje</p>` : ""}
+          <div class="reta-final-lista">${listaHtml}</div>
+        </div>`;
+    })
+    .join("");
+}
+
 // --- EVOLUÇÃO AO LONGO DO TEMPO (linha: horas/semana + % acerto/semana) ---
 let graficoEvolucaoTemporal = null;
 
@@ -6270,6 +6461,7 @@ function renderizarTodoOPainel() {
   renderizarComparativoAvulsasSimulados();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
+  renderizarModoRetaFinal();
   atualizarMetaHorasSemanais();
 }
 

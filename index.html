@@ -1640,6 +1640,19 @@
           >
             📊 Análises
           </button>
+          <button
+            type="button"
+            id="estudos-sub-retafinal-btn"
+            class="estudos-subnav-btn"
+            onclick="mostrarSubAbaEstudos('retafinal')"
+          >
+            🚨 Reta Final
+            <span
+              id="reta-final-badge-dot"
+              class="reta-final-badge-dot"
+              style="display: none"
+            ></span>
+          </button>
         </div>
 
         <!-- 📋 CADASTRO: matérias, metas e a lista de metas fixadas -->
@@ -2345,6 +2358,22 @@
             </p>
             <div class="heatmap-horario-grade" id="heatmap-horario-grade"></div>
             <p id="heatmap-horario-resumo" class="heatmap-horario-resumo"></p>
+          </div>
+        </div>
+
+        <!-- 🚨 RETA FINAL: ativa sozinha quando alguma prova está a 30 dias
+             ou menos, compilando revisões atrasadas + piores desempenhos +
+             matérias de maior peso num único checklist diário. -->
+        <div class="container" id="estudos-sub-retafinal" style="display: none">
+          <div class="card full-width">
+            <h2>🚨 Modo Reta Final</h2>
+            <p class="campo-ajuda" style="margin-top: -4px">
+              Ativa sozinho quando alguma prova cadastrada estiver a 30 dias ou
+              menos: junta revisões atrasadas, matérias com pior desempenho e as
+              de maior peso num checklist único do dia, sem precisar cruzar as
+              outras abas.
+            </p>
+            <div id="reta-final-conteudo"></div>
           </div>
         </div>
 
