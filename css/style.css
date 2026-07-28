@@ -380,6 +380,33 @@ body {
     padding: 8px 10px;
   }
 }
+.reta-final-vazio {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 20px;
+}
+.reta-final-vazio-icone {
+  font-size: 2.6rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.reta-final-vazio h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+.reta-final-vazio p {
+  margin: 0;
+  max-width: 460px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
 
 .streak-badge-btn {
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);

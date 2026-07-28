@@ -5626,6 +5626,66 @@ function alternarItemRetaFinal(chave) {
   renderizarModoRetaFinal();
 }
 
+// Monta o estado vazio da Reta Final explicando o motivo específico —
+// não é sempre a mesma frase genérica: muda se não existe nenhuma prova
+// cadastrada, se as cadastradas já passaram da data, ou se existe uma
+// prova futura mas o prazo de 30 dias ainda não chegou.
+function construirVazioRetaFinal() {
+  if (metas.length === 0) {
+    return `
+      <div class="reta-final-vazio">
+        <div class="reta-final-vazio-icone">🚨</div>
+        <h3>Modo Reta Final ainda não tem o que mostrar</h3>
+        <p>
+          Você ainda não cadastrou nenhuma prova. Cadastre uma na aba
+          <strong>📋 Cadastro</strong> — assim que a data objetiva dela
+          estiver a ${LIMITE_DIAS_RETA_FINAL} dias ou menos, esse checklist
+          se preenche sozinho.
+        </p>
+      </div>`;
+  }
+
+  const futuras = metas
+    .map((meta) => ({
+      meta,
+      diasRestantes: Math.ceil(
+        (new Date(meta.dataLimite + "T23:59:59") - new Date()) / 86400000,
+      ),
+    }))
+    .filter(({ diasRestantes }) => diasRestantes >= 0)
+    .sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+  if (futuras.length === 0) {
+    return `
+      <div class="reta-final-vazio">
+        <div class="reta-final-vazio-icone">🚨</div>
+        <h3>Modo Reta Final ainda não tem o que mostrar</h3>
+        <p>
+          As provas cadastradas já passaram da data objetiva. Cadastre uma
+          prova futura na aba <strong>📋 Cadastro</strong> pra esse
+          checklist voltar a funcionar.
+        </p>
+      </div>`;
+  }
+
+  const maisProxima = futuras[0];
+  const diasParaAtivar = maisProxima.diasRestantes - LIMITE_DIAS_RETA_FINAL;
+
+  return `
+    <div class="reta-final-vazio">
+      <div class="reta-final-vazio-icone">🚨</div>
+      <h3>Modo Reta Final ainda não tem o que mostrar</h3>
+      <p>
+        A prova mais próxima é <strong>${escapeHtml(maisProxima.meta.objetivoNome)}</strong>,
+        faltando <strong>${maisProxima.diasRestantes} dia${maisProxima.diasRestantes === 1 ? "" : "s"}</strong>.
+        Esse checklist só ativa quando faltar
+        ${LIMITE_DIAS_RETA_FINAL} dias ou menos — ou seja, em
+        <strong>${diasParaAtivar} dia${diasParaAtivar === 1 ? "" : "s"}</strong>.
+        Por enquanto pode seguir estudando normalmente pelas outras abas. 💪
+      </p>
+    </div>`;
+}
+
 function renderizarModoRetaFinal() {
   const container = document.getElementById("reta-final-conteudo");
   const dotBadge = document.getElementById("reta-final-badge-dot");
@@ -5639,12 +5699,7 @@ function renderizarModoRetaFinal() {
   }
 
   if (provasProximas.length === 0) {
-    container.innerHTML = `
-      <p class="sessoes-hoje-vazio">
-        Nenhuma prova cadastrada está a ${LIMITE_DIAS_RETA_FINAL} dias ou
-        menos. O Modo Reta Final ativa sozinho quando faltar isso — por
-        enquanto pode seguir estudando normalmente pelas outras abas. 💪
-      </p>`;
+    container.innerHTML = construirVazioRetaFinal();
     return;
   }
 
