@@ -716,6 +716,13 @@
         <div id="nav-estudos" class="nav-link" onclick="navegarPara('estudos')">
           📚 Estudos
         </div>
+        <div
+          id="nav-modoprova"
+          class="nav-link"
+          onclick="navegarPara('modoprova')"
+        >
+          ⏱️ Modo Prova
+        </div>
         <div id="nav-perfil" class="nav-link" onclick="navegarPara('perfil')">
           👤 Perfil
         </div>
@@ -2033,6 +2040,28 @@
             </p>
           </div>
 
+          <!-- RADAR DE COMPETÊNCIAS: visão geral do formato do desempenho
+               (equilibrado x picos e vales), matéria por matéria. -->
+          <div
+            class="card full-width"
+            id="card-radar-competencias"
+            style="display: none"
+          >
+            <h2>🕸️ Radar de Competências</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              O % de acerto de cada matéria numa única visão — o formato do
+              polígono conta a história: redondo é sinal de preparo equilibrado,
+              com picos e vales é sinal de pontos fortes e fracos bem marcados.
+              Respeita o filtro de "Prova em foco" lá em cima.
+            </p>
+            <div class="radar-competencias-chart-wrapper">
+              <canvas id="chartRadarCompetencias"></canvas>
+            </div>
+          </div>
+
           <!-- MATRIZ DE PRIORIDADE: peso da matéria no edital x % de acerto -->
           <div
             class="card full-width"
@@ -2486,6 +2515,154 @@ Licitações e Contratos"
         </div>
       </div>
       <!-- fecha #pagina-estudos -->
+
+      <!-- ================= MODO PROVA (cronômetro + tempo por questão) ================= -->
+      <div id="pagina-modoprova" style="display: none">
+        <div class="container">
+          <div class="card full-width">
+            <h2>⏱️ Modo Prova</h2>
+            <p class="campo-ajuda" style="margin-top: -4px">
+              Cronometra o tempo que você leva pra resolver um lote de questões
+              — o objetivo não é só saber quantas você acertou, é descobrir se o
+              problema é <strong>não saber o conteúdo</strong> ou
+              <strong>saber, mas ser lento demais</strong> pro tempo real de
+              prova. Prática comum em hagwons coreanos e jukus japoneses,
+              focados em treinar velocidade sob pressão, não só acúmulo de
+              conteúdo.
+            </p>
+
+            <div class="cronometro-prova-display">
+              <span id="cronometro-prova-tempo">00:00</span>
+              <span
+                id="cronometro-prova-media"
+                class="cronometro-prova-media"
+              ></span>
+            </div>
+
+            <div class="cronometro-prova-botoes">
+              <button
+                type="button"
+                id="cronometro-prova-iniciar-btn"
+                onclick="iniciarCronometroProva()"
+              >
+                ▶️ Iniciar
+              </button>
+              <button
+                type="button"
+                id="cronometro-prova-pausar-btn"
+                onclick="pausarCronometroProva()"
+                style="display: none"
+              >
+                ⏸️ Pausar
+              </button>
+              <button
+                type="button"
+                id="cronometro-prova-retomar-btn"
+                onclick="retomarCronometroProva()"
+                style="display: none"
+              >
+                ▶️ Retomar
+              </button>
+              <button
+                type="button"
+                id="cronometro-prova-zerar-btn"
+                onclick="zerarCronometroProva()"
+              >
+                🔄 Zerar
+              </button>
+            </div>
+
+            <form id="form-modo-prova" onsubmit="registrarModoProva(event)">
+              <label for="modoprova-materia">Matéria:</label>
+              <select
+                id="modoprova-materia"
+                onchange="atualizarOpcoesTopicoModoProva()"
+              >
+                <option value="Estudo Geral">Estudo Geral</option>
+              </select>
+
+              <div id="modoprova-topico-wrapper" style="display: none">
+                <label for="modoprova-topico">Tópico (opcional):</label>
+                <select id="modoprova-topico">
+                  <option value="">Não especificar</option>
+                </select>
+              </div>
+
+              <div class="questoes-form-linha">
+                <div>
+                  <label for="modoprova-total">Total de questões:</label>
+                  <input
+                    type="number"
+                    id="modoprova-total"
+                    min="1"
+                    required
+                    oninput="atualizarMediaCronometroProva()"
+                  />
+                </div>
+                <div>
+                  <label for="modoprova-acertos">Acertos:</label>
+                  <input
+                    type="number"
+                    id="modoprova-acertos"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+
+              <label for="modoprova-tempo-manual">
+                Tempo total gasto (mm:ss) — o cronômetro preenche sozinho, mas
+                também dá pra digitar direto se você cronometrou por fora:
+              </label>
+              <input
+                type="text"
+                id="modoprova-tempo-manual"
+                placeholder="Ex: 45:00"
+              />
+
+              <button
+                type="submit"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  background: var(--success);
+                  color: white;
+                  margin-top: 12px;
+                "
+              >
+                Registrar lote de questões
+              </button>
+            </form>
+          </div>
+
+          <div class="card full-width">
+            <h2>🐇🐢 Insight: Tempo Médio por Questão</h2>
+            <p class="campo-ajuda" style="margin-top: -4px">
+              Cruza o tempo médio por questão com o % de acerto, matéria por
+              matéria — só entram matérias com pelo menos um registro com tempo
+              informado. É esse cruzamento que revela se o problema é conteúdo
+              ou velocidade.
+            </p>
+            <label
+              for="modoprova-tempo-alvo"
+              class="campo-ajuda"
+              style="display: block; margin-bottom: 6px"
+            >
+              Tempo alvo por questão nessa prova (segundos):
+            </label>
+            <input
+              type="number"
+              id="modoprova-tempo-alvo"
+              min="10"
+              step="1"
+              style="max-width: 160px; margin-bottom: 14px"
+              onchange="salvarTempoAlvoModoProva()"
+            />
+
+            <div id="modoprova-insight-lista"></div>
+          </div>
+        </div>
+      </div>
 
       <!-- ================= PERFIL PESSOAL ================= -->
       <div id="pagina-perfil" style="display: none">

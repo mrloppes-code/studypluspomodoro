@@ -248,6 +248,82 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+/* --- Modo Prova: cronômetro --- */
+.cronometro-prova-display {
+  text-align: center;
+  margin: 10px 0 16px;
+}
+#cronometro-prova-tempo {
+  font-size: 2.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+}
+.cronometro-prova-media {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.cronometro-prova-botoes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.cronometro-prova-botoes button {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+  color: var(--text-main);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cronometro-prova-botoes button:hover {
+  background: var(--card-bg);
+}
+#cronometro-prova-iniciar-btn,
+#cronometro-prova-retomar-btn {
+  background: var(--success);
+  color: white;
+  border-color: transparent;
+}
+#cronometro-prova-pausar-btn {
+  background: var(--warning);
+  color: white;
+  border-color: transparent;
+}
+.modoprova-vazio {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 20px;
+}
+.modoprova-vazio-icone {
+  font-size: 2.6rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.modoprova-vazio h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+.modoprova-vazio p {
+  margin: 0;
+  max-width: 460px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
 .topo-info-container {
   max-width: 1100px;
   margin: 0 auto 20px auto;
@@ -3715,6 +3791,13 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   position: relative;
   width: 100%;
   height: 340px;
+}
+.radar-competencias-chart-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: 360px;
+  margin: 0 auto;
 }
 .matriz-prioridade-legenda {
   display: grid;

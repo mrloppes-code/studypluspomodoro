@@ -98,7 +98,7 @@ async function criarSala(nomeDigitado) {
   if (error || !sala) {
     console.error("Erro ao criar sala:", error);
     await mostrarAlerta(
-      "Não foi possível criar a sala agora. Tente de novo em instantes.",
+      `Não foi possível criar a sala agora. Tente de novo em instantes.${error ? `\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})` : ""}`,
     );
     return;
   }
@@ -122,7 +122,9 @@ async function entrarNaSala(codigoDigitado) {
 
   if (error || !sala) {
     await mostrarAlerta(
-      "Não encontrei nenhuma sala com esse código. Confira e tente de novo.",
+      error
+        ? `Não foi possível procurar essa sala agora.\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})`
+        : "Não encontrei nenhuma sala com esse código. Confira e tente de novo.",
     );
     return;
   }
@@ -149,7 +151,7 @@ async function entrarNaSalaPorId(salaId, codigo, nome) {
   if (error) {
     console.error("Erro ao entrar na sala:", error);
     await mostrarAlerta(
-      "Não foi possível entrar nessa sala agora. Tente de novo.",
+      `Não foi possível entrar nessa sala agora. Tente de novo.\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})`,
     );
     return;
   }

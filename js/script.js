@@ -172,6 +172,7 @@ let graficoQuestoesPorMateria = null;
 let graficoMatrizPrioridade = null;
 let graficoQuestoesPorTopico = null;
 let graficoAvulsasVsSimulados = null;
+let graficoRadarCompetencias = null;
 let registrosQuestoesFiltroAtual = [];
 let audioCtx = null;
 
@@ -428,6 +429,8 @@ function navegarPara(pagina) {
     pagina === "painel" ? "block" : "none";
   document.getElementById("pagina-estudos").style.display =
     pagina === "estudos" ? "block" : "none";
+  document.getElementById("pagina-modoprova").style.display =
+    pagina === "modoprova" ? "block" : "none";
   document.getElementById("pagina-perfil").style.display =
     pagina === "perfil" ? "block" : "none";
   document
@@ -437,10 +440,16 @@ function navegarPara(pagina) {
     .getElementById("nav-estudos")
     .classList.toggle("active", pagina === "estudos");
   document
+    .getElementById("nav-modoprova")
+    .classList.toggle("active", pagina === "modoprova");
+  document
     .getElementById("nav-perfil")
     .classList.toggle("active", pagina === "perfil");
   if (pagina === "painel" || pagina === "estudos") {
     renderizarTodoOPainel();
+  } else if (pagina === "modoprova") {
+    renderizarSeletorMateriaModoProva();
+    renderizarInsightTempoPorQuestao();
   } else {
     calcularEMostrarEstatisticas();
     carregarDadosPerfil();
@@ -3481,6 +3490,7 @@ async function registrarQuestoes(event) {
   renderizarQuestoesResolvidas();
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
+  renderizarRadarCompetencias();
 }
 
 // Preenche o select de tópico com o conteúdo programático já cadastrado
@@ -3513,12 +3523,341 @@ function atualizarOpcoesTopicoQuestoes() {
       .join("");
 }
 
+// --- MODO PROVA: cronômetro + insight de tempo médio por questão ---
+// Técnica usada em hagwons coreanos e jukus japoneses: treinar velocidade
+// sob pressão, não só acumular conteúdo. O tempo cronometrado aqui é
+// gravado como um campo opcional (tempoSegundos) dentro do MESMO
+// registrosQuestoes usado no resto do app — não é um dataset separado, é
+// só uma forma mais completa de registrar um lote de questões, então esses
+// registros também entram nas análises normais (Desempenho, Matriz de
+// Prioridade etc.).
+let cronometroProvaSegundos = 0;
+let cronometroProvaIntervalo = null;
+let cronometroProvaRodando = false;
+
+function formatarSegundosParaRelogio(totalSegundos) {
+  const segundos = Math.max(0, Math.round(totalSegundos));
+  const h = Math.floor(segundos / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  const s = segundos % 60;
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+// Aceita "mm:ss", "h:mm:ss" ou só um número (minutos), devolve segundos.
+function interpretarTempoDigitado(texto) {
+  if (!texto) return null;
+  const partes = texto
+    .trim()
+    .split(":")
+    .map((p) => parseInt(p, 10));
+  if (partes.some((p) => isNaN(p))) return null;
+  if (partes.length === 1) return partes[0] * 60;
+  if (partes.length === 2) return partes[0] * 60 + partes[1];
+  if (partes.length === 3) return partes[0] * 3600 + partes[1] * 60 + partes[2];
+  return null;
+}
+
+function atualizarDisplayCronometroProva() {
+  const display = document.getElementById("cronometro-prova-tempo");
+  if (display) {
+    display.textContent = formatarSegundosParaRelogio(cronometroProvaSegundos);
+  }
+  const campoManual = document.getElementById("modoprova-tempo-manual");
+  if (campoManual) {
+    campoManual.value = formatarSegundosParaRelogio(cronometroProvaSegundos);
+  }
+  atualizarMediaCronometroProva();
+}
+
+function atualizarMediaCronometroProva() {
+  const mediaEl = document.getElementById("cronometro-prova-media");
+  const totalInput = document.getElementById("modoprova-total");
+  if (!mediaEl || !totalInput) return;
+  const total = parseInt(totalInput.value, 10);
+  if (!total || total <= 0 || cronometroProvaSegundos <= 0) {
+    mediaEl.textContent = "";
+    return;
+  }
+  const mediaPorQuestao = cronometroProvaSegundos / total;
+  mediaEl.textContent = `· ${formatarSegundosParaRelogio(mediaPorQuestao)} por questão`;
+}
+
+function iniciarCronometroProva() {
+  if (cronometroProvaRodando) return;
+  cronometroProvaRodando = true;
+  document.getElementById("cronometro-prova-iniciar-btn").style.display =
+    "none";
+  document.getElementById("cronometro-prova-pausar-btn").style.display =
+    "inline-block";
+  document.getElementById("cronometro-prova-retomar-btn").style.display =
+    "none";
+  cronometroProvaIntervalo = setInterval(() => {
+    cronometroProvaSegundos += 1;
+    atualizarDisplayCronometroProva();
+  }, 1000);
+}
+
+function pausarCronometroProva() {
+  cronometroProvaRodando = false;
+  clearInterval(cronometroProvaIntervalo);
+  document.getElementById("cronometro-prova-pausar-btn").style.display = "none";
+  document.getElementById("cronometro-prova-retomar-btn").style.display =
+    "inline-block";
+}
+
+function retomarCronometroProva() {
+  iniciarCronometroProva();
+}
+
+function zerarCronometroProva() {
+  cronometroProvaRodando = false;
+  clearInterval(cronometroProvaIntervalo);
+  cronometroProvaSegundos = 0;
+  document.getElementById("cronometro-prova-iniciar-btn").style.display =
+    "inline-block";
+  document.getElementById("cronometro-prova-pausar-btn").style.display = "none";
+  document.getElementById("cronometro-prova-retomar-btn").style.display =
+    "none";
+  atualizarDisplayCronometroProva();
+  const campoManual = document.getElementById("modoprova-tempo-manual");
+  if (campoManual) campoManual.value = "";
+}
+
+function renderizarSeletorMateriaModoProva() {
+  const seletor = document.getElementById("modoprova-materia");
+  if (!seletor) return;
+  const valorAtual = seletor.value;
+  seletor.innerHTML = '<option value="Estudo Geral">Estudo Geral</option>';
+  obterMateriasOrdenadasPorPeso().forEach((m) => {
+    seletor.innerHTML += `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`;
+  });
+  if ([...seletor.options].some((o) => o.value === valorAtual)) {
+    seletor.value = valorAtual;
+  }
+  atualizarOpcoesTopicoModoProva();
+
+  const alvoInput = document.getElementById("modoprova-tempo-alvo");
+  if (alvoInput) alvoInput.value = obterTempoAlvoModoProva();
+}
+
+function atualizarOpcoesTopicoModoProva() {
+  const selectMateria = document.getElementById("modoprova-materia");
+  const wrapper = document.getElementById("modoprova-topico-wrapper");
+  const selectTopico = document.getElementById("modoprova-topico");
+  if (!selectMateria || !wrapper || !selectTopico) return;
+
+  const materia = materias.find((m) => m.nome === selectMateria.value);
+  const topicos = (materia && materia.topicos) || [];
+
+  if (topicos.length === 0) {
+    wrapper.style.display = "none";
+    selectTopico.innerHTML = '<option value="">Não especificar</option>';
+    return;
+  }
+
+  wrapper.style.display = "block";
+  selectTopico.innerHTML =
+    '<option value="">Não especificar</option>' +
+    topicos
+      .map(
+        (t) =>
+          `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`,
+      )
+      .join("");
+}
+
+// Tempo de referência por questão pra classificar "rápido" x "lento".
+// Padrão de 180s (3min) é uma referência comum de concurso, mas fica
+// configurável porque cada banca/prova tem seu próprio ritmo.
+function obterTempoAlvoModoProva() {
+  const salvo = parseInt(
+    localStorage.getItem("modoProvaTempoAlvoSegundos"),
+    10,
+  );
+  return !isNaN(salvo) && salvo > 0 ? salvo : 180;
+}
+
+function salvarTempoAlvoModoProva() {
+  const input = document.getElementById("modoprova-tempo-alvo");
+  const valor = parseInt(input.value, 10);
+  if (!isNaN(valor) && valor > 0) {
+    localStorage.setItem("modoProvaTempoAlvoSegundos", String(valor));
+  }
+  renderizarInsightTempoPorQuestao();
+}
+
+async function registrarModoProva(event) {
+  event.preventDefault();
+
+  const materia =
+    document.getElementById("modoprova-materia").value || "Estudo Geral";
+  const topicoEl = document.getElementById("modoprova-topico");
+  const topico = topicoEl && topicoEl.value ? topicoEl.value : null;
+  const total = parseInt(document.getElementById("modoprova-total").value, 10);
+  const acertos = parseInt(
+    document.getElementById("modoprova-acertos").value,
+    10,
+  );
+  const tempoTexto = document.getElementById("modoprova-tempo-manual").value;
+  const tempoSegundos = interpretarTempoDigitado(tempoTexto);
+
+  if (!total || total <= 0) {
+    await mostrarAlerta(
+      "Informe a quantidade total de questões (maior que zero).",
+    );
+    return;
+  }
+  if (isNaN(acertos) || acertos < 0) {
+    await mostrarAlerta("Informe quantas você acertou (0 ou mais).");
+    return;
+  }
+  if (acertos > total) {
+    await mostrarAlerta("Acertos não pode ser maior que o total de questões.");
+    return;
+  }
+  if (tempoTexto && tempoSegundos === null) {
+    await mostrarAlerta(
+      'Não entendi o tempo digitado. Use o formato mm:ss (ex: "45:00").',
+    );
+    return;
+  }
+
+  registrosQuestoes.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    data: obterDataLocalString(new Date()),
+    materia,
+    topico,
+    total,
+    acertos,
+    tempoSegundos: tempoSegundos || null,
+  });
+  localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
+
+  zerarCronometroProva();
+  document.getElementById("form-modo-prova").reset();
+  atualizarOpcoesTopicoModoProva();
+
+  const pct = Math.round((acertos / total) * 100);
+  const tempoMsg = tempoSegundos
+    ? ` em ${formatarSegundosParaRelogio(tempoSegundos)} (${formatarSegundosParaRelogio(tempoSegundos / total)}/questão)`
+    : "";
+  mostrarToastGamificacao(
+    "⏱️",
+    "Lote registrado",
+    `${acertos}/${total} acertos (${pct}%)${tempoMsg}`,
+  );
+
+  // Mesmo dataset do resto do app — então essas análises também precisam
+  // ser atualizadas agora.
+  renderizarQuestoesResolvidas();
+  renderizarMatrizPrioridade();
+  renderizarComparativoAvulsasSimulados();
+  renderizarRadarCompetencias();
+  renderizarInsightTempoPorQuestao();
+}
+
+// Cruza tempo médio por questão x % de acerto, por matéria, e classifica
+// em 4 diagnósticos — esse cruzamento é o que separa "não sabe o
+// conteúdo" de "sabe, mas é lento demais pro tempo de prova".
+function calcularInsightTempoPorQuestao() {
+  const tempoAlvo = obterTempoAlvoModoProva();
+  const porMateria = {};
+
+  registrosQuestoes
+    .filter((r) => r.tempoSegundos != null && r.tempoSegundos > 0)
+    .forEach((r) => {
+      if (!porMateria[r.materia]) {
+        porMateria[r.materia] = { total: 0, acertos: 0, tempoSegundos: 0 };
+      }
+      porMateria[r.materia].total += r.total;
+      porMateria[r.materia].acertos += r.acertos;
+      porMateria[r.materia].tempoSegundos += r.tempoSegundos;
+    });
+
+  return Object.keys(porMateria)
+    .map((nome) => {
+      const d = porMateria[nome];
+      const pct = Math.round((d.acertos / d.total) * 100);
+      const tempoMedio = d.tempoSegundos / d.total;
+      const rapido = tempoMedio <= tempoAlvo;
+      const preciso = pct >= 70;
+
+      let diagnostico, classe, icone;
+      if (preciso && rapido) {
+        diagnostico = "Rápido e preciso — ponto forte consolidado";
+        classe = "status-pausa";
+        icone = "🚀";
+      } else if (preciso && !rapido) {
+        diagnostico =
+          "Sabe o conteúdo, mas é lento — treine velocidade, não teoria";
+        classe = "status-atencao";
+        icone = "🐢";
+      } else if (!preciso && rapido) {
+        diagnostico =
+          "Responde rápido, mas errando — cuidado com chute ou pressa";
+        classe = "status-atencao";
+        icone = "⚡";
+      } else {
+        diagnostico = "Nem sabe, nem tem tempo — prioridade máxima de revisão";
+        classe = "status-overtime";
+        icone = "🚨";
+      }
+
+      return { nome, pct, tempoMedio, diagnostico, classe, icone };
+    })
+    .sort((a, b) => a.pct - b.pct);
+}
+
+function renderizarInsightTempoPorQuestao() {
+  const lista = document.getElementById("modoprova-insight-lista");
+  if (!lista) return;
+
+  const dados = calcularInsightTempoPorQuestao();
+
+  if (dados.length === 0) {
+    lista.innerHTML = `
+      <div class="modoprova-vazio">
+        <div class="modoprova-vazio-icone">⏱️</div>
+        <h3>Ainda não há nada pra mostrar aqui</h3>
+        <p>
+          Esse painel só se preenche depois que você registrar pelo menos um
+          lote de questões <strong>com o tempo informado</strong> — use o
+          cronômetro acima (▶️ Iniciar) enquanto resolve as questões, ou
+          digite o tempo manualmente no campo "Tempo total gasto" ao
+          registrar. Sem essa informação, não tem como calcular o tempo
+          médio por questão nem comparar com o % de acerto.
+        </p>
+      </div>`;
+    return;
+  }
+
+  lista.innerHTML = dados
+    .map(
+      (d) => `
+      <div class="materia-item" style="border-left: 5px solid var(--border)">
+        <strong>${d.icone} ${escapeHtml(d.nome)}</strong>
+        <div class="prova-card-linha" style="margin-top: 6px">
+          <span>% de acerto</span><strong>${d.pct}%</strong>
+        </div>
+        <div class="prova-card-linha">
+          <span>Tempo médio/questão</span><strong>${formatarSegundosParaRelogio(d.tempoMedio)}</strong>
+        </div>
+        <span class="status-badge ${d.classe}" style="display: inline-block; margin-top: 6px">${d.diagnostico}</span>
+      </div>`,
+    )
+    .join("");
+}
+
 function excluirRegistroQuestoes(id) {
   registrosQuestoes = registrosQuestoes.filter((r) => r.id !== id);
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
   renderizarQuestoesResolvidas();
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
+  renderizarRadarCompetencias();
+  renderizarInsightTempoPorQuestao();
 }
 
 function renderizarQuestoesResolvidas() {
@@ -4078,6 +4417,114 @@ function renderizarMatrizPrioridade() {
       <div class="matriz-legenda-item"><span class="matriz-legenda-dot" style="background:#3b82f6"></span>Já domina (peso baixo, desempenho alto)</div>
     `;
   }
+}
+
+// --- RADAR DE COMPETÊNCIAS ---
+// Mostra o % de acerto de cada matéria numa única visão em teia — o
+// formato do polígono já entrega o diagnóstico: redondo (todas as pontas
+// parecidas) é preparo equilibrado; com picos e vales bem marcados são os
+// pontos fortes e fracos aparecendo de cara, sem precisar ler uma lista de
+// números. Recurso comum em diagnósticos de hagwons coreanos e apps de
+// prep asiáticos, que costumam expor o "shape" do desempenho, não só a
+// média geral.
+function renderizarRadarCompetencias() {
+  const card = document.getElementById("card-radar-competencias");
+  const canvas = document.getElementById("chartRadarCompetencias");
+  if (!card || !canvas) return;
+
+  // Respeita a mesma "Prova em foco" que o resto da aba Desempenho usa —
+  // só considera questões das matérias vinculadas à prova selecionada.
+  const filtroProva = obterMetaFiltroAtiva();
+  const nomesFiltro = filtroProva
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const registrosDoFiltro = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+
+  const AMOSTRA_MINIMA = 5;
+  const pontos = calcularDesempenhoPorMateria(registrosDoFiltro).filter(
+    (d) => d.total >= AMOSTRA_MINIMA,
+  );
+
+  // Um radar com menos de 3 pontas não forma polígono nenhum — vira só uma
+  // linha ou um ponto, sem nenhum valor visual sobre o "formato".
+  if (pontos.length < 3) {
+    card.style.display = "none";
+    if (graficoRadarCompetencias) {
+      graficoRadarCompetencias.destroy();
+      graficoRadarCompetencias = null;
+    }
+    return;
+  }
+  card.style.display = "block";
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const corTextoMain =
+    estiloRaiz.getPropertyValue("--text-main").trim() || "#f1f5f9";
+  const corPrimaria =
+    estiloRaiz.getPropertyValue("--primary").trim() || "#3b82f6";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  if (graficoRadarCompetencias) {
+    graficoRadarCompetencias.destroy();
+  }
+
+  graficoRadarCompetencias = new Chart(canvas.getContext("2d"), {
+    type: "radar",
+    data: {
+      labels: pontos.map((p) => p.materia),
+      datasets: [
+        {
+          label: "% de acerto",
+          data: pontos.map((p) => p.pct),
+          backgroundColor: `${corPrimaria}33`,
+          borderColor: corPrimaria,
+          borderWidth: 2,
+          pointBackgroundColor: corPrimaria,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 20,
+            backdropColor: "transparent",
+            color: corTextoMuted,
+            font: { family: fonteApp },
+          },
+          pointLabels: {
+            color: corTextoMain,
+            font: { family: fonteApp, size: 12 },
+          },
+          grid: { color: "rgba(148,163,184,0.2)" },
+          angleLines: { color: "rgba(148,163,184,0.2)" },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const p = pontos[ctx.dataIndex];
+              return `${p.acertos}/${p.total} acertos (${p.pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 // --- QUESTÕES AVULSAS x SIMULADOS COMPLETOS ---
@@ -6514,9 +6961,11 @@ function renderizarTodoOPainel() {
   renderizarEvolucaoTemporal();
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
+  renderizarRadarCompetencias();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
   renderizarModoRetaFinal();
+  renderizarInsightTempoPorQuestao();
   atualizarMetaHorasSemanais();
 }
 
