@@ -3497,21 +3497,36 @@ async function registrarQuestoes(event) {
 // pra matéria escolhida (o mesmo usado na revisão espaçada). Sem tópicos
 // cadastrados nessa matéria, esconde o campo — não faz sentido obrigar
 // a pessoa a criar tópicos só pra registrar uma questão avulsa.
-function atualizarOpcoesTopicoQuestoes() {
-  const selectMateria = document.getElementById("questoes-materia");
-  const wrapper = document.getElementById("questoes-topico-wrapper");
-  const selectTopico = document.getElementById("questoes-topico");
+// Popula o select de tópico/subtópico de um formulário de questões
+// ("questoes" = Hoje & Registros, "modoprova" = Modo Prova) — as duas
+// telas usam a mesma estrutura de matéria+tópico, então compartilham essa
+// lógica em vez de duplicar. Preserva a seleção atual quando possível
+// (importante depois de cadastrar um subtópico novo: sem isso, o
+// re-render geral do painel resetaria a escolha que a pessoa acabou de
+// fazer).
+function atualizarOpcoesTopico(prefixo) {
+  const selectMateria = document.getElementById(`${prefixo}-materia`);
+  const wrapper = document.getElementById(`${prefixo}-topico-wrapper`);
+  const selectTopico = document.getElementById(`${prefixo}-topico`);
   if (!selectMateria || !wrapper || !selectTopico) return;
 
   const materia = materias.find((m) => m.nome === selectMateria.value);
-  const topicos = (materia && materia.topicos) || [];
 
-  if (topicos.length === 0) {
+  // "Estudo Geral" não é uma matéria cadastrada de verdade — não tem onde
+  // vincular um tópico/subtópico, então esconde o bloco inteiro.
+  if (!materia) {
     wrapper.style.display = "none";
     selectTopico.innerHTML = '<option value="">Não especificar</option>';
+    const bloco = document.getElementById(`${prefixo}-novo-subtopico-bloco`);
+    if (bloco) bloco.style.display = "none";
     return;
   }
 
+  const topicos = materia.topicos || [];
+  const valorAtual = selectTopico.value;
+
+  // Mostra o bloco mesmo com zero tópicos ainda — é justamente aqui que
+  // mora o botão "+ novo", pra cadastrar o primeiro subtópico da matéria.
   wrapper.style.display = "block";
   selectTopico.innerHTML =
     '<option value="">Não especificar</option>' +
@@ -3521,6 +3536,92 @@ function atualizarOpcoesTopicoQuestoes() {
           `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`,
       )
       .join("");
+
+  if ([...selectTopico.options].some((o) => o.value === valorAtual)) {
+    selectTopico.value = valorAtual;
+  }
+}
+
+// Mantidas por compatibilidade com os onclick/onchange já espalhados pelo
+// HTML — cada uma só delega pra função genérica acima.
+function atualizarOpcoesTopicoQuestoes() {
+  atualizarOpcoesTopico("questoes");
+}
+
+function alternarNovoSubtopico(prefixo) {
+  const bloco = document.getElementById(`${prefixo}-novo-subtopico-bloco`);
+  if (!bloco) return;
+  const estaAberto = bloco.style.display === "flex";
+  bloco.style.display = estaAberto ? "none" : "flex";
+  if (!estaAberto) {
+    const input = document.getElementById(`${prefixo}-novo-subtopico-input`);
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+  }
+}
+
+// Cadastra um novo subtópico na matéria selecionada, sem sair da tela de
+// registro de questões — é o mesmo tipo de item usado no edital (SM-2,
+// checklist), só que criado no meio do fluxo de registrar questões em vez
+// de precisar abrir "editar matéria" antes.
+async function adicionarSubtopicoRapido(prefixo) {
+  const selectMateria = document.getElementById(`${prefixo}-materia`);
+  const input = document.getElementById(`${prefixo}-novo-subtopico-input`);
+  if (!selectMateria || !input) return;
+
+  const materia = materias.find((m) => m.nome === selectMateria.value);
+  if (!materia) {
+    await mostrarAlerta(
+      "Selecione uma matéria cadastrada antes de adicionar um subtópico (não dá pra vincular a 'Estudo Geral').",
+    );
+    return;
+  }
+
+  const nomeSubtopico = input.value.trim();
+  if (!nomeSubtopico) {
+    await mostrarAlerta("Digite o nome do subtópico.");
+    return;
+  }
+
+  if (!materia.topicos) materia.topicos = [];
+  const jaExiste = materia.topicos.some(
+    (t) => t.nome.trim().toLowerCase() === nomeSubtopico.toLowerCase(),
+  );
+  if (jaExiste) {
+    await mostrarAlerta(`"${nomeSubtopico}" já existe em ${materia.nome}.`);
+    return;
+  }
+
+  materia.topicos.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    nome: nomeSubtopico,
+    concluido: false,
+  });
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  const bloco = document.getElementById(`${prefixo}-novo-subtopico-bloco`);
+  if (bloco) bloco.style.display = "none";
+
+  // Repopula o select já com o subtópico novo selecionado antes do
+  // re-render geral — o preserve-de-seleção do atualizarOpcoesTopico
+  // garante que ele sobrevive ao renderizarTodoOPainel() logo abaixo.
+  atualizarOpcoesTopico(prefixo);
+  const selectTopico = document.getElementById(`${prefixo}-topico`);
+  if (selectTopico) selectTopico.value = nomeSubtopico;
+
+  mostrarToastGamificacao(
+    "➕",
+    "Subtópico adicionado",
+    `"${nomeSubtopico}" agora faz parte de ${materia.nome}`,
+  );
+
+  // Outras telas também dependem da lista de tópicos de cada matéria
+  // (edital em Cadastro, Matriz de Prioridade, Ritmo Sugerido, Reta
+  // Final...) — atualiza tudo de uma vez, no mesmo padrão já usado no
+  // resto do app.
+  renderizarTodoOPainel();
 }
 
 // --- MODO PROVA: cronômetro + insight de tempo médio por questão ---
@@ -3643,29 +3744,7 @@ function renderizarSeletorMateriaModoProva() {
 }
 
 function atualizarOpcoesTopicoModoProva() {
-  const selectMateria = document.getElementById("modoprova-materia");
-  const wrapper = document.getElementById("modoprova-topico-wrapper");
-  const selectTopico = document.getElementById("modoprova-topico");
-  if (!selectMateria || !wrapper || !selectTopico) return;
-
-  const materia = materias.find((m) => m.nome === selectMateria.value);
-  const topicos = (materia && materia.topicos) || [];
-
-  if (topicos.length === 0) {
-    wrapper.style.display = "none";
-    selectTopico.innerHTML = '<option value="">Não especificar</option>';
-    return;
-  }
-
-  wrapper.style.display = "block";
-  selectTopico.innerHTML =
-    '<option value="">Não especificar</option>' +
-    topicos
-      .map(
-        (t) =>
-          `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`,
-      )
-      .join("");
+  atualizarOpcoesTopico("modoprova");
 }
 
 // Tempo de referência por questão pra classificar "rápido" x "lento".

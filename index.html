@@ -1866,10 +1866,39 @@
               </select>
 
               <div id="questoes-topico-wrapper" style="display: none">
-                <label for="questoes-topico">Tópico (opcional):</label>
+                <div class="topico-label-linha">
+                  <label for="questoes-topico"
+                    >Tópico / subtópico (opcional):</label
+                  >
+                  <button
+                    type="button"
+                    class="topico-add-btn"
+                    onclick="alternarNovoSubtopico('questoes')"
+                    title="Cadastrar um novo subtópico nesta matéria"
+                  >
+                    + novo
+                  </button>
+                </div>
                 <select id="questoes-topico">
                   <option value="">Não especificar</option>
                 </select>
+                <div
+                  id="questoes-novo-subtopico-bloco"
+                  class="novo-subtopico-bloco"
+                  style="display: none"
+                >
+                  <input
+                    type="text"
+                    id="questoes-novo-subtopico-input"
+                    placeholder="Nome do novo subtópico"
+                  />
+                  <button
+                    type="button"
+                    onclick="adicionarSubtopicoRapido('questoes')"
+                  >
+                    Adicionar
+                  </button>
+                </div>
               </div>
 
               <div class="questoes-form-linha">
@@ -2582,10 +2611,39 @@ Licitações e Contratos"
               </select>
 
               <div id="modoprova-topico-wrapper" style="display: none">
-                <label for="modoprova-topico">Tópico (opcional):</label>
+                <div class="topico-label-linha">
+                  <label for="modoprova-topico"
+                    >Tópico / subtópico (opcional):</label
+                  >
+                  <button
+                    type="button"
+                    class="topico-add-btn"
+                    onclick="alternarNovoSubtopico('modoprova')"
+                    title="Cadastrar um novo subtópico nesta matéria"
+                  >
+                    + novo
+                  </button>
+                </div>
                 <select id="modoprova-topico">
                   <option value="">Não especificar</option>
                 </select>
+                <div
+                  id="modoprova-novo-subtopico-bloco"
+                  class="novo-subtopico-bloco"
+                  style="display: none"
+                >
+                  <input
+                    type="text"
+                    id="modoprova-novo-subtopico-input"
+                    placeholder="Nome do novo subtópico"
+                  />
+                  <button
+                    type="button"
+                    onclick="adicionarSubtopicoRapido('modoprova')"
+                  >
+                    Adicionar
+                  </button>
+                </div>
               </div>
 
               <div class="questoes-form-linha">

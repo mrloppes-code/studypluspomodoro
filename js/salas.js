@@ -29,28 +29,36 @@ function obterDataLocalStringSalas(d) {
 // Reaproveita o "historicoFoco" que o app já mantém (mesmo dado usado pelo
 // streak e pelo heatmap) pra somar quantos minutos a pessoa estudou hoje e
 // nos últimos 7 dias — sem precisar duplicar nenhum registro.
+// Reaproveita o "logsSessoes" que o app já mantém — é o dado real usado
+// pelo streak, heatmap e gráfico de distribuição de tempo, alimentado
+// tanto por sessões concluídas normalmente (persistirSessaoFinalizada)
+// quanto por sessões salvas como incompletas (salvarSessaoIncompleta). O
+// "historicoFoco" NÃO serve pra isso — só é escrito no caminho de sessão
+// incompleta, então quase nunca refletia o estudo de verdade.
 function calcularMinutosParaRanking() {
-  let historico = [];
+  let sessoes = [];
   try {
-    historico = JSON.parse(localStorage.getItem("historicoFoco")) || [];
+    sessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
   } catch {
-    historico = [];
+    sessoes = [];
   }
 
   const hojeStr = obterDataLocalStringSalas(new Date());
   const seteDiasAtras = new Date();
   seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
   seteDiasAtras.setHours(0, 0, 0, 0);
+  const seteDiasAtrasStr = obterDataLocalStringSalas(seteDiasAtras);
 
   let minutosHoje = 0;
   let minutosSemana = 0;
-  historico.forEach((registro) => {
-    const dataRegistro = new Date(registro.data);
-    const minutos = Number(registro.minutos) || 0;
-    if (obterDataLocalStringSalas(dataRegistro) === hojeStr) {
+  sessoes.forEach((sessao) => {
+    // sessao.data já vem no formato "YYYY-MM-DD" (obterDataLocalString),
+    // então dá pra comparar como string mesmo — ordena igual a uma data.
+    const minutos = Number(sessao.duracao) || 0;
+    if (sessao.data === hojeStr) {
       minutosHoje += minutos;
     }
-    if (dataRegistro >= seteDiasAtras) {
+    if (sessao.data >= seteDiasAtrasStr) {
       minutosSemana += minutos;
     }
   });
@@ -370,7 +378,8 @@ async function restaurarSalaSalva() {
   }
 }
 
-// --- HOOK: sempre que o histórico de foco muda (nova sessão concluída),
+// --- HOOK: sempre que uma sessão é persistida de verdade (logsSessoes
+// muda — tanto sessão concluída quanto incompleta passam por ali),
 // atualiza automaticamente o ranking da sala atual. Mesmo padrão de
 // monkey-patch já usado em auth-sync.js para a sincronização de nuvem —
 // funciona em cima do que auth-sync.js já encadeou, sem conflito. ---
@@ -378,7 +387,7 @@ if (SUPABASE_CONFIGURADO) {
   const setItemOriginalSalas = Storage.prototype.setItem;
   Storage.prototype.setItem = function (chave, valor) {
     setItemOriginalSalas.call(this, chave, valor);
-    if (this === localStorage && chave === "historicoFoco") {
+    if (this === localStorage && chave === "logsSessoes") {
       sincronizarMinutosNaSalaAtual();
     }
   };

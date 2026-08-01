@@ -606,6 +606,8 @@ h2 {
   max-width: 500px;
   width: 100%;
   padding: 25px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 .grade-checkbox-distracao {
   display: grid;
@@ -3706,6 +3708,50 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 .questoes-form-linha label {
   display: block;
   margin-top: 0;
+}
+.topico-label-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.topico-label-linha label {
+  margin-bottom: 0;
+}
+.topico-add-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--accent-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.topico-add-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-style: solid;
+}
+.novo-subtopico-bloco {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.novo-subtopico-bloco input {
+  flex: 1;
+  margin: 0;
+}
+.novo-subtopico-bloco button {
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--success);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 .questoes-stats-resumo {
   display: flex;
