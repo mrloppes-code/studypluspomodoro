@@ -606,6 +606,13 @@ h2 {
   max-width: 500px;
   width: 100%;
   padding: 25px;
+}
+/* Único modal que não tem botão ✕ flutuante (usa Cancelar/Salvar embaixo)
+   e cujo conteúdo cresce sem limite (tópicos do edital) — por isso é o
+   único a receber altura máxima + rolagem própria. Escopado só aqui pra
+   não cortar o botão ✕ dos outros modais, que ficam parcialmente pra fora
+   da borda por design. */
+.modal-editar-materia-conteudo {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
@@ -3753,6 +3760,54 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   cursor: pointer;
   white-space: nowrap;
 }
+.diagnostico-erros-bloco {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.diagnostico-erros-grade {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.diagnostico-erros-grade label {
+  font-size: 0.78rem;
+  margin-top: 0;
+  margin-bottom: 3px;
+}
+.diagnostico-erros-grade input {
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .diagnostico-erros-grade {
+    grid-template-columns: 1fr;
+  }
+}
+.caderno-erros-corpo {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.caderno-erros-chart-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  height: 260px;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+.caderno-erros-insight {
+  flex: 1;
+  min-width: 220px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+.caderno-erros-insight strong {
+  color: var(--text-main);
+}
 .questoes-stats-resumo {
   display: flex;
   gap: 12px;
@@ -4722,6 +4777,84 @@ body.modo-isolamento-ativo .btn-abrir-sala {
     padding: 6px 12px;
     font-size: 0.78rem;
   }
+}
+.btn-abrir-feedback {
+  position: fixed;
+  bottom: 22px;
+  right: 86px;
+  z-index: 500;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.btn-abrir-feedback:hover {
+  transform: scale(1.08);
+  border-color: var(--success);
+  color: var(--success);
+}
+.btn-abrir-feedback:active {
+  transform: scale(0.96);
+}
+body.modo-isolamento-ativo .btn-abrir-feedback {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-abrir-feedback {
+    width: 46px;
+    height: 46px;
+    right: 74px;
+    bottom: 16px;
+    font-size: 1.15rem;
+  }
+}
+.feedback-email-caixa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 14px 0;
+}
+.feedback-email-caixa span {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+.feedback-email-caixa button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.feedback-btn-abrir-email {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--success);
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+}
+.feedback-btn-abrir-email:hover {
+  opacity: 0.9;
 }
 
 .modal-sala-conteudo {

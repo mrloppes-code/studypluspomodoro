@@ -86,6 +86,33 @@ function mostrarConfirmacao(mensagem, opcoes = {}) {
   });
 }
 
+// --- MODAL: SUGESTÕES E RECLAMAÇÕES ---
+function abrirModalFeedback() {
+  const modal = document.getElementById("modal-feedback");
+  if (modal) modal.style.display = "flex";
+}
+
+function fecharModalFeedback() {
+  const modal = document.getElementById("modal-feedback");
+  if (modal) modal.style.display = "none";
+}
+
+function fecharModalFeedbackSeClicouFora(event) {
+  if (event.target === event.currentTarget) fecharModalFeedback();
+}
+
+async function copiarEmailFeedback() {
+  const email = "studypluspomoapp@gmail.com";
+  try {
+    await navigator.clipboard.writeText(email);
+    await mostrarAlerta("Email copiado! Cola no seu app de email preferido.", {
+      icone: "📋",
+    });
+  } catch {
+    await mostrarAlerta(`Email de contato: ${email}`);
+  }
+}
+
 // --- VARIÁVEIS DE ESTADO (LOCALSTORAGE) ---
 let historicoEstudos =
   JSON.parse(localStorage.getItem("historicoEstudos")) || {};
@@ -3440,6 +3467,59 @@ async function iniciarRevisaoRapida(nomeMateria) {
 }
 
 // --- QUESTÕES RESOLVIDAS ---
+// --- CADERNO DE ERROS (diagnóstico de causa) ---
+// Tradição chinesa de preparação pro Gaokao (错题本): não classifica só
+// QUANTO a pessoa errou, mas POR QUÊ — isso muda o plano de ação. Os
+// registros de questões (tanto em "Hoje & Registros" quanto no Modo
+// Prova) ganham um campo opcional "causasErro" com a contagem de erros
+// por motivo; quem não preencher, simplesmente não entra nessa análise.
+const LABELS_CAUSA_ERRO = {
+  naoSabia: { label: "Não sabia o conteúdo", cor: "#ef4444", icone: "📕" },
+  confundiuConceito: {
+    label: "Confundi conceitos",
+    cor: "#f97316",
+    icone: "🔀",
+  },
+  erroLeitura: {
+    label: "Erro de leitura/interpretação",
+    cor: "#eab308",
+    icone: "👁️",
+  },
+  faltaAtencao: {
+    label: "Falta de atenção/pressa",
+    cor: "#8b5cf6",
+    icone: "💭",
+  },
+};
+
+// Lê os 4 campos de diagnóstico de um formulário ("questoes" ou
+// "modoprova") e devolve a contagem por causa, a soma total e se a
+// pessoa preencheu pelo menos um campo (pra saber se vale a pena
+// gravar "causasErro" no registro ou deixar de fora).
+function lerCausasErroDoFormulario(prefixo) {
+  const camposPorChave = {
+    naoSabia: `${prefixo}-erro-nao-sabia`,
+    confundiuConceito: `${prefixo}-erro-confundiu`,
+    erroLeitura: `${prefixo}-erro-leitura`,
+    faltaAtencao: `${prefixo}-erro-atencao`,
+  };
+
+  const causas = {};
+  let soma = 0;
+  let algumPreenchido = false;
+
+  Object.entries(camposPorChave).forEach(([chave, id]) => {
+    const el = document.getElementById(id);
+    if (el && el.value !== "") algumPreenchido = true;
+    const valor = el ? parseInt(el.value, 10) : NaN;
+    const n = !isNaN(valor) && valor > 0 ? valor : 0;
+    causas[chave] = n;
+    soma += n;
+  });
+
+  return { causas, soma, algumPreenchido };
+}
+
 async function registrarQuestoes(event) {
   event.preventDefault();
 
@@ -3468,6 +3548,16 @@ async function registrarQuestoes(event) {
     return;
   }
 
+  const erros = total - acertos;
+  const { causas, soma, algumPreenchido } =
+    lerCausasErroDoFormulario("questoes");
+  if (algumPreenchido && soma > erros) {
+    await mostrarAlerta(
+      `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa questão (${erros}).`,
+    );
+    return;
+  }
+
   registrosQuestoes.push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     data: obterDataLocalString(new Date()),
@@ -3475,6 +3565,7 @@ async function registrarQuestoes(event) {
     topico,
     total,
     acertos,
+    causasErro: algumPreenchido ? causas : null,
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
@@ -3491,6 +3582,7 @@ async function registrarQuestoes(event) {
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
+  renderizarCadernoDeErros();
 }
 
 // Preenche o select de tópico com o conteúdo programático já cadastrado
@@ -3803,6 +3895,16 @@ async function registrarModoProva(event) {
     return;
   }
 
+  const erros = total - acertos;
+  const { causas, soma, algumPreenchido } =
+    lerCausasErroDoFormulario("modoprova");
+  if (algumPreenchido && soma > erros) {
+    await mostrarAlerta(
+      `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa questão (${erros}).`,
+    );
+    return;
+  }
+
   registrosQuestoes.push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     data: obterDataLocalString(new Date()),
@@ -3811,6 +3913,7 @@ async function registrarModoProva(event) {
     total,
     acertos,
     tempoSegundos: tempoSegundos || null,
+    causasErro: algumPreenchido ? causas : null,
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
@@ -3834,6 +3937,7 @@ async function registrarModoProva(event) {
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
+  renderizarCadernoDeErros();
   renderizarInsightTempoPorQuestao();
 }
 
@@ -3936,6 +4040,7 @@ function excluirRegistroQuestoes(id) {
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
+  renderizarCadernoDeErros();
   renderizarInsightTempoPorQuestao();
 }
 
@@ -4606,7 +4711,180 @@ function renderizarRadarCompetencias() {
   });
 }
 
-// --- QUESTÕES AVULSAS x SIMULADOS COMPLETOS ---
+// --- CADERNO DE ERROS (diagnóstico de causa) ---
+// Cruza a distribuição de causas de erro (só dos registros onde a pessoa
+// preencheu o diagnóstico) e aponta, além do gráfico, qual matéria mais
+// puxa cada tipo de causa — é isso que muda o plano de ação: uma matéria
+// dominada por "não sabia" pede revisão de teoria; uma dominada por
+// "falta de atenção" pede treino sob pressão (Modo Prova), não mais
+// estudo de conteúdo.
+function calcularCadernoDeErros() {
+  const filtroProva = obterMetaFiltroAtiva();
+  const nomesFiltro = filtroProva
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const registrosDoFiltro = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+
+  const registrosComCausas = registrosDoFiltro.filter((r) => r.causasErro);
+
+  const totais = {
+    naoSabia: 0,
+    confundiuConceito: 0,
+    erroLeitura: 0,
+    faltaAtencao: 0,
+  };
+  const porMateria = {};
+
+  registrosComCausas.forEach((r) => {
+    if (!porMateria[r.materia]) {
+      porMateria[r.materia] = {
+        naoSabia: 0,
+        confundiuConceito: 0,
+        erroLeitura: 0,
+        faltaAtencao: 0,
+      };
+    }
+    Object.keys(totais).forEach((chave) => {
+      const n = r.causasErro[chave] || 0;
+      totais[chave] += n;
+      porMateria[r.materia][chave] += n;
+    });
+  });
+
+  const totalClassificado = Object.values(totais).reduce((a, b) => a + b, 0);
+
+  function materiaComMaisDe(chave) {
+    let melhor = null;
+    Object.entries(porMateria).forEach(([nome, dados]) => {
+      if (dados[chave] > 0 && (!melhor || dados[chave] > melhor.valor)) {
+        melhor = { nome, valor: dados[chave] };
+      }
+    });
+    return melhor;
+  }
+
+  return {
+    totais,
+    totalClassificado,
+    materiaMaisConteudo: materiaComMaisDe("naoSabia"),
+    materiaMaisAtencao: materiaComMaisDe("faltaAtencao"),
+  };
+}
+
+let graficoCadernoErros = null;
+
+function renderizarCadernoDeErros() {
+  const card = document.getElementById("card-caderno-erros");
+  const canvas = document.getElementById("chartCadernoErros");
+  const vazio = document.getElementById("caderno-erros-vazio");
+  const corpo = document.querySelector(".caderno-erros-corpo");
+  const insight = document.getElementById("caderno-erros-insight");
+  if (!card || !canvas) return;
+
+  card.style.display = "block";
+  const dados = calcularCadernoDeErros();
+
+  if (dados.totalClassificado === 0) {
+    if (vazio) vazio.style.display = "block";
+    if (corpo) corpo.style.display = "none";
+    if (graficoCadernoErros) {
+      graficoCadernoErros.destroy();
+      graficoCadernoErros = null;
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+  if (corpo) corpo.style.display = "flex";
+
+  const entradas = Object.entries(LABELS_CAUSA_ERRO)
+    .map(([chave, meta]) => ({ chave, valor: dados.totais[chave], ...meta }))
+    .filter((e) => e.valor > 0);
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMain =
+    estiloRaiz.getPropertyValue("--text-main").trim() || "#f1f5f9";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  if (graficoCadernoErros) {
+    graficoCadernoErros.destroy();
+  }
+
+  graficoCadernoErros = new Chart(canvas.getContext("2d"), {
+    type: "doughnut",
+    data: {
+      labels: entradas.map((e) => `${e.icone} ${e.label}`),
+      datasets: [
+        {
+          data: entradas.map((e) => e.valor),
+          backgroundColor: entradas.map((e) => e.cor),
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMain,
+            font: { family: fonteApp, size: 11 },
+            padding: 10,
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const pct = Math.round(
+                (ctx.parsed / dados.totalClassificado) * 100,
+              );
+              return ` ${ctx.parsed} erro${ctx.parsed === 1 ? "" : "s"} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const RECOMENDACAO_POR_CAUSA = {
+    naoSabia:
+      "a prioridade é revisar teoria — voltar pro material antes de fazer mais questões novas.",
+    confundiuConceito:
+      "vale revisar lado a lado os conceitos que você anda confundindo.",
+    erroLeitura:
+      "o conteúdo provavelmente está OK — o ganho está em ler o enunciado com mais calma.",
+    faltaAtencao:
+      "o problema não é teoria — é treinar sob pressão de tempo (o Modo Prova ajuda nisso).",
+  };
+
+  const dominante = entradas.reduce((a, b) => (b.valor > a.valor ? b : a));
+  const pctDominante = Math.round(
+    (dominante.valor / dados.totalClassificado) * 100,
+  );
+
+  let textoInsight = `<strong>${dominante.icone} ${escapeHtml(dominante.label)}</strong> é a causa mais comum dos seus erros (${pctDominante}% de ${dados.totalClassificado} classificados): ${RECOMENDACAO_POR_CAUSA[dominante.chave]}`;
+
+  if (dados.materiaMaisConteudo) {
+    textoInsight += `<br><br>📕 Maior lacuna de conteúdo: <strong>${escapeHtml(dados.materiaMaisConteudo.nome)}</strong>.`;
+  }
+  if (
+    dados.materiaMaisAtencao &&
+    (!dados.materiaMaisConteudo ||
+      dados.materiaMaisAtencao.nome !== dados.materiaMaisConteudo.nome ||
+      dados.materiaMaisAtencao.valor !== dados.materiaMaisConteudo.valor)
+  ) {
+    textoInsight += `<br>💭 Maior perda por falta de atenção: <strong>${escapeHtml(dados.materiaMaisAtencao.nome)}</strong>.`;
+  }
+
+  if (insight) insight.innerHTML = textoInsight;
+}
+
 // Questões soltas do dia a dia medem domínio de conteúdo. Simulados
 // completos medem conteúdo + gestão de tempo + ansiedade de prova real.
 // Um gap grande entre os dois pede um tipo de correção diferente de
@@ -7041,6 +7319,7 @@ function renderizarTodoOPainel() {
   renderizarMatrizPrioridade();
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
+  renderizarCadernoDeErros();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
   renderizarModoRetaFinal();
@@ -8908,6 +9187,22 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.22",
+    titulo:
+      "Reta Final, Modo Prova, Radar de Competências e Analisador de Edital com IA",
+    itens: [
+      "Novo 🚨 Modo Reta Final: ativa sozinho quando uma prova está a 30 dias ou menos, juntando revisões atrasadas, matérias com pior desempenho e as de maior peso num checklist único do dia.",
+      "Nova aba ⏱️ Modo Prova: cronômetro dedicado pra treinar velocidade sob pressão — registra o tempo total de um lote de questões e cruza com o % de acerto pra separar 'não sabe o conteúdo' de 'sabe, mas é lento demais'.",
+      "Novo 🕸️ Radar de Competências em Estudos → Desempenho: gráfico de teia com o % de acerto por matéria, pra ver o formato do seu desempenho num único olhar.",
+      "Novo 📓 Caderno de Erros com diagnóstico de causa: ao registrar questões erradas, classifique o motivo (não sabia o conteúdo / confundi conceitos / erro de leitura / falta de atenção) e veja a distribuição num gráfico — muda o plano de ação.",
+      "Novo 🤖 Analisador de Edital com IA em Estudos → Cadastro: anexe o PDF do edital e a IA extrai automaticamente cargos, remuneração, valor e período de inscrição e o conteúdo programático, prontos pra revisar e usar no cadastro.",
+      "Cadastro de prova agora aceita remuneração, valor da inscrição e período de inscrição, com alarme (banner + notificação do navegador) quando faltam 3 dias ou menos pro fim das inscrições.",
+      "Cadastro rápido de subtópicos: ao registrar questões (em Hoje & Registros ou no Modo Prova), dá pra criar um subtópico novo na matéria direto ali, sem precisar abrir 'editar matéria'.",
+      "Novo botão 💬 de Sugestões e Reclamações, ao lado do botão de Novidades — contato direto por email.",
+      "Corrigido: o ranking da Sala de Estudos podia ficar travado em 0 minutos mesmo com sessões de estudo concluídas — o app agora sincroniza a partir do registro certo de sessões.",
+    ],
+  },
+  {
     versao: "1.21",
     titulo: "Sincronização entre aparelhos mais confiável",
     itens: [
@@ -9087,27 +9382,34 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "Sessão de Estudo Planejada: fila de matérias e pomodoros com pausas automáticas",
       "Timer de preparação, sons ambiente e batidas binaurais",
       "Simulado Cronometrado: cronômetro de tela cheia pro tempo total da prova, com atalho direto pra registrar o resultado ao final",
+      "Modo Prova: cronômetro dedicado pra treinar velocidade sob pressão, registrando o tempo de cada lote de questões resolvido",
     ],
   },
   {
-    categoria: "📚 Matérias e Metas",
+    categoria: "📚 Matérias, Metas e Provas",
     itens: [
       "Matérias com cor, peso de prioridade e vínculo a uma meta",
-      "Sub-tópicos do edital por matéria, com progresso",
-      "Metas com data da prova e contagem regressiva",
+      "Sub-tópicos do edital por matéria, com progresso — incluindo cadastro rápido de subtópicos direto na tela de registrar questões",
+      "Cadastro de Prova de Concurso: data da prova, remuneração, valor e período de inscrição, com alarme de prazo (banner + notificação)",
+      "Analisador de Edital com IA: anexe o PDF do edital e a IA extrai cargos, remuneração, datas de inscrição e conteúdo programático automaticamente",
       "Meta de Horas Semanais: alvo recorrente de horas por semana, independente de prova",
       "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
       "Questões resolvidas e simulados/provas completas, com histórico",
+      "Modo Reta Final: checklist diário automático que ativa quando uma prova está a 30 dias ou menos, juntando revisões atrasadas, pontos fracos e matérias de maior peso",
     ],
   },
   {
-    categoria: "📊 Análises",
+    categoria: "📊 Análises e Desempenho",
     itens: [
       "Heatmap de constância (estilo GitHub) e calendário compacto",
       "Gráfico de evolução ao longo do tempo (horas e % de acerto)",
       "Heatmap de produtividade por horário do dia",
       "Comparação entre a semana atual e a anterior",
       "Previsão de conclusão do edital no ritmo atual",
+      "Matriz de Prioridade: cruza peso da matéria com % de acerto pra apontar onde focar agora",
+      "Radar de Competências: gráfico de teia com o % de acerto por matéria",
+      "Caderno de Erros com diagnóstico de causa: classifique o motivo de cada erro (conteúdo, confusão de conceito, leitura ou atenção) e veja a distribuição",
+      "Tempo médio por questão: cruza velocidade com precisão pra separar 'não sabe' de 'sabe, mas é lento'",
       "Exportar relatório de estudos em PDF",
     ],
   },
@@ -9129,6 +9431,10 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "App instalável (PWA), funciona offline",
       "Backup manual (exportar/importar) e tema claro/escuro",
     ],
+  },
+  {
+    categoria: "💬 Suporte",
+    itens: ["Sugestões, dúvidas ou reclamações direto por email, a um clique"],
   },
 ];
 
