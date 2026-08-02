@@ -5008,7 +5008,10 @@ body.modo-isolamento-ativo .btn-abrir-feedback {
 .sala-ranking-item {
   display: grid;
   grid-template-columns: 28px 1fr auto;
-  grid-template-areas: "posicao nome minutos" ". nome hoje";
+  grid-template-areas:
+    "posicao nome minutos"
+    ".       nome hoje"
+    "meta    meta meta";
   align-items: center;
   gap: 4px 10px;
   background: var(--surface-inset);
@@ -5056,6 +5059,52 @@ body.modo-isolamento-ativo .btn-abrir-feedback {
   font-size: 0.88rem;
   text-align: center;
   padding: 20px 0;
+}
+.sala-meta-linha {
+  grid-area: meta;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sala-meta-barra {
+  flex: 1;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.sala-meta-barra-preenchida {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.sala-meta-barra-preenchida.sala-meta-batida {
+  background: var(--success);
+}
+.sala-meta-texto {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.sala-meta-texto-sem-meta {
+  font-style: italic;
+}
+.sala-form-meta {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sala-form-meta label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
 /* ===== CARTÃO DE CONQUISTA COMPARTILHÁVEL ===== */

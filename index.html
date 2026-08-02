@@ -393,6 +393,25 @@
             </button>
           </div>
 
+          <form
+            id="sala-form-meta"
+            class="sala-form-meta"
+            onsubmit="definirMetaPomodorosSemanaPeloFormulario(event)"
+          >
+            <label for="sala-input-meta-pomodoros"
+              >🎯 Sua meta de pomodoros essa semana (opcional):</label
+            >
+            <div class="sala-form-linha">
+              <input
+                type="number"
+                id="sala-input-meta-pomodoros"
+                min="1"
+                placeholder="Ex: 15"
+              />
+              <button type="submit" class="btn-secundario-sala">Salvar</button>
+            </div>
+          </form>
+
           <div id="sala-ranking-lista" class="sala-ranking-lista">
             <p class="sala-ranking-vazio">Carregando ranking...</p>
           </div>

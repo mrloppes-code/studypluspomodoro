@@ -26,15 +26,15 @@ function obterDataLocalStringSalas(d) {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 }
 
-// Reaproveita o "historicoFoco" que o app já mantém (mesmo dado usado pelo
-// streak e pelo heatmap) pra somar quantos minutos a pessoa estudou hoje e
-// nos últimos 7 dias — sem precisar duplicar nenhum registro.
 // Reaproveita o "logsSessoes" que o app já mantém — é o dado real usado
 // pelo streak, heatmap e gráfico de distribuição de tempo, alimentado
 // tanto por sessões concluídas normalmente (persistirSessaoFinalizada)
 // quanto por sessões salvas como incompletas (salvarSessaoIncompleta). O
 // "historicoFoco" NÃO serve pra isso — só é escrito no caminho de sessão
 // incompleta, então quase nunca refletia o estudo de verdade.
+// Cada entrada de logsSessoes é 1 pomodoro — então além dos minutos, dá
+// pra contar quantos pomodoros a pessoa fez hoje/na semana, que é a base
+// da meta de pomodoros da sala.
 function calcularMinutosParaRanking() {
   let sessoes = [];
   try {
@@ -51,21 +51,27 @@ function calcularMinutosParaRanking() {
 
   let minutosHoje = 0;
   let minutosSemana = 0;
+  let pomodorosHoje = 0;
+  let pomodorosSemana = 0;
   sessoes.forEach((sessao) => {
     // sessao.data já vem no formato "YYYY-MM-DD" (obterDataLocalString),
     // então dá pra comparar como string mesmo — ordena igual a uma data.
     const minutos = Number(sessao.duracao) || 0;
     if (sessao.data === hojeStr) {
       minutosHoje += minutos;
+      pomodorosHoje += 1;
     }
     if (sessao.data >= seteDiasAtrasStr) {
       minutosSemana += minutos;
+      pomodorosSemana += 1;
     }
   });
 
   return {
     minutosHoje: Math.round(minutosHoje),
     minutosSemana: Math.round(minutosSemana),
+    pomodorosHoje,
+    pomodorosSemana,
   };
 }
 
@@ -141,7 +147,8 @@ async function entrarNaSala(codigoDigitado) {
 }
 
 async function entrarNaSalaPorId(salaId, codigo, nome) {
-  const { minutosHoje, minutosSemana } = calcularMinutosParaRanking();
+  const { minutosHoje, minutosSemana, pomodorosHoje, pomodorosSemana } =
+    calcularMinutosParaRanking();
 
   const { error } = await sb.from("salas_membros").upsert(
     {
@@ -150,6 +157,8 @@ async function entrarNaSalaPorId(salaId, codigo, nome) {
       nome_exibicao: nomeExibicaoAtual(),
       minutos_hoje: minutosHoje,
       minutos_semana: minutosSemana,
+      pomodoros_hoje: pomodorosHoje,
+      pomodoros_semana: pomodorosSemana,
       data_referencia: obterDataLocalStringSalas(new Date()),
       atualizado_em: new Date().toISOString(),
     },
@@ -195,18 +204,63 @@ async function sairDaSala() {
 
 async function sincronizarMinutosNaSalaAtual() {
   if (!SUPABASE_CONFIGURADO || !usuarioAtual || !salaAtual) return;
-  const { minutosHoje, minutosSemana } = calcularMinutosParaRanking();
+  const { minutosHoje, minutosSemana, pomodorosHoje, pomodorosSemana } =
+    calcularMinutosParaRanking();
   const { error } = await sb
     .from("salas_membros")
     .update({
       minutos_hoje: minutosHoje,
       minutos_semana: minutosSemana,
+      pomodoros_hoje: pomodorosHoje,
+      pomodoros_semana: pomodorosSemana,
       data_referencia: obterDataLocalStringSalas(new Date()),
       atualizado_em: new Date().toISOString(),
     })
     .eq("sala_id", salaAtual.id)
     .eq("user_id", usuarioAtual.id);
   if (error) console.error("Erro ao sincronizar minutos da sala:", error);
+}
+
+// --- META DE POMODOROS DA SALA (incentivo/engajamento) ---
+// Cada participante define a própria meta de pomodoros pra semana — não é
+// uma meta única imposta pela sala, é pessoal, mas fica visível pra todo
+// mundo no ranking (accountability): dá pra ver quem já bateu a meta e
+// quem ainda está em falta, sem expor nenhum dado além do que a pessoa já
+// compartilha com o progresso normal.
+async function definirMetaPomodorosSemana(valorDigitado) {
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual || !salaAtual) return;
+
+  const valor = parseInt(valorDigitado, 10);
+  const meta = !isNaN(valor) && valor > 0 ? valor : null;
+
+  const { error } = await sb
+    .from("salas_membros")
+    .update({ meta_pomodoros_semana: meta })
+    .eq("sala_id", salaAtual.id)
+    .eq("user_id", usuarioAtual.id);
+
+  if (error) {
+    console.error("Erro ao salvar meta de pomodoros:", error);
+    await mostrarAlerta(
+      `Não foi possível salvar sua meta agora.\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})`,
+    );
+    return;
+  }
+
+  mostrarToastGamificacao(
+    "🎯",
+    meta ? "Meta definida" : "Meta removida",
+    meta
+      ? `${meta} pomodoro${meta === 1 ? "" : "s"} essa semana — bora!`
+      : "Sua meta semanal foi removida.",
+  );
+  renderizarRankingSala();
+}
+
+async function definirMetaPomodorosSemanaPeloFormulario(event) {
+  event.preventDefault();
+  const campo = document.getElementById("sala-input-meta-pomodoros");
+  await definirMetaPomodorosSemana(campo ? campo.value : "");
 }
 
 // --- RANKING E TEMPO REAL ---
@@ -216,7 +270,7 @@ async function buscarRankingSalaAtual() {
   const { data, error } = await sb
     .from("salas_membros")
     .select(
-      "user_id, nome_exibicao, minutos_hoje, minutos_semana, data_referencia",
+      "user_id, nome_exibicao, minutos_hoje, minutos_semana, pomodoros_hoje, pomodoros_semana, meta_pomodoros_semana, data_referencia",
     )
     .eq("sala_id", salaAtual.id)
     .order("minutos_semana", { ascending: false });
@@ -232,6 +286,7 @@ async function buscarRankingSalaAtual() {
   return (data || []).map((m) => ({
     ...m,
     minutos_hoje: m.data_referencia === hojeStr ? m.minutos_hoje : 0,
+    pomodoros_hoje: m.data_referencia === hojeStr ? m.pomodoros_hoje : 0,
   }));
 }
 
@@ -246,6 +301,17 @@ async function renderizarRankingSala() {
     return;
   }
 
+  // Pré-preenche o campo de meta com o valor que a pessoa já tem salvo,
+  // pra ela ver/editar sem precisar adivinhar o que já estava definido.
+  const meu = ranking.find(
+    (m) => usuarioAtual && m.user_id === usuarioAtual.id,
+  );
+  const campoMeta = document.getElementById("sala-input-meta-pomodoros");
+  if (campoMeta && document.activeElement !== campoMeta) {
+    campoMeta.value =
+      meu && meu.meta_pomodoros_semana ? meu.meta_pomodoros_semana : "";
+  }
+
   const medalhas = ["🥇", "🥈", "🥉"];
   lista.innerHTML = ranking
     .map((m, i) => {
@@ -255,6 +321,25 @@ async function renderizarRankingSala() {
         typeof escapeHtml === "function"
           ? escapeHtml(m.nome_exibicao || "Estudante")
           : m.nome_exibicao || "Estudante";
+
+      const pomodorosSemana = m.pomodoros_semana || 0;
+      const meta = m.meta_pomodoros_semana || null;
+
+      let metaHtml = "";
+      if (meta) {
+        const pct = Math.min(100, Math.round((pomodorosSemana / meta) * 100));
+        const bateuMeta = pomodorosSemana >= meta;
+        metaHtml = `
+          <div class="sala-meta-linha">
+            <div class="sala-meta-barra">
+              <div class="sala-meta-barra-preenchida${bateuMeta ? " sala-meta-batida" : ""}" style="width:${pct}%"></div>
+            </div>
+            <span class="sala-meta-texto">${bateuMeta ? "🎉" : "🎯"} ${pomodorosSemana}/${meta} pomodoros</span>
+          </div>`;
+      } else {
+        metaHtml = `<div class="sala-meta-linha"><span class="sala-meta-texto sala-meta-texto-sem-meta">${pomodorosSemana} pomodoro${pomodorosSemana === 1 ? "" : "s"} essa semana</span></div>`;
+      }
+
       return `
         <div class="sala-ranking-item${souEu ? " sala-ranking-item-eu" : ""}">
           <span class="sala-ranking-posicao">${posicao}</span>
@@ -263,6 +348,7 @@ async function renderizarRankingSala() {
             ${m.minutos_semana} min <small>semana</small>
           </span>
           <span class="sala-ranking-minutos-hoje">${m.minutos_hoje} min hoje</span>
+          ${metaHtml}
         </div>`;
     })
     .join("");
@@ -323,6 +409,15 @@ async function abrirModalSala() {
   }
   const modal = document.getElementById("modal-sala-estudo");
   if (modal) modal.style.display = "flex";
+
+  // Se a sala salva ainda não foi restaurada (pode acontecer se a pessoa
+  // clicar rápido demais, antes do fluxo de login em segundo plano
+  // terminar de rodar), tenta restaurar agora — sem isso, a sala parecia
+  // ter "sumido" mesmo estando salva certinho no banco.
+  if (!salaAtual) {
+    await restaurarSalaSalva();
+  }
+
   renderizarTelaSala();
 }
 
@@ -372,6 +467,7 @@ async function restaurarSalaSalva() {
       salaAtual = salva;
       assinarRealtimeSala();
       await sincronizarMinutosNaSalaAtual();
+      renderizarTelaSala();
     }
   } catch {
     // Cache local corrompido — ignora, o app segue como se não tivesse sala.
