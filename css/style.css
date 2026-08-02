@@ -1070,6 +1070,81 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   word-break: break-word;
 }
 
+/* Card principal do perfil: precisa de position:relative pra servir de
+   referência ao ícone de editar, posicionado no canto superior direito. */
+.card-perfil-principal {
+  position: relative;
+}
+.btn-editar-perfil-icone {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.btn-editar-perfil-icone:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+  transform: scale(1.08);
+}
+
+/* Faixa de resumo rápido (streak, horas, pomodoros, matérias) — dá mais
+   corpo ao card do perfil sem duplicar dados: reaproveita os mesmos
+   números já calculados em obterStatsGamificacao(). */
+.perfil-mini-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.perfil-mini-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 6px;
+}
+.perfil-mini-stat-valor {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent-text);
+}
+.perfil-mini-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.perfil-desde-texto {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+@media (max-width: 480px) {
+  .perfil-mini-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* ===== Conquistas ===== */
 .card-conquistas {
   margin-bottom: 15px;
@@ -4572,6 +4647,11 @@ body.modo-isolamento-ativo .btn-novidades {
   padding-right: 4px;
 }
 
+.modal-editar-perfil-conteudo {
+  position: relative;
+  max-width: 520px;
+}
+
 .changelog-entrada {
   border-bottom: 1px solid var(--border);
   padding: 12px 0;
@@ -4862,6 +4942,48 @@ body.modo-isolamento-ativo .btn-abrir-feedback {
     width: 46px;
     height: 46px;
     right: 74px;
+    bottom: 16px;
+    font-size: 1.15rem;
+  }
+}
+
+/* Botão flutuante "Editar Perfil" — mesma fileira do Feedback/Novidades no
+   canto inferior direito, mais um passo à esquerda do Feedback. */
+.btn-editar-perfil {
+  position: fixed;
+  bottom: 22px;
+  right: 150px;
+  z-index: 500;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.btn-editar-perfil:hover {
+  transform: scale(1.08);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+.btn-editar-perfil:active {
+  transform: scale(0.96);
+}
+body.modo-isolamento-ativo .btn-editar-perfil {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .btn-editar-perfil {
+    width: 46px;
+    height: 46px;
+    right: 128px;
     bottom: 16px;
     font-size: 1.15rem;
   }

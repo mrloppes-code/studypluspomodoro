@@ -119,6 +119,17 @@
       💬
     </button>
 
+    <!-- BOTÃO FLUTUANTE: EDITAR PERFIL (nome, foco/cargo e biografia) -->
+    <button
+      type="button"
+      id="btn-editar-perfil"
+      class="btn-editar-perfil"
+      onclick="abrirModalEditarPerfil()"
+      title="Editar nome, foco principal e biografia"
+    >
+      ✏️
+    </button>
+
     <!-- BOTÃO FLUTUANTE DE NOVIDADES / FUNCIONALIDADES -->
     <button
       type="button"
@@ -175,6 +186,55 @@
           class="modal-novidades-corpo"
           style="display: none"
         ></div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDITAR PERFIL (nome, foco principal/cargo e biografia) -->
+    <div
+      id="modal-editar-perfil"
+      class="modal-distracao"
+      onclick="fecharModalEditarPerfilSeClicouFora(event)"
+    >
+      <div class="modal-conteudo modal-editar-perfil-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalEditarPerfil()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">✏️ Editar Perfil</h2>
+
+        <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
+          <div class="grid-campos-perfil">
+            <div>
+              <label for="perf-nome">Nome Completo:</label>
+              <input type="text" id="perf-nome" placeholder="Nome atual..." />
+            </div>
+            <div>
+              <label for="perf-cargo">Foco Principal / Cargo:</label>
+              <input type="text" id="perf-cargo" placeholder="Cargo atual..." />
+            </div>
+          </div>
+          <label for="perf-bio">Minha Biografia / Notas de Motivação:</label>
+          <textarea
+            id="perf-bio"
+            placeholder="Notas e biografia atuais..."
+          ></textarea>
+          <button
+            type="submit"
+            style="
+              padding: 10px 20px;
+              background: var(--primary);
+              color: white;
+              width: 100%;
+            "
+          >
+            Salvar
+          </button>
+        </form>
       </div>
     </div>
 
@@ -3068,7 +3128,15 @@ Licitações e Contratos"
       <!-- ================= PERFIL PESSOAL ================= -->
       <div id="pagina-perfil" style="display: none">
         <div class="perfil-container">
-          <div class="card">
+          <div class="card card-perfil-principal">
+            <button
+              type="button"
+              class="btn-editar-perfil-icone"
+              onclick="abrirModalEditarPerfil()"
+              title="Editar nome, foco principal e biografia"
+            >
+              ✏️
+            </button>
             <div class="perfil-header">
               <div class="perfil-avatar-bloco">
                 <div class="perfil-avatar" id="perfil-avatar-wrapper">
@@ -3133,6 +3201,41 @@ Licitações e Contratos"
             </div>
 
             <p class="perfil-bio-exibicao" id="perfil-bio-exibicao"></p>
+
+            <!-- Faixa de resumo rápido: dá mais corpo ao card do perfil,
+                 reaproveitando os mesmos números já calculados pra
+                 gamificação (nenhum dado novo). -->
+            <div class="perfil-mini-stats" id="perfil-mini-stats">
+              <div class="perfil-mini-stat">
+                <span class="perfil-mini-stat-valor" id="perfil-mini-streak"
+                  >0</span
+                >
+                <span class="perfil-mini-stat-label">🔥 Dias seguidos</span>
+              </div>
+              <div class="perfil-mini-stat">
+                <span class="perfil-mini-stat-valor" id="perfil-mini-horas"
+                  >0h</span
+                >
+                <span class="perfil-mini-stat-label">⏱️ Horas totais</span>
+              </div>
+              <div class="perfil-mini-stat">
+                <span class="perfil-mini-stat-valor" id="perfil-mini-pomodoros"
+                  >0</span
+                >
+                <span class="perfil-mini-stat-label">🍅 Pomodoros</span>
+              </div>
+              <div class="perfil-mini-stat">
+                <span class="perfil-mini-stat-valor" id="perfil-mini-materias"
+                  >0</span
+                >
+                <span class="perfil-mini-stat-label">📚 Matérias</span>
+              </div>
+            </div>
+            <p
+              class="perfil-desde-texto"
+              id="perfil-desde-texto"
+              style="display: none"
+            ></p>
           </div>
 
           <div class="card card-conquistas">
@@ -3343,48 +3446,6 @@ Licitações e Contratos"
                 >Baseado nos últimos 7 dias</span
               >
             </div>
-          </div>
-
-          <div class="card">
-            <h2>👤 Alterar Informações Cadastrais</h2>
-            <form id="perfil-form" onsubmit="salvarDadosPerfil(event)">
-              <div class="grid-campos-perfil">
-                <div>
-                  <label for="perf-nome">Nome Completo:</label>
-                  <input
-                    type="text"
-                    id="perf-nome"
-                    placeholder="Nome atual..."
-                  />
-                </div>
-                <div>
-                  <label for="perf-cargo">Foco Principal / Cargo:</label>
-                  <input
-                    type="text"
-                    id="perf-cargo"
-                    placeholder="Foco atual..."
-                  />
-                </div>
-              </div>
-              <label for="perf-bio"
-                >Minha Biografia / Notas de Motivação:</label
-              >
-              <textarea
-                id="perf-bio"
-                placeholder="Notas e biografia atuais..."
-              ></textarea>
-              <button
-                type="submit"
-                style="
-                  padding: 10px 20px;
-                  background: var(--primary);
-                  color: white;
-                  width: 100%;
-                "
-              >
-                Salvar e Limpar Formulário
-              </button>
-            </form>
           </div>
 
           <div class="card card-backup">

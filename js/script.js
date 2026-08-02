@@ -2587,6 +2587,7 @@ async function salvarDadosPerfil(e) {
   document.getElementById("perfil-form").reset();
   carregarDadosPerfil();
   calcularEMostrarEstatisticas();
+  fecharModalEditarPerfil();
   await mostrarAlerta("Perfil salvo com sucesso.", { icone: "✅" });
 }
 function carregarDadosPerfil() {
@@ -8792,6 +8793,41 @@ function renderizarGamificacao() {
     xpTexto.innerText = `${xpAtualNoNivel} / ${xpNecessarioNesteNivel} XP`;
   }
 
+  // --- Faixa de resumo rápido (streak, horas, pomodoros, matérias) ---
+  const miniStreak = document.getElementById("perfil-mini-streak");
+  if (miniStreak) miniStreak.innerText = String(stats.streakAtual);
+
+  const miniHoras = document.getElementById("perfil-mini-horas");
+  if (miniHoras) {
+    const h = Math.floor(stats.minutosTotais / 60);
+    const m = stats.minutosTotais % 60;
+    miniHoras.innerText = h > 0 ? `${h}h ${m}min` : `${m}min`;
+  }
+
+  const miniPomodoros = document.getElementById("perfil-mini-pomodoros");
+  if (miniPomodoros) miniPomodoros.innerText = String(stats.pomodorosTotais);
+
+  const miniMaterias = document.getElementById("perfil-mini-materias");
+  if (miniMaterias) miniMaterias.innerText = String(stats.materiasEstudadas);
+
+  // "Estudando desde": data do primeiro registro em historicoEstudos (as
+  // chaves são strings "AAAA-MM-DD", então a ordenação alfabética já dá a
+  // ordem cronológica certa). Sem histórico ainda, o texto fica escondido.
+  const desdeEl = document.getElementById("perfil-desde-texto");
+  if (desdeEl) {
+    const datasComEstudo = Object.keys(historicoEstudos).filter(
+      (data) => historicoEstudos[data] > 0,
+    );
+    if (datasComEstudo.length > 0) {
+      const primeiraData = datasComEstudo.sort()[0];
+      const [ano, mes, dia] = primeiraData.split("-");
+      desdeEl.innerText = `📅 Estudando por aqui desde ${dia}/${mes}/${ano}`;
+      desdeEl.style.display = "block";
+    } else {
+      desdeEl.style.display = "none";
+    }
+  }
+
   // --- Conquistas: verifica quais estão desbloqueadas ---
   const desbloqueadasAntes = JSON.parse(
     localStorage.getItem("conquistasDesbloqueadas") || "[]",
@@ -9713,6 +9749,24 @@ function fecharModalNovidades() {
 function fecharModalNovidadesSeClicouFora(event) {
   if (event.target.id === "modal-novidades") {
     fecharModalNovidades();
+  }
+}
+
+// --- MODAL: EDITAR PERFIL (nome, foco principal/cargo e biografia) ---
+// Mesmo padrão do modal de Novidades: um ícone flutuante abre uma janela
+// com o formulário que antes ficava fixo, ocupando espaço, na aba Perfil.
+function abrirModalEditarPerfil() {
+  carregarDadosPerfil();
+  document.getElementById("modal-editar-perfil").style.display = "flex";
+}
+
+function fecharModalEditarPerfil() {
+  document.getElementById("modal-editar-perfil").style.display = "none";
+}
+
+function fecharModalEditarPerfilSeClicouFora(event) {
+  if (event.target.id === "modal-editar-perfil") {
+    fecharModalEditarPerfil();
   }
 }
 
