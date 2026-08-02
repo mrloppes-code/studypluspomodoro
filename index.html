@@ -2001,6 +2001,33 @@
                 </div>
               </div>
 
+              <label for="questoes-banca">Banca examinadora (opcional):</label>
+              <select
+                id="questoes-banca"
+                onchange="alternarBancaOutra('questoes')"
+              >
+                <option value="">Não especificar</option>
+                <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
+                <option value="FGV">FGV</option>
+                <option value="FCC">FCC</option>
+                <option value="Vunesp">Vunesp</option>
+                <option value="IBFC">IBFC</option>
+                <option value="IADES">IADES</option>
+                <option value="AOCP">AOCP</option>
+                <option value="Quadrix">Quadrix</option>
+                <option value="IDECAN">IDECAN</option>
+                <option value="Instituto Consulplan">
+                  Instituto Consulplan
+                </option>
+                <option value="outra">Outra...</option>
+              </select>
+              <input
+                type="text"
+                id="questoes-banca-outra"
+                placeholder="Nome da banca"
+                style="display: none; margin-top: 6px"
+              />
+
               <div class="diagnostico-erros-bloco">
                 <label style="margin-top: 10px; margin-bottom: 2px">
                   🔍 Diagnóstico dos erros (opcional):
@@ -2291,6 +2318,36 @@
                 <canvas id="chartCadernoErros"></canvas>
               </div>
               <p id="caderno-erros-insight" class="caderno-erros-insight"></p>
+            </div>
+          </div>
+
+          <!-- DESEMPENHO POR BANCA EXAMINADORA -->
+          <div
+            class="card full-width"
+            id="card-desempenho-banca"
+            style="display: none"
+          >
+            <h2>🏛️ Desempenho por Banca Examinadora</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cada banca tem seu próprio estilo de cobrança. Segmentar o % de
+              acerto por banca (e não só por matéria) revela se o problema é o
+              conteúdo em si ou o jeito que aquela banca específica cobra — dois
+              problemas com soluções diferentes.
+            </p>
+            <p id="desempenho-banca-vazio" class="sessoes-hoje-vazio">
+              Ainda não há nenhum registro de questões com banca informada. Ao
+              registrar questões (em Hoje & Registros ou no Modo Prova),
+              preencha o campo "Banca examinadora" pra essa análise aparecer
+              aqui.
+            </p>
+            <div id="desempenho-banca-corpo" style="display: none">
+              <div class="banca-chart-wrapper">
+                <canvas id="chartDesempenhoBanca"></canvas>
+              </div>
+              <div id="desempenho-banca-comparativo"></div>
             </div>
           </div>
 
@@ -2847,6 +2904,33 @@ Licitações e Contratos"
                   />
                 </div>
               </div>
+
+              <label for="modoprova-banca">Banca examinadora (opcional):</label>
+              <select
+                id="modoprova-banca"
+                onchange="alternarBancaOutra('modoprova')"
+              >
+                <option value="">Não especificar</option>
+                <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
+                <option value="FGV">FGV</option>
+                <option value="FCC">FCC</option>
+                <option value="Vunesp">Vunesp</option>
+                <option value="IBFC">IBFC</option>
+                <option value="IADES">IADES</option>
+                <option value="AOCP">AOCP</option>
+                <option value="Quadrix">Quadrix</option>
+                <option value="IDECAN">IDECAN</option>
+                <option value="Instituto Consulplan">
+                  Instituto Consulplan
+                </option>
+                <option value="outra">Outra...</option>
+              </select>
+              <input
+                type="text"
+                id="modoprova-banca-outra"
+                placeholder="Nome da banca"
+                style="display: none; margin-top: 6px"
+              />
 
               <div class="diagnostico-erros-bloco">
                 <label style="margin-top: 10px; margin-bottom: 2px">

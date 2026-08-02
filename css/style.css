@@ -3820,6 +3820,43 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 .caderno-erros-insight strong {
   color: var(--text-main);
 }
+.banca-chart-wrapper {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+.banca-comparativo-item {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.banca-comparativo-item:last-child {
+  margin-bottom: 0;
+}
+.banca-comparativo-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.banca-comparativo-linha {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 3px 0;
+}
+.banca-comparativo-linha strong {
+  color: var(--text-main);
+}
+.banca-comparativo-linha small {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 .questoes-stats-resumo {
   display: flex;
   gap: 12px;

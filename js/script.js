@@ -3526,6 +3526,31 @@ function lerCausasErroDoFormulario(prefixo) {
   return { causas, soma, algumPreenchido };
 }
 
+// Alterna a exibição do campo de texto livre quando a pessoa escolhe
+// "Outra..." no select de banca — mesma UX usada em outros selects com
+// opção livre no app.
+function alternarBancaOutra(prefixo) {
+  const select = document.getElementById(`${prefixo}-banca`);
+  const outraInput = document.getElementById(`${prefixo}-banca-outra`);
+  if (!select || !outraInput) return;
+  outraInput.style.display = select.value === "outra" ? "block" : "none";
+  if (select.value !== "outra") outraInput.value = "";
+}
+
+// Lê o valor final da banca escolhida num formulário ("questoes" ou
+// "modoprova") — resolve o "Outra..." pro texto digitado, e devolve null
+// quando nada foi especificado (não polui a análise com registros vazios).
+function lerBancaDoFormulario(prefixo) {
+  const select = document.getElementById(`${prefixo}-banca`);
+  if (!select || !select.value) return null;
+  if (select.value === "outra") {
+    const outraInput = document.getElementById(`${prefixo}-banca-outra`);
+    const texto = outraInput ? outraInput.value.trim() : "";
+    return texto || null;
+  }
+  return select.value;
+}
+
 async function registrarQuestoes(event) {
   event.preventDefault();
 
@@ -3571,11 +3596,13 @@ async function registrarQuestoes(event) {
     topico,
     total,
     acertos,
+    banca: lerBancaDoFormulario("questoes"),
     causasErro: algumPreenchido ? causas : null,
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
   document.getElementById("form-questoes").reset();
+  alternarBancaOutra("questoes");
   atualizarOpcoesTopicoQuestoes();
   mostrarToastGamificacao(
     "📝",
@@ -3589,6 +3616,7 @@ async function registrarQuestoes(event) {
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
+  renderizarDesempenhoPorBanca();
 }
 
 // Preenche o select de tópico com o conteúdo programático já cadastrado
@@ -3919,12 +3947,14 @@ async function registrarModoProva(event) {
     total,
     acertos,
     tempoSegundos: tempoSegundos || null,
+    banca: lerBancaDoFormulario("modoprova"),
     causasErro: algumPreenchido ? causas : null,
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
   zerarCronometroProva();
   document.getElementById("form-modo-prova").reset();
+  alternarBancaOutra("modoprova");
   atualizarOpcoesTopicoModoProva();
 
   const pct = Math.round((acertos / total) * 100);
@@ -3944,6 +3974,7 @@ async function registrarModoProva(event) {
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
+  renderizarDesempenhoPorBanca();
   renderizarInsightTempoPorQuestao();
 }
 
@@ -4047,6 +4078,7 @@ function excluirRegistroQuestoes(id) {
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
+  renderizarDesempenhoPorBanca();
   renderizarInsightTempoPorQuestao();
 }
 
@@ -4891,7 +4923,207 @@ function renderizarCadernoDeErros() {
   if (insight) insight.innerHTML = textoInsight;
 }
 
-// Questões soltas do dia a dia medem domínio de conteúdo. Simulados
+// --- DESEMPENHO POR BANCA EXAMINADORA ---
+// Cada banca tem um estilo de cobrança diferente (CESPE certo/errado,
+// FGV e FCC múltipla escolha, cada uma com sua "pegadinha" típica).
+// Segmentar o % de acerto por banca — e, mais importante, comparar a
+// MESMA matéria entre bancas diferentes — separa "não domino o
+// conteúdo" de "não me adaptei ao estilo dessa banca".
+let graficoDesempenhoBanca = null;
+const AMOSTRA_MINIMA_BANCA = 3;
+
+function calcularDesempenhoPorBanca() {
+  const filtroProva = obterMetaFiltroAtiva();
+  const nomesFiltro = filtroProva
+    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+    : null;
+  const registrosDoFiltro = nomesFiltro
+    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+    : registrosQuestoes;
+
+  const registrosComBanca = registrosDoFiltro.filter((r) => r.banca);
+
+  const porBanca = {};
+  const porMateriaBanca = {};
+
+  registrosComBanca.forEach((r) => {
+    if (!porBanca[r.banca]) porBanca[r.banca] = { total: 0, acertos: 0 };
+    porBanca[r.banca].total += r.total;
+    porBanca[r.banca].acertos += r.acertos;
+
+    if (!porMateriaBanca[r.materia]) porMateriaBanca[r.materia] = {};
+    if (!porMateriaBanca[r.materia][r.banca]) {
+      porMateriaBanca[r.materia][r.banca] = { total: 0, acertos: 0 };
+    }
+    porMateriaBanca[r.materia][r.banca].total += r.total;
+    porMateriaBanca[r.materia][r.banca].acertos += r.acertos;
+  });
+
+  const bancas = Object.entries(porBanca)
+    .map(([banca, d]) => ({
+      banca,
+      total: d.total,
+      acertos: d.acertos,
+      pct: Math.round((d.acertos / d.total) * 100),
+    }))
+    .sort((a, b) => b.pct - a.pct);
+
+  // Só entram matérias com dados em 2+ bancas diferentes, cada uma com
+  // amostra mínima — é essa comparação lado a lado que revela o "gap de
+  // estilo" entre bancas pra uma mesma matéria.
+  const comparativos = Object.entries(porMateriaBanca)
+    .map(([materia, bancasDaMateria]) => {
+      const linhas = Object.entries(bancasDaMateria)
+        .filter(([, d]) => d.total >= AMOSTRA_MINIMA_BANCA)
+        .map(([banca, d]) => ({
+          banca,
+          total: d.total,
+          acertos: d.acertos,
+          pct: Math.round((d.acertos / d.total) * 100),
+        }))
+        .sort((a, b) => b.pct - a.pct);
+
+      if (linhas.length < 2) return null;
+      return {
+        materia,
+        linhas,
+        diferenca: linhas[0].pct - linhas[linhas.length - 1].pct,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.diferenca - a.diferenca);
+
+  return { bancas, comparativos };
+}
+
+function renderizarDesempenhoPorBanca() {
+  const card = document.getElementById("card-desempenho-banca");
+  const canvas = document.getElementById("chartDesempenhoBanca");
+  const vazio = document.getElementById("desempenho-banca-vazio");
+  const corpo = document.getElementById("desempenho-banca-corpo");
+  const comparativoEl = document.getElementById("desempenho-banca-comparativo");
+  if (!card || !canvas) return;
+
+  card.style.display = "block";
+  const dados = calcularDesempenhoPorBanca();
+
+  if (dados.bancas.length === 0) {
+    if (vazio) vazio.style.display = "block";
+    if (corpo) corpo.style.display = "none";
+    if (graficoDesempenhoBanca) {
+      graficoDesempenhoBanca.destroy();
+      graficoDesempenhoBanca = null;
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+  if (corpo) corpo.style.display = "block";
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  canvas.parentElement.style.height = `${Math.max(120, dados.bancas.length * 42)}px`;
+
+  const cores = dados.bancas.map((d) => {
+    if (d.pct < 60) return "#ef4444";
+    if (d.pct < 80) return "#f59e0b";
+    return "#10b981";
+  });
+
+  if (graficoDesempenhoBanca) {
+    graficoDesempenhoBanca.destroy();
+  }
+
+  graficoDesempenhoBanca = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: dados.bancas.map((d) => d.banca),
+      datasets: [
+        {
+          label: "% de acerto",
+          data: dados.bancas.map((d) => d.pct),
+          backgroundColor: cores,
+          borderRadius: 6,
+          maxBarThickness: 22,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+        y: {
+          ticks: { color: corTextoMuted, font: { family: fonteApp } },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const d = dados.bancas[ctx.dataIndex];
+              return ` ${d.acertos}/${d.total} acertos (${d.pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (comparativoEl) {
+    if (dados.comparativos.length === 0) {
+      comparativoEl.innerHTML = `
+        <p class="campo-ajuda" style="margin-top: 14px">
+          Registre questões da mesma matéria em pelo menos 2 bancas
+          diferentes (com ${AMOSTRA_MINIMA_BANCA}+ questões cada) pra ver
+          aqui o comparativo direto — é ele que separa "não sei o
+          conteúdo" de "não me adaptei ao estilo dessa banca".
+        </p>`;
+    } else {
+      comparativoEl.innerHTML = `
+        <p class="campo-ajuda" style="margin-top: 14px; margin-bottom: 10px">
+          <strong>Mesma matéria, bancas diferentes</strong> — quando o gap
+          é grande, o problema costuma ser estilo de prova, não conteúdo:
+        </p>
+        ${dados.comparativos
+          .map((c) => {
+            const alerta = c.diferenca >= 20;
+            return `
+            <div class="banca-comparativo-item">
+              <div class="banca-comparativo-cabecalho">
+                <strong>${escapeHtml(c.materia)}</strong>
+                ${alerta ? `<span class="status-badge status-atencao">⚠️ gap de ${c.diferenca} pontos</span>` : `<span class="campo-ajuda">gap de ${c.diferenca} pontos</span>`}
+              </div>
+              ${c.linhas
+                .map(
+                  (l) =>
+                    `<div class="banca-comparativo-linha"><span>${escapeHtml(l.banca)}</span><strong>${l.pct}% <small>(${l.acertos}/${l.total})</small></strong></div>`,
+                )
+                .join("")}
+            </div>`;
+          })
+          .join("")}`;
+    }
+  }
+}
+
 // completos medem conteúdo + gestão de tempo + ansiedade de prova real.
 // Um gap grande entre os dois pede um tipo de correção diferente de
 // simplesmente "estudar mais" — pede treino em condição de prova.
@@ -7339,6 +7571,7 @@ function renderizarTodoOPainel() {
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
+  renderizarDesempenhoPorBanca();
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
   renderizarModoRetaFinal();
