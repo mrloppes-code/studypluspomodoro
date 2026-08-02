@@ -165,10 +165,11 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 20px;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
 }
 .seletor-provas-rotulo {
   color: var(--text-muted);
@@ -204,7 +205,7 @@ body {
 }
 @media (max-width: 480px) {
   .seletor-provas-container {
-    padding: 8px 10px;
+    padding: 14px;
   }
   .prova-pill {
     padding: 5px 11px;
@@ -2586,21 +2587,20 @@ body.modo-isolamento-ativo .secondary-element {
 }
 
 /* Botões secundários do Pomodoro (Testar Alarme / Sessão Planejada / Sons
-   Ambiente / Simulado Cronometrado): em telas largas cabem os 4 numa linha
-   só (flex-wrap cuida disso). Em telas estreitas, "Simulado Cronometrado"
-   (o texto mais longo) não cabia ao lado de "Sons Ambiente" e acabava
-   sozinho numa 3ª linha — por isso, abaixo de 640px trocamos pra um grid
-   fixo de 2 colunas, garantindo sempre 2 por linha (1ª: Testar Alarme +
-   Sessão Planejada; 2ª: Sons Ambiente + Simulado Cronometrado). */
+   Ambiente / Simulado Cronometrado): sempre em grid de 4 colunas fixas
+   (definido inline no HTML), garantindo os 4 numa única linha em qualquer
+   largura. Em telas estreitas só reduzimos fonte/padding pra caber o texto
+   mais longo ("Simulado Cronometrado") sem quebrar o layout. */
 @media (max-width: 640px) {
-  .botoes-secundarios-pomodoro {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-  }
   .botoes-secundarios-pomodoro button {
-    width: 100%;
-    box-sizing: border-box;
-    white-space: normal;
+    padding: 5px 4px !important;
+    font-size: 0.66rem !important;
+  }
+}
+@media (max-width: 420px) {
+  .botoes-secundarios-pomodoro button {
+    padding: 4px 3px !important;
+    font-size: 0.58rem !important;
   }
 }
 
