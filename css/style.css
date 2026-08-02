@@ -2721,6 +2721,29 @@ body.modo-isolamento-ativo .btn-voltar-modo-foco {
   display: none !important;
 }
 
+/* Botão que abre/fecha a janela flutuante (Picture-in-Picture) do timer —
+   fica sempre disponível, inclusive na tela cheia do modo foco, já que o
+   ponto dela é usar o app em outra aba/app sem perder o timer de vista. */
+.btn-pip-pomodoro {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: 10px;
+}
+.btn-pip-pomodoro:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+.btn-pip-pomodoro.pip-ativo {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
 .vinculo-materia-container {
   width: 100%;
   max-width: 300px;

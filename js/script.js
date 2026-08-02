@@ -2136,6 +2136,35 @@ function tickTimer() {
 const tituloOriginalPagina = document.title;
 let intervaloBlinkTitulo = null;
 
+// Rótulo curto do que está rodando agora, reaproveitado no título da aba e
+// na janela flutuante — um único lugar decide o texto certo pra cada estado.
+function obterRotuloStatusAtual() {
+  if (emPausaConfig) return "Pausa";
+  if (emOvertime) return "Overtime";
+  if (emEstadoDeFocoAtivo) return "Foco";
+  return "Pronto";
+}
+
+// Mantém o título da aba do navegador contando o tempo junto (ex.: "24:22 -
+// Foco"), pra dar pra acompanhar o pomodoro sem precisar deixar a aba em
+// primeiro plano. Só mexe no título enquanto uma sessão de foco ou pausa
+// está de fato rodando; fora disso, devolve o título original da página.
+function atualizarTituloAbaComTimer(textoFormatado) {
+  // Não disputa com o "🔔 ..." piscando quando um ciclo termina em segundo
+  // plano (ver iniciarBlinkTitulo/pararBlinkTitulo) — os dois mexem no
+  // document.title e só um pode vencer por vez.
+  if (intervaloBlinkTitulo) return;
+
+  if (!emEstadoDeFocoAtivo && !emPausaConfig) {
+    if (document.title !== tituloOriginalPagina) {
+      document.title = tituloOriginalPagina;
+    }
+    return;
+  }
+
+  document.title = `${textoFormatado} - ${obterRotuloStatusAtual()}`;
+}
+
 function iniciarBlinkTitulo(mensagem) {
   pararBlinkTitulo();
   let mostrandoAlerta = false;
@@ -2180,6 +2209,187 @@ function notificarSeEmSegundoPlano(titulo, corpo) {
   }
 }
 
+// --- JANELA FLUTUANTE DO POMODORO (Picture-in-Picture) ---
+// Usa a Document Picture-in-Picture API (Chrome, Edge e outros navegadores
+// baseados em Chromium) pra abrir uma janelinha sempre-visível com o timer,
+// que o usuário pode arrastar pra fora do navegador e deixar por cima de
+// qualquer outro app (PDF do edital, apostila, videoaula...). A janela
+// compartilha o mesmo contexto JS da aba principal — dá pra montar o DOM
+// dela e escutar cliques direto daqui, sem precisar de postMessage.
+let janelaPip = null;
+
+// Copia só as variáveis de cor do tema atual (claro/escuro), em vez da
+// folha de estilo inteira do app — mantém a janelinha leve e sem herdar
+// regras (como o padding do body) que não fazem sentido numa janela tão
+// pequena.
+function obterVariaveisTemaAtual() {
+  const estilos = getComputedStyle(document.documentElement);
+  const nomes = [
+    "--bg-color",
+    "--card-bg",
+    "--primary",
+    "--text-main",
+    "--text-muted",
+    "--border",
+    "--accent-text",
+  ];
+  return nomes
+    .map((nome) => `${nome}: ${estilos.getPropertyValue(nome).trim()};`)
+    .join(" ");
+}
+
+async function abrirJanelaPip() {
+  if (!("documentPictureInPicture" in window)) {
+    await mostrarAlerta(
+      "Essa janela flutuante depende de um recurso (Picture-in-Picture) disponível no Chrome, Edge e outros navegadores baseados em Chromium.",
+      { icone: "⚠️" },
+    );
+    return;
+  }
+
+  if (janelaPip) {
+    janelaPip.focus();
+    return;
+  }
+
+  try {
+    janelaPip = await documentPictureInPicture.requestWindow({
+      width: 280,
+      height: 190,
+    });
+  } catch (err) {
+    console.error("Erro ao abrir a janela flutuante:", err);
+    return;
+  }
+
+  const estilo = document.createElement("style");
+  estilo.textContent = `
+    :root { ${obterVariaveisTemaAtual()} }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg-color);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .pip-pomodoro {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: var(--text-main);
+      user-select: none;
+    }
+    .pip-status {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--accent-text);
+    }
+    .pip-timer {
+      font-size: 3rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .pip-botoes {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .pip-botoes button {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pip-botoes button:hover {
+      border-color: var(--accent-text);
+    }
+  `;
+  janelaPip.document.head.appendChild(estilo);
+
+  const textoAtual =
+    document.getElementById("timer-display")?.innerText || "00:00";
+  janelaPip.document.body.innerHTML = `
+    <div class="pip-pomodoro">
+      <span class="pip-status" id="pip-status">${obterRotuloStatusAtual()}</span>
+      <div class="pip-timer" id="pip-timer">${textoAtual}</div>
+      <div class="pip-botoes">
+        <button type="button" id="pip-btn-pause" title="Pausar/Retomar">⏸️</button>
+        <button type="button" id="pip-btn-reset" title="Resetar">↺</button>
+      </div>
+    </div>
+  `;
+
+  janelaPip.document.getElementById("pip-btn-pause").onclick = () => {
+    if (emEstadoDeFocoAtivo || emPausaConfig) pauseTimer();
+  };
+  janelaPip.document.getElementById("pip-btn-reset").onclick = () => {
+    confirmarEResetar();
+  };
+
+  // O usuário também pode fechar pelo X nativo da janela (ver imagem de
+  // referência) — esse evento cobre esse caso, não só o nosso botão.
+  janelaPip.addEventListener("pagehide", () => {
+    janelaPip = null;
+    atualizarBotaoPip();
+  });
+
+  atualizarJanelaPip(textoAtual);
+  atualizarBotaoPip();
+}
+
+function fecharJanelaPip() {
+  if (janelaPip) {
+    janelaPip.close();
+    janelaPip = null;
+  }
+  atualizarBotaoPip();
+}
+
+async function alternarJanelaPip() {
+  if (janelaPip) {
+    fecharJanelaPip();
+  } else {
+    await abrirJanelaPip();
+  }
+}
+
+function atualizarBotaoPip() {
+  const btn = document.getElementById("btn-pip-pomodoro");
+  if (!btn) return;
+  btn.classList.toggle("pip-ativo", !!janelaPip);
+  btn.innerText = janelaPip
+    ? "🗗 Fechar Janela Flutuante"
+    : "🖼️ Janela Flutuante";
+}
+
+// Chamado a cada tick (via atualizarDisplay) pra manter a janelinha em
+// sincronia com o timer principal — só faz algo se ela estiver aberta.
+function atualizarJanelaPip(textoFormatado) {
+  if (!janelaPip) return;
+
+  const elTimer = janelaPip.document.getElementById("pip-timer");
+  if (elTimer) elTimer.innerText = textoFormatado;
+
+  const elStatus = janelaPip.document.getElementById("pip-status");
+  if (elStatus) elStatus.innerText = obterRotuloStatusAtual();
+
+  const elBtnPause = janelaPip.document.getElementById("pip-btn-pause");
+  if (elBtnPause) elBtnPause.innerText = pausadoManualmente ? "▶️" : "⏸️";
+}
+
 // Quando a aba volta a ficar visível, força uma atualização imediata em vez
 // de esperar o próximo tick agendado (que o navegador pode ter atrasado
 // bastante enquanto a aba estava em segundo plano), e para o título de
@@ -2204,8 +2414,8 @@ document.addEventListener("visibilitychange", () => {
       testarSomAtual();
       alarmePendente = false; // não toca de novo
     }
-    if (timer) tickTimer();
     pararBlinkTitulo();
+    if (timer) tickTimer();
   }
 });
 
@@ -2565,7 +2775,11 @@ function atualizarDisplay(s) {
   const segundos = s % 60;
 
   // Formatação mais limpa e legível
-  display.innerText = `${minutos.toString().padStart(2, "0")}:${segundos.toString().padStart(2, "0")}`;
+  const textoFormatado = `${minutos.toString().padStart(2, "0")}:${segundos.toString().padStart(2, "0")}`;
+  display.innerText = textoFormatado;
+
+  atualizarTituloAbaComTimer(textoFormatado);
+  atualizarJanelaPip(textoFormatado);
 }
 
 // --- FORMULARIOS DO PERFIL E ESTATISTICAS ---
