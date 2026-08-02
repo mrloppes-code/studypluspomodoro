@@ -118,6 +118,12 @@ let historicoEstudos =
   JSON.parse(localStorage.getItem("historicoEstudos")) || {};
 let materias = JSON.parse(localStorage.getItem("materias")) || [];
 let metas = JSON.parse(localStorage.getItem("metas")) || [];
+
+// Analisador de Edital (IA): retirado temporariamente pra manutenção (ver
+// changelog). Essa variável fica pronta pro cadastro de cargos manual/
+// futuro reaproveitar o mesmo fluxo de "prova" quando a função voltar.
+let cargosExtraidosEditalPendentes = null;
+
 let tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
 let logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
 let dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
@@ -5661,18 +5667,31 @@ function adicionarNovaMeta(e) {
   const remuneracaoValor = document.getElementById("meta-remuneracao").value;
   const remuneracao =
     remuneracaoValor !== "" ? parseFloat(remuneracaoValor) : null;
+  const valorInscricaoValor = document.getElementById(
+    "meta-valor-inscricao",
+  ).value;
+  const valorInscricao =
+    valorInscricaoValor !== "" ? parseFloat(valorInscricaoValor) : null;
   const inscricaoInicio =
     document.getElementById("meta-inscricao-inicio").value || null;
   const inscricaoFim =
     document.getElementById("meta-inscricao-fim").value || null;
+
+  // Se esses dados vieram do Analisador de Edital (IA) e ainda não foram
+  // consumidos, anexa a lista de cargos extraída à prova sendo cadastrada
+  // agora — depois zera a variável pra não vazar pra próxima prova.
+  const cargos = cargosExtraidosEditalPendentes || null;
+  cargosExtraidosEditalPendentes = null;
 
   metas.push({
     objetivoNome,
     dataLimite,
     qtdMaterias,
     remuneracao,
+    valorInscricao,
     inscricaoInicio,
     inscricaoFim,
+    cargos,
   });
   localStorage.setItem("metas", JSON.stringify(metas));
 
@@ -9187,6 +9206,14 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.23",
+    titulo: "Analisador de Edital em manutenção",
+    itens: [
+      "O 🤖 Analisador de Edital com IA foi retirado temporariamente pra manutenção — a extração automática de cargos, remuneração, datas de inscrição e conteúdo programático a partir do PDF do edital volta em uma atualização futura.",
+      "Enquanto isso, o cadastro de prova continua funcionando normalmente pelo formulário manual, em Estudos → Cadastro.",
+    ],
+  },
+  {
     versao: "1.22",
     titulo:
       "Reta Final, Modo Prova, Radar de Competências e Analisador de Edital com IA",
@@ -9391,7 +9418,6 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "Matérias com cor, peso de prioridade e vínculo a uma meta",
       "Sub-tópicos do edital por matéria, com progresso — incluindo cadastro rápido de subtópicos direto na tela de registrar questões",
       "Cadastro de Prova de Concurso: data da prova, remuneração, valor e período de inscrição, com alarme de prazo (banner + notificação)",
-      "Analisador de Edital com IA: anexe o PDF do edital e a IA extrai cargos, remuneração, datas de inscrição e conteúdo programático automaticamente",
       "Meta de Horas Semanais: alvo recorrente de horas por semana, independente de prova",
       "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
       "Questões resolvidas e simulados/provas completas, com histórico",

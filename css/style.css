@@ -2972,6 +2972,18 @@ textarea {
   display: inline-block;
   margin-top: 8px;
 }
+.prova-card-cargos {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.prova-card-cargo-item {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
 
 button {
   cursor: pointer;
