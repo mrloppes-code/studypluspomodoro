@@ -7320,9 +7320,13 @@ function renderizarDiario() {
     vazio.style.display = "block";
     timeline.innerHTML = "";
     if (memoriasEl) memoriasEl.style.display = "none";
+    const cuidadoEl = document.getElementById("diario-cuidado");
+    const resumoSemanalEl = document.getElementById("diario-resumo-semanal");
     const insightsEl = document.getElementById("diario-insights");
     const evolucaoEl = document.getElementById("diario-evolucao-emocional");
     const linhaTempoCard = document.getElementById("card-linha-tempo-mensal");
+    if (cuidadoEl) cuidadoEl.style.display = "none";
+    if (resumoSemanalEl) resumoSemanalEl.style.display = "none";
     if (insightsEl) insightsEl.style.display = "none";
     if (evolucaoEl) evolucaoEl.style.display = "none";
     if (linhaTempoCard) linhaTempoCard.style.display = "none";
@@ -7383,6 +7387,8 @@ function renderizarDiario() {
     })
     .join("");
 
+  renderizarAlertasDeCuidado();
+  renderizarResumoSemanalRegras();
   renderizarInsightsMoodTracker(diario);
   renderizarEvolucaoEmocional(diario);
   renderizarLinhaTempoMensal(diario);
@@ -7394,6 +7400,27 @@ function renderizarDiario() {
 // insight só aparece quando existe amostra mínima — é isso que separa um
 // insight de verdade de "conclusão tirada de 2 dias".
 const AMOSTRA_MINIMA_INSIGHT = 3;
+
+// --- TIER 4: RESUMO SEMANAL + CUIDADO (sem IA) ---
+// Em vez de pedir pra um modelo de IA "escrever" um resumo (custo por
+// chamada, precisa de backend e chave de API), monta o mesmo tipo de
+// resumo com regras determinísticas em cima dos números reais — mais
+// barato, mais previsível, e não depende de nenhuma infraestrutura nova.
+const LIMIAR_DIAS_CUIDADO = 3;
+
+// Estado de check-in por dia (humor/energia/sono/ansiedade ANTES de
+// estudar), usando o primeiro check-in preenchido daquele dia — reusado
+// tanto pelo resumo semanal quanto pelos alertas de cuidado.
+function calcularEstadoCheckinPorDia() {
+  const porDia = {};
+  logsSessoes.forEach((log) => {
+    if (!log.mood?.checkin) return;
+    if (!porDia[log.data] || log.hora < porDia[log.data].hora) {
+      porDia[log.data] = { ...log.mood.checkin, hora: log.hora };
+    }
+  });
+  return porDia;
+}
 
 function calcularPctAcertoPorDia() {
   const mapa = {};
@@ -7614,6 +7641,285 @@ function calcularMelhorPiorDiaSemana() {
     icone: "📅",
     texto: `Seu melhor dia da semana pra estudar costuma ser <strong>${melhor.nome}</strong> (média de ${formatarHorasMinutos(Math.round(melhor.media))}); o mais fraco é <strong>${pior.nome}</strong> (${formatarHorasMinutos(Math.round(pior.media))}).`,
   };
+}
+
+// --- SISTEMA DE CUIDADO (observa padrões, nunca diagnostica) ---
+// Só aponta sequências de dias — nunca rotula a pessoa com um estado
+// clínico. A ideia é oferecer apoio e consciência, nunca substituir
+// orientação profissional (isso fica explícito no aviso do card).
+function calcularAlertasDeCuidado() {
+  const estadoPorDia = calcularEstadoCheckinPorDia();
+  const hoje = new Date();
+
+  const ultimosDias = [];
+  for (let i = 13; i >= 0; i--) {
+    const dataStr = obterDataLocalString(somarDias(hoje, -i));
+    ultimosDias.push(estadoPorDia[dataStr] || null);
+  }
+
+  // Sequência atual (terminando no dia mais recente COM check-in) que
+  // satisfaz a condição — dias sem check-in não quebram a sequência nem
+  // contam pra ela, só são ignorados (a pessoa pode ter pulado o
+  // check-in num dia sem que isso "zere" o padrão observado).
+  function streakAtual(condicao) {
+    let streak = 0;
+    for (let i = ultimosDias.length - 1; i >= 0; i--) {
+      const estado = ultimosDias[i];
+      if (!estado) continue;
+      if (condicao(estado)) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  const alertas = [];
+
+  const streakAnsiedade = streakAtual(
+    (e) => e.ansiedade != null && e.ansiedade >= 7,
+  );
+  if (streakAnsiedade >= LIMIAR_DIAS_CUIDADO) {
+    alertas.push({
+      icone: "💛",
+      texto: `Você registrou ansiedade elevada em ${streakAnsiedade} dias seguidos. Que tal reduzir a carga hoje ou incluir uma pausa maior?`,
+    });
+  }
+
+  const streakEnergiaBaixa = streakAtual((e) =>
+    ["baixa", "exausto"].includes(e.energia),
+  );
+  if (streakEnergiaBaixa >= LIMIAR_DIAS_CUIDADO) {
+    alertas.push({
+      icone: "🔋",
+      texto: `Você relatou baixa energia em ${streakEnergiaBaixa} dias seguidos. Vale a pena checar como está seu sono e sua rotina.`,
+    });
+  }
+
+  const streakSonoRuim = streakAtual((e) =>
+    ["ruim", "pessimo"].includes(e.sono),
+  );
+  if (streakSonoRuim >= LIMIAR_DIAS_CUIDADO) {
+    alertas.push({
+      icone: "😴",
+      texto: `Seu sono anda ruim há ${streakSonoRuim} dias seguidos. Descanso também é parte da preparação — talvez valha ajustar a rotina antes de forçar mais estudo.`,
+    });
+  }
+
+  const streakHumorRuim = streakAtual((e) =>
+    ["ruim", "muito_ruim"].includes(e.humor),
+  );
+  if (streakHumorRuim >= LIMIAR_DIAS_CUIDADO) {
+    alertas.push({
+      icone: "🤍",
+      texto: `Seu humor tem estado baixo em ${streakHumorRuim} dias seguidos. Tudo bem ter dias difíceis — se fizer sentido, considere conversar com alguém de confiança.`,
+    });
+  }
+
+  return alertas;
+}
+
+function renderizarAlertasDeCuidado() {
+  const container = document.getElementById("diario-cuidado");
+  if (!container) return;
+
+  const alertas = calcularAlertasDeCuidado();
+  if (alertas.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+  container.innerHTML = `
+    <div class="diario-cuidado-card">
+      ${alertas
+        .map(
+          (a) => `
+        <div class="diario-cuidado-item">
+          <span class="diario-cuidado-icone">${a.icone}</span>
+          <span>${a.texto}</span>
+        </div>`,
+        )
+        .join("")}
+      <p class="diario-cuidado-rodape">
+        Isso é só um padrão observado nos seus próprios registros — não é
+        um diagnóstico. Se sentir que precisa de apoio, vale conversar com
+        alguém de confiança ou um profissional.
+      </p>
+    </div>`;
+}
+
+// --- RESUMO SEMANAL (regras, sem IA) ---
+function calcularResumoSemanalRegras() {
+  const hoje = new Date();
+  const inicioStr = obterDataLocalString(somarDias(hoje, -6));
+  const fimStr = obterDataLocalString(hoje);
+
+  const sessoesSemana = logsSessoes.filter(
+    (l) => l.data >= inicioStr && l.data <= fimStr,
+  );
+  if (sessoesSemana.length === 0) return null;
+
+  const minutosTotais = sessoesSemana.reduce((s, l) => s + l.duracao, 0);
+
+  const PONTOS_HUMOR = {
+    excelente: 5,
+    bom: 4,
+    normal: 3,
+    ruim: 2,
+    muito_ruim: 1,
+  };
+  const CHAVE_POR_PONTO = [
+    "",
+    "muito_ruim",
+    "ruim",
+    "normal",
+    "bom",
+    "excelente",
+  ];
+  const humoresDaSemana = [];
+  sessoesSemana.forEach((l) => {
+    const h = l.mood?.checkout?.humorDepois || l.mood?.checkin?.humor;
+    if (h) humoresDaSemana.push(PONTOS_HUMOR[h]);
+  });
+
+  let humorEmoji = null;
+  let humorDescricao = null;
+  if (humoresDaSemana.length > 0) {
+    const media =
+      humoresDaSemana.reduce((a, b) => a + b, 0) / humoresDaSemana.length;
+    const chave = CHAVE_POR_PONTO[Math.round(media)] || "normal";
+    humorEmoji = MAPA_EMOJI_HUMOR[chave];
+    humorDescricao = {
+      excelente: "ótimo",
+      bom: "bom",
+      normal: "neutro",
+      ruim: "baixo",
+      muito_ruim: "bem baixo",
+    }[chave];
+  }
+
+  const nomesDias = [
+    "domingo",
+    "segunda",
+    "terça",
+    "quarta",
+    "quinta",
+    "sexta",
+    "sábado",
+  ];
+  const minutosPorDia = {};
+  sessoesSemana.forEach((l) => {
+    minutosPorDia[l.data] = (minutosPorDia[l.data] || 0) + l.duracao;
+  });
+  const diasProdutivos = Object.entries(minutosPorDia)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([data]) => nomesDias[new Date(`${data}T12:00:00`).getDay()]);
+
+  // Matéria com maior evolução de % de acerto (semana atual vs anterior),
+  // exigindo amostra mínima nas duas semanas pra não comparar 2 questões
+  // com 2 questões.
+  const inicioAnteriorStr = obterDataLocalString(somarDias(hoje, -13));
+  const fimAnteriorStr = obterDataLocalString(somarDias(hoje, -7));
+  const questoesAtual = registrosQuestoes.filter(
+    (r) => r.data >= inicioStr && r.data <= fimStr,
+  );
+  const questoesAnterior = registrosQuestoes.filter(
+    (r) => r.data >= inicioAnteriorStr && r.data <= fimAnteriorStr,
+  );
+
+  function agruparPorMateria(registros) {
+    const mapa = {};
+    registros.forEach((r) => {
+      if (!mapa[r.materia]) mapa[r.materia] = { total: 0, acertos: 0 };
+      mapa[r.materia].total += r.total;
+      mapa[r.materia].acertos += r.acertos;
+    });
+    return mapa;
+  }
+  const pctAtual = agruparPorMateria(questoesAtual);
+  const pctAnterior = agruparPorMateria(questoesAnterior);
+
+  let melhorEvolucao = null;
+  Object.keys(pctAtual).forEach((materia) => {
+    if (pctAtual[materia].total < 5) return;
+    if (!pctAnterior[materia] || pctAnterior[materia].total < 5) return;
+    const percAtual =
+      (pctAtual[materia].acertos / pctAtual[materia].total) * 100;
+    const percAnterior =
+      (pctAnterior[materia].acertos / pctAnterior[materia].total) * 100;
+    const diferenca = Math.round(percAtual - percAnterior);
+    if (
+      diferenca > 0 &&
+      (!melhorEvolucao || diferenca > melhorEvolucao.diferenca)
+    ) {
+      melhorEvolucao = { materia, diferenca, percAtual: Math.round(percAtual) };
+    }
+  });
+
+  const { variacaoPct } = calcularComparacaoSemanal();
+
+  let fechamento;
+  if (variacaoPct != null && variacaoPct > 15) {
+    fechamento = "Você aumentou bastante o ritmo essa semana — continue assim.";
+  } else if (variacaoPct != null && variacaoPct < -15) {
+    fechamento =
+      "Essa semana foi mais leve que a anterior — tudo bem, o importante é retomar no seu ritmo.";
+  } else if (humorDescricao === "ótimo" || humorDescricao === "bom") {
+    fechamento =
+      "Seu humor esteve positivo na maior parte da semana — bom sinal.";
+  } else {
+    fechamento = "Mais uma semana registrada. Continue no seu ritmo.";
+  }
+
+  return {
+    minutosTotais,
+    humorEmoji,
+    humorDescricao,
+    diasProdutivos,
+    melhorEvolucao,
+    variacaoPct,
+    fechamento,
+  };
+}
+
+function renderizarResumoSemanalRegras() {
+  const container = document.getElementById("diario-resumo-semanal");
+  if (!container) return;
+
+  const resumo = calcularResumoSemanalRegras();
+  if (!resumo) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+
+  const linhas = [];
+  linhas.push(
+    `Você estudou <strong>${formatarHorasMinutos(resumo.minutosTotais)}</strong> essa semana.`,
+  );
+  if (resumo.humorEmoji) {
+    linhas.push(
+      `Seu humor médio foi ${resumo.humorEmoji} (${resumo.humorDescricao}).`,
+    );
+  }
+  if (resumo.diasProdutivos.length > 0) {
+    linhas.push(
+      `${resumo.diasProdutivos.length > 1 ? "Os dias mais produtivos foram" : "O dia mais produtivo foi"} <strong>${resumo.diasProdutivos.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(" e ")}</strong>.`,
+    );
+  }
+  if (resumo.melhorEvolucao) {
+    linhas.push(
+      `<strong>${escapeHtml(resumo.melhorEvolucao.materia)}</strong> teve a maior melhora de desempenho: +${resumo.melhorEvolucao.diferenca} pontos (agora em ${resumo.melhorEvolucao.percAtual}% de acerto).`,
+    );
+  }
+
+  container.innerHTML = `
+    <div class="diario-resumo-card">
+      <h3 class="diario-insights-titulo">🗒️ Resumo da semana</h3>
+      ${linhas.map((l) => `<p class="diario-resumo-linha">${l}</p>`).join("")}
+      <p class="diario-resumo-fechamento">${resumo.fechamento}</p>
+    </div>`;
 }
 
 function renderizarInsightsMoodTracker(diario) {
