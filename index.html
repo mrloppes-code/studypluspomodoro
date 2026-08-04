@@ -889,6 +889,250 @@
         <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
       </div>
 
+      <!-- MODAL: CHECK-IN (MOOD TRACKER) — como você está antes de focar -->
+      <div id="modal-checkin-humor" class="modal-distracao">
+        <div class="modal-conteudo modal-checkin-conteudo">
+          <h2
+            style="
+              color: var(--accent-text);
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 10px;
+            "
+          >
+            🙂 Como você está agora?
+          </h2>
+          <p
+            style="
+              font-size: 0.9rem;
+              color: var(--text-muted);
+              margin: 10px 0 16px;
+            "
+          >
+            Leva menos de 10 segundos — e ajuda a entender depois em quais
+            estados você rende mais. Totalmente opcional.
+          </p>
+
+          <label class="checkin-rotulo">Humor</label>
+          <div class="checkin-chips-linha">
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor"
+              data-valor="excelente"
+              onclick="selecionarChipCheckin('humor', 'excelente', this)"
+              title="Excelente"
+            >
+              😀
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor"
+              data-valor="bom"
+              onclick="selecionarChipCheckin('humor', 'bom', this)"
+              title="Bom"
+            >
+              🙂
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor"
+              data-valor="normal"
+              onclick="selecionarChipCheckin('humor', 'normal', this)"
+              title="Normal"
+            >
+              😐
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor"
+              data-valor="ruim"
+              onclick="selecionarChipCheckin('humor', 'ruim', this)"
+              title="Ruim"
+            >
+              😕
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor"
+              data-valor="muito_ruim"
+              onclick="selecionarChipCheckin('humor', 'muito_ruim', this)"
+              title="Muito ruim"
+            >
+              😞
+            </button>
+          </div>
+
+          <label class="checkin-rotulo">Energia</label>
+          <div class="checkin-chips-linha checkin-chips-texto">
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="energia"
+              data-valor="muito_alta"
+              onclick="selecionarChipCheckin('energia', 'muito_alta', this)"
+            >
+              Muito alta
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="energia"
+              data-valor="alta"
+              onclick="selecionarChipCheckin('energia', 'alta', this)"
+            >
+              Alta
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="energia"
+              data-valor="normal"
+              onclick="selecionarChipCheckin('energia', 'normal', this)"
+            >
+              Normal
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="energia"
+              data-valor="baixa"
+              onclick="selecionarChipCheckin('energia', 'baixa', this)"
+            >
+              Baixa
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="energia"
+              data-valor="exausto"
+              onclick="selecionarChipCheckin('energia', 'exausto', this)"
+            >
+              Exausto
+            </button>
+          </div>
+
+          <label class="checkin-rotulo">Sono</label>
+          <div class="checkin-chips-linha checkin-chips-texto">
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="sono"
+              data-valor="excelente"
+              onclick="selecionarChipCheckin('sono', 'excelente', this)"
+            >
+              Excelente
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="sono"
+              data-valor="bom"
+              onclick="selecionarChipCheckin('sono', 'bom', this)"
+            >
+              Bom
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="sono"
+              data-valor="ruim"
+              onclick="selecionarChipCheckin('sono', 'ruim', this)"
+            >
+              Ruim
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="sono"
+              data-valor="pessimo"
+              onclick="selecionarChipCheckin('sono', 'pessimo', this)"
+            >
+              Péssimo
+            </button>
+          </div>
+
+          <div class="checkin-slider-linha">
+            <label class="checkin-rotulo" for="checkin-ansiedade">
+              Ansiedade <span id="checkin-ansiedade-valor">5</span>/10
+            </label>
+            <input
+              type="range"
+              id="checkin-ansiedade"
+              min="0"
+              max="10"
+              value="5"
+              oninput="
+                atualizarLabelSliderCheckin(
+                  'checkin-ansiedade',
+                  'checkin-ansiedade-valor',
+                )
+              "
+            />
+          </div>
+
+          <div class="checkin-slider-linha">
+            <label class="checkin-rotulo" for="checkin-motivacao">
+              Motivação <span id="checkin-motivacao-valor">5</span>/10
+            </label>
+            <input
+              type="range"
+              id="checkin-motivacao"
+              min="0"
+              max="10"
+              value="5"
+              oninput="
+                atualizarLabelSliderCheckin(
+                  'checkin-motivacao',
+                  'checkin-motivacao-valor',
+                )
+              "
+            />
+          </div>
+
+          <label for="checkin-pensamento" class="checkin-rotulo"
+            >O que está passando pela sua cabeça? (opcional)</label
+          >
+          <input
+            type="text"
+            id="checkin-pensamento"
+            maxlength="140"
+            placeholder="Ex: Estou preocupado com a prova"
+          />
+
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              justify-content: flex-end;
+              margin-top: 16px;
+            "
+          >
+            <button
+              type="button"
+              onclick="pularCheckinHumor()"
+              style="background: #334155; color: white; padding: 10px 15px"
+            >
+              Pular
+            </button>
+            <button
+              type="button"
+              onclick="confirmarCheckinHumor()"
+              style="
+                background: var(--primary);
+                color: white;
+                padding: 10px 20px;
+              "
+            >
+              Começar a focar
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODAL AUDITORIA -->
       <div id="modal-distracao-container" class="modal-distracao">
         <div class="modal-conteudo">
@@ -907,6 +1151,158 @@
             Houve algum tipo de distração ou interrupção durante a sessão?
           </p>
 
+          <label class="checkin-rotulo">Como foi o foco?</label>
+          <div class="checkin-chips-linha" id="checkout-estrelas-container">
+            <button
+              type="button"
+              class="checkout-estrela"
+              data-valor="1"
+              onclick="selecionarEstrelaCheckout(1)"
+            >
+              ⭐
+            </button>
+            <button
+              type="button"
+              class="checkout-estrela"
+              data-valor="2"
+              onclick="selecionarEstrelaCheckout(2)"
+            >
+              ⭐
+            </button>
+            <button
+              type="button"
+              class="checkout-estrela"
+              data-valor="3"
+              onclick="selecionarEstrelaCheckout(3)"
+            >
+              ⭐
+            </button>
+            <button
+              type="button"
+              class="checkout-estrela"
+              data-valor="4"
+              onclick="selecionarEstrelaCheckout(4)"
+            >
+              ⭐
+            </button>
+            <button
+              type="button"
+              class="checkout-estrela"
+              data-valor="5"
+              onclick="selecionarEstrelaCheckout(5)"
+            >
+              ⭐
+            </button>
+          </div>
+
+          <label class="checkin-rotulo">Quanto você conseguiu cumprir?</label>
+          <div class="checkin-chips-linha checkin-chips-texto">
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="cumprido"
+              data-valor="100"
+              onclick="selecionarChipCheckin('cumprido', '100', this)"
+            >
+              100%
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="cumprido"
+              data-valor="75"
+              onclick="selecionarChipCheckin('cumprido', '75', this)"
+            >
+              75%
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="cumprido"
+              data-valor="50"
+              onclick="selecionarChipCheckin('cumprido', '50', this)"
+            >
+              50%
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="cumprido"
+              data-valor="25"
+              onclick="selecionarChipCheckin('cumprido', '25', this)"
+            >
+              25%
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-texto"
+              data-grupo="cumprido"
+              data-valor="0"
+              onclick="selecionarChipCheckin('cumprido', '0', this)"
+            >
+              0%
+            </button>
+          </div>
+
+          <label class="checkin-rotulo">Humor agora</label>
+          <div class="checkin-chips-linha">
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor-depois"
+              data-valor="excelente"
+              onclick="selecionarChipCheckin('humor-depois', 'excelente', this)"
+              title="Excelente"
+            >
+              😀
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor-depois"
+              data-valor="bom"
+              onclick="selecionarChipCheckin('humor-depois', 'bom', this)"
+              title="Bom"
+            >
+              🙂
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor-depois"
+              data-valor="normal"
+              onclick="selecionarChipCheckin('humor-depois', 'normal', this)"
+              title="Normal"
+            >
+              😐
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor-depois"
+              data-valor="ruim"
+              onclick="selecionarChipCheckin('humor-depois', 'ruim', this)"
+              title="Ruim"
+            >
+              😕
+            </button>
+            <button
+              type="button"
+              class="checkin-chip-emoji"
+              data-grupo="humor-depois"
+              data-valor="muito_ruim"
+              onclick="
+                selecionarChipCheckin('humor-depois', 'muito_ruim', this)
+              "
+              title="Muito ruim"
+            >
+              😞
+            </button>
+          </div>
+
+          <label class="checkin-rotulo" style="margin-top: 12px"
+            >O que atrapalhou (se algo atrapalhou):</label
+          >
           <div class="grade-checkbox-distracao">
             <label class="item-checkbox"
               ><input type="checkbox" value="Celular" />📱 Celular /
@@ -1821,6 +2217,14 @@
               class="reta-final-badge-dot"
               style="display: none"
             ></span>
+          </button>
+          <button
+            type="button"
+            id="estudos-sub-diario-btn"
+            class="estudos-subnav-btn"
+            onclick="mostrarSubAbaEstudos('diario')"
+          >
+            📔 Diário
           </button>
         </div>
 
@@ -2756,6 +3160,50 @@
               outras abas.
             </p>
             <div id="reta-final-conteudo"></div>
+          </div>
+        </div>
+
+        <div class="container" id="estudos-sub-diario" style="display: none">
+          <div class="card full-width">
+            <h2>📔 Diário de Estudos</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cada dia que teve sessão de foco vira uma entrada aqui — humor,
+              tempo estudado, matérias e sua nota, tudo num só lugar. Vem do
+              check-in/check-out do Mood Tracker: quanto mais você preencher,
+              mais rica fica essa linha do tempo.
+            </p>
+
+            <div id="diario-memorias" style="display: none"></div>
+
+            <div id="diario-insights" style="display: none"></div>
+
+            <div id="diario-evolucao-emocional" style="display: none"></div>
+
+            <p id="diario-vazio" class="sessoes-hoje-vazio">
+              Ainda não há nenhuma sessão de estudo registrada. Complete um
+              pomodoro (respondendo ou pulando o check-in/check-out) pra começar
+              a preencher seu diário.
+            </p>
+            <div id="diario-timeline" class="diario-timeline"></div>
+          </div>
+
+          <div
+            class="card full-width"
+            id="card-linha-tempo-mensal"
+            style="display: none"
+          >
+            <h2>🗓️ Linha do Tempo da Preparação</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Um resumo por mês — pra quando você abrir isso daqui a um ano e
+              ver o caminho todo de uma vez.
+            </p>
+            <div id="linha-tempo-mensal-lista"></div>
           </div>
         </div>
 

@@ -126,6 +126,22 @@ let cargosExtraidosEditalPendentes = null;
 
 let tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
 let logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
+
+// --- MOOD TRACKER (Tier 1: check-in + check-out) ---
+// Guarda as respostas do check-in (preenchido antes de começar a focar)
+// até a sessão terminar, quando finalmente são anexadas ao registro em
+// logsSessoes — não persiste sozinho em localStorage, é só um rascunho
+// de trabalho enquanto a sessão está rolando.
+let moodCheckinAtual = null;
+let checkinHumorSelecionado = null;
+let checkinEnergiaSelecionada = null;
+let checkinSonoSelecionado = null;
+
+// Mesma lógica pro check-out (preenchido na Auditoria de Foco, ao final).
+let checkoutCumpridoSelecionado = null;
+let checkoutHumorDepoisSelecionado = null;
+let checkoutEstrelasSelecionadas = null;
+
 let dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
   nome: "Estudante",
   cargo: "Foco em Aprovação",
@@ -501,6 +517,7 @@ function mostrarSubAbaEstudos(subaba) {
     desempenho: "estudos-sub-desempenho",
     analises: "estudos-sub-analises",
     retafinal: "estudos-sub-retafinal",
+    diario: "estudos-sub-diario",
   };
 
   Object.entries(grupos).forEach(([chave, idGrupo]) => {
@@ -1505,10 +1522,125 @@ function desativarModoIsolamento() {
 function gerenciarBotaoFocoPrincipal() {
   if (emPreparacao) return;
   if (!emEstadoDeFocoAtivo && !emPausaConfig) {
-    iniciarFocoComPreparacaoSeConfigurada(startTimer);
+    abrirModalCheckinHumor();
   } else {
     finalizarSessao();
   }
+}
+
+// --- MOOD TRACKER: CHECK-IN ---
+// Abre o mini-formulário "como você está agora" antes de começar a focar.
+// Sempre com saída rápida (Pular) — isso não pode virar fricção pra quem
+// só quer apertar Iniciar e focar.
+function abrirModalCheckinHumor() {
+  checkinHumorSelecionado = null;
+  checkinEnergiaSelecionada = null;
+  checkinSonoSelecionado = null;
+
+  const modal = document.getElementById("modal-checkin-humor");
+  if (!modal) {
+    // Modal não existe por algum motivo — não trava o fluxo de foco por
+    // causa de uma funcionalidade opcional.
+    iniciarFocoComPreparacaoSeConfigurada(startTimer);
+    return;
+  }
+
+  modal
+    .querySelectorAll(".checkin-chip-emoji, .checkin-chip-texto")
+    .forEach((btn) => btn.classList.remove("chip-ativa"));
+
+  document.getElementById("checkin-ansiedade").value = 5;
+  document.getElementById("checkin-motivacao").value = 5;
+  atualizarLabelSliderCheckin("checkin-ansiedade", "checkin-ansiedade-valor");
+  atualizarLabelSliderCheckin("checkin-motivacao", "checkin-motivacao-valor");
+  document.getElementById("checkin-pensamento").value = "";
+
+  modal.style.display = "flex";
+}
+
+// Seletor de chip genérico, reaproveitado pelo check-in (humor/energia/
+// sono) e pelo check-out (% cumprido/humor depois) — cada grupo marca só
+// um botão ativo por vez, escopado pelo próprio modal em que ele está
+// (assim os dois modais podem ter grupos com o mesmo nome, ex. "humor",
+// sem um interferir no outro).
+function selecionarChipCheckin(grupo, valor, elemento) {
+  const modalPai = elemento.closest(".modal-conteudo");
+  const escopo = modalPai || document;
+  escopo
+    .querySelectorAll(`[data-grupo="${grupo}"]`)
+    .forEach((b) => b.classList.remove("chip-ativa"));
+  elemento.classList.add("chip-ativa");
+
+  if (grupo === "humor") checkinHumorSelecionado = valor;
+  if (grupo === "energia") checkinEnergiaSelecionada = valor;
+  if (grupo === "sono") checkinSonoSelecionado = valor;
+  if (grupo === "cumprido") checkoutCumpridoSelecionado = parseInt(valor, 10);
+  if (grupo === "humor-depois") checkoutHumorDepoisSelecionado = valor;
+}
+
+function atualizarLabelSliderCheckin(idSlider, idLabel) {
+  const slider = document.getElementById(idSlider);
+  const label = document.getElementById(idLabel);
+  if (slider && label) label.textContent = slider.value;
+}
+
+function pularCheckinHumor() {
+  moodCheckinAtual = null;
+  const modal = document.getElementById("modal-checkin-humor");
+  if (modal) modal.style.display = "none";
+  iniciarFocoComPreparacaoSeConfigurada(startTimer);
+}
+
+function confirmarCheckinHumor() {
+  const ansiedade = parseInt(
+    document.getElementById("checkin-ansiedade").value,
+    10,
+  );
+  const motivacao = parseInt(
+    document.getElementById("checkin-motivacao").value,
+    10,
+  );
+  const pensamento = document.getElementById("checkin-pensamento").value.trim();
+
+  // Só grava check-in se a pessoa realmente tocou em algo — um check-in
+  // 100% vazio (só ansiedade/motivação no valor padrão 5, sem tocar em
+  // nada) não agrega nada à análise depois.
+  const tocouEmAlgo =
+    checkinHumorSelecionado ||
+    checkinEnergiaSelecionada ||
+    checkinSonoSelecionado ||
+    ansiedade !== 5 ||
+    motivacao !== 5 ||
+    pensamento;
+
+  moodCheckinAtual = tocouEmAlgo
+    ? {
+        humor: checkinHumorSelecionado,
+        energia: checkinEnergiaSelecionada,
+        sono: checkinSonoSelecionado,
+        ansiedade,
+        motivacao,
+        pensamento: pensamento || null,
+        horario: new Date().toISOString(),
+      }
+    : null;
+
+  const modal = document.getElementById("modal-checkin-humor");
+  if (modal) modal.style.display = "none";
+  iniciarFocoComPreparacaoSeConfigurada(startTimer);
+}
+
+// --- MOOD TRACKER: CHECK-OUT ---
+function selecionarEstrelaCheckout(valor) {
+  checkoutEstrelasSelecionadas = valor;
+  document
+    .querySelectorAll("#checkout-estrelas-container .checkout-estrela")
+    .forEach((btn) => {
+      btn.classList.toggle(
+        "estrela-ativa",
+        parseInt(btn.dataset.valor, 10) <= valor,
+      );
+    });
 }
 
 // --- PERSISTÊNCIA DA SESSÃO ATIVA (foco/pausa em andamento) ---
@@ -2515,7 +2647,21 @@ function abrirModalDistracao() {
     '#modal-distracao-container input[type="checkbox"]',
   );
   checkboxes.forEach((cb) => (cb.checked = false));
-  document.getElementById("modal-distracao-container").style.display = "flex";
+
+  // Reseta também os campos do check-out (mood tracker) — sem isso, a
+  // seleção da sessão anterior ficaria marcada por engano na próxima.
+  checkoutCumpridoSelecionado = null;
+  checkoutHumorDepoisSelecionado = null;
+  checkoutEstrelasSelecionadas = null;
+  const modalDistracao = document.getElementById("modal-distracao-container");
+  modalDistracao
+    .querySelectorAll(".checkin-chip-texto, .checkin-chip-emoji")
+    .forEach((btn) => btn.classList.remove("chip-ativa"));
+  modalDistracao
+    .querySelectorAll(".checkout-estrela")
+    .forEach((btn) => btn.classList.remove("estrela-ativa"));
+
+  modalDistracao.style.display = "flex";
 }
 
 function fecharModalDistracao() {
@@ -2530,13 +2676,44 @@ function fecharModalDistracao() {
 // Persiste os dados da sessão que acabou de terminar: salva os minutos
 // estudados no histórico geral e, se o ciclo completo foi cumprido (chegou
 // a entrar em overtime), soma +1 na meta diária de pomodoros.
-function persistirSessaoFinalizada() {
+function persistirSessaoFinalizada(distracoes) {
   const campoNota = document.getElementById("pomo-nota");
   const nota = campoNota ? campoNota.value.trim() : "";
 
-  salvarProgressoGeral(cacheMateriaSessaoAtual, cacheMinutosSessaoAtual, nota);
+  const temCheckout =
+    checkoutEstrelasSelecionadas != null ||
+    checkoutCumpridoSelecionado != null ||
+    checkoutHumorDepoisSelecionado != null ||
+    (distracoes && distracoes.length > 0);
+
+  const mood =
+    moodCheckinAtual || temCheckout
+      ? {
+          checkin: moodCheckinAtual,
+          checkout: temCheckout
+            ? {
+                foco: checkoutEstrelasSelecionadas,
+                percentualCumprido: checkoutCumpridoSelecionado,
+                humorDepois: checkoutHumorDepoisSelecionado,
+                atrapalhou: distracoes || [],
+              }
+            : null,
+        }
+      : null;
+
+  salvarProgressoGeral(
+    cacheMateriaSessaoAtual,
+    cacheMinutosSessaoAtual,
+    nota,
+    mood,
+  );
 
   if (campoNota) campoNota.value = "";
+
+  moodCheckinAtual = null;
+  checkoutEstrelasSelecionadas = null;
+  checkoutCumpridoSelecionado = null;
+  checkoutHumorDepoisSelecionado = null;
 
   if (emOvertime) {
     registrarPomodoroConcluido();
@@ -2562,7 +2739,7 @@ async function pularRegistroDistracao() {
   // sessão inteira podia sumir sem nenhum sinal de que algo deu errado.
   const minutosDaSessao = cacheMinutosSessaoAtual;
   try {
-    persistirSessaoFinalizada();
+    persistirSessaoFinalizada([]);
   } catch (err) {
     console.error("Erro ao persistir sessão:", err);
     await mostrarAlerta(
@@ -2599,7 +2776,7 @@ async function confirmarRegistroDistracao() {
   // inteira podia sumir sem nenhum sinal de que algo deu errado.
   const minutosDaSessao = cacheMinutosSessaoAtual;
   try {
-    persistirSessaoFinalizada();
+    persistirSessaoFinalizada(distracoes);
   } catch (err) {
     console.error("Erro ao persistir sessão:", err);
     await mostrarAlerta(
@@ -3233,7 +3410,7 @@ async function salvarMetaHorasSemanais(event) {
   atualizarMetaHorasSemanais();
 }
 
-function salvarProgressoGeral(materia, minutos, nota) {
+function salvarProgressoGeral(materia, minutos, nota, mood) {
   if (minutos <= 0) return;
   let agora = new Date();
   let hojeStr = obterDataLocalString(agora);
@@ -3258,6 +3435,7 @@ function salvarProgressoGeral(materia, minutos, nota) {
     materia: nomeMateriaFinal,
     duracao: minutos,
     nota: (nota || "").trim(),
+    mood: mood || null,
   });
   localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
 
@@ -7014,6 +7192,598 @@ function renderizarModoRetaFinal() {
     .join("");
 }
 
+// --- DIÁRIO DE ESTUDOS (Tier 2 do Mood Tracker) ---
+// Lê o mesmo logsSessoes de sempre (nenhum dado novo, nenhuma tabela
+// nova) e agrupa por dia numa timeline visual — humor, tempo estudado,
+// matérias e a nota da sessão, no estilo de um feed. As tags reaproveitam
+// tanto as distrações marcadas no check-out quanto sinais do check-in
+// (sono ruim, energia baixa, ansiedade alta).
+const MAPA_EMOJI_HUMOR = {
+  excelente: "😀",
+  bom: "🙂",
+  normal: "😐",
+  ruim: "😕",
+  muito_ruim: "😞",
+};
+
+function calcularDiarioPorDia() {
+  const porDia = {};
+
+  logsSessoes.forEach((log) => {
+    if (!porDia[log.data]) {
+      porDia[log.data] = {
+        minutos: 0,
+        materias: new Set(),
+        notas: [],
+        entradasMood: [],
+      };
+    }
+    const dia = porDia[log.data];
+    dia.minutos += log.duracao;
+    dia.materias.add(log.materia);
+    if (log.nota) dia.notas.push(log.nota);
+    if (log.mood) dia.entradasMood.push(log.mood);
+  });
+
+  return Object.entries(porDia)
+    .map(([data, info]) => {
+      // Humor do dia: prioriza o humor de DEPOIS de estudar (check-out) —
+      // é o mais diagnóstico. Sem isso, cai pro humor de ANTES (check-in).
+      let humor = null;
+      for (let i = info.entradasMood.length - 1; i >= 0 && !humor; i--) {
+        if (info.entradasMood[i].checkout?.humorDepois) {
+          humor = info.entradasMood[i].checkout.humorDepois;
+        }
+      }
+      for (let i = info.entradasMood.length - 1; i >= 0 && !humor; i--) {
+        if (info.entradasMood[i].checkin?.humor) {
+          humor = info.entradasMood[i].checkin.humor;
+        }
+      }
+
+      // Tags do dia: distrações marcadas no check-out + sinais do
+      // check-in que merecem virar tag (sono ruim, pouca energia,
+      // ansiedade alta).
+      const tags = new Set();
+      info.entradasMood.forEach((mood) => {
+        if (mood.checkin) {
+          if (["ruim", "pessimo"].includes(mood.checkin.sono)) {
+            tags.add("😴 Sono ruim");
+          }
+          if (["baixa", "exausto"].includes(mood.checkin.energia)) {
+            tags.add("🔋 Pouca energia");
+          }
+          if (mood.checkin.ansiedade >= 7) {
+            tags.add("😰 Ansiedade alta");
+          }
+        }
+        if (mood.checkout?.atrapalhou) {
+          mood.checkout.atrapalhou.forEach((t) => tags.add(`⚠️ ${t}`));
+        }
+      });
+
+      // Nota do dia: a mais recente entre as sessões (é a que resume
+      // melhor como o dia terminou), com o pensamento do check-in como
+      // reserva se nenhuma sessão teve nota escrita.
+      let nota =
+        info.notas.length > 0 ? info.notas[info.notas.length - 1] : null;
+      if (!nota) {
+        for (let i = info.entradasMood.length - 1; i >= 0 && !nota; i--) {
+          if (info.entradasMood[i].checkin?.pensamento) {
+            nota = info.entradasMood[i].checkin.pensamento;
+          }
+        }
+      }
+
+      return {
+        data,
+        minutos: info.minutos,
+        materias: [...info.materias],
+        humor,
+        tags: [...tags],
+        nota,
+      };
+    })
+    .sort((a, b) => b.data.localeCompare(a.data));
+}
+
+// "Há exatamente 6 meses/1 ano você escreveu: ..." — só aparece quando
+// existe mesmo uma nota registrada naquele dia exato; não força nada.
+function calcularMemoriasAutomaticas(diario) {
+  const hoje = new Date();
+  const candidatos = [
+    { rotulo: "1 ano", meses: 12 },
+    { rotulo: "6 meses", meses: 6 },
+  ];
+
+  const memorias = [];
+  candidatos.forEach(({ rotulo, meses }) => {
+    const dataAlvo = new Date(hoje);
+    dataAlvo.setMonth(dataAlvo.getMonth() - meses);
+    const dataAlvoStr = obterDataLocalString(dataAlvo);
+    const entrada = diario.find((d) => d.data === dataAlvoStr && d.nota);
+    if (entrada) memorias.push({ rotulo, entrada });
+  });
+
+  return memorias;
+}
+
+function renderizarDiario() {
+  const timeline = document.getElementById("diario-timeline");
+  const vazio = document.getElementById("diario-vazio");
+  const memoriasEl = document.getElementById("diario-memorias");
+  if (!timeline) return;
+
+  const diario = calcularDiarioPorDia();
+
+  if (diario.length === 0) {
+    vazio.style.display = "block";
+    timeline.innerHTML = "";
+    if (memoriasEl) memoriasEl.style.display = "none";
+    const insightsEl = document.getElementById("diario-insights");
+    const evolucaoEl = document.getElementById("diario-evolucao-emocional");
+    const linhaTempoCard = document.getElementById("card-linha-tempo-mensal");
+    if (insightsEl) insightsEl.style.display = "none";
+    if (evolucaoEl) evolucaoEl.style.display = "none";
+    if (linhaTempoCard) linhaTempoCard.style.display = "none";
+    return;
+  }
+
+  vazio.style.display = "none";
+
+  const memorias = calcularMemoriasAutomaticas(diario);
+  if (memoriasEl) {
+    if (memorias.length === 0) {
+      memoriasEl.style.display = "none";
+    } else {
+      memoriasEl.style.display = "block";
+      memoriasEl.innerHTML = memorias
+        .map(
+          (m) => `
+          <div class="diario-memoria-card">
+            <strong>📼 Há exatamente ${m.rotulo} você escreveu:</strong>
+            <p>"${escapeHtml(m.entrada.nota)}"</p>
+          </div>`,
+        )
+        .join("");
+    }
+  }
+
+  timeline.innerHTML = diario
+    .map((dia) => {
+      const dataFormatada = new Date(dia.data + "T00:00:00").toLocaleDateString(
+        "pt-BR",
+        {
+          weekday: "long",
+          day: "2-digit",
+          month: "2-digit",
+        },
+      );
+      const emoji = dia.humor ? MAPA_EMOJI_HUMOR[dia.humor] || "" : "";
+
+      return `
+        <div class="diario-entrada">
+          <div class="diario-entrada-cabecalho">
+            <span class="diario-entrada-emoji">${emoji}</span>
+            <div>
+              <strong class="diario-entrada-data">${dataFormatada}</strong>
+              <div class="diario-entrada-resumo">
+                ⏱️ ${formatarHorasMinutos(dia.minutos)} estudadas
+                ${dia.materias.length > 0 ? `· ${dia.materias.map((m) => escapeHtml(m)).join(", ")}` : ""}
+              </div>
+            </div>
+          </div>
+          ${dia.nota ? `<p class="diario-entrada-nota">"${escapeHtml(dia.nota)}"</p>` : ""}
+          ${
+            dia.tags.length > 0
+              ? `<div class="diario-entrada-tags">${dia.tags.map((t) => `<span class="diario-tag">${escapeHtml(t)}</span>`).join("")}</div>`
+              : ""
+          }
+        </div>`;
+    })
+    .join("");
+
+  renderizarInsightsMoodTracker(diario);
+  renderizarEvolucaoEmocional(diario);
+  renderizarLinhaTempoMensal(diario);
+}
+
+// --- INSIGHTS ENGINE (Tier 3 do Mood Tracker) ---
+// Cruza humor/energia/sono/ansiedade (do check-in/check-out) com o
+// desempenho real (registrosQuestoes) e com o tempo estudado. Cada
+// insight só aparece quando existe amostra mínima — é isso que separa um
+// insight de verdade de "conclusão tirada de 2 dias".
+const AMOSTRA_MINIMA_INSIGHT = 3;
+
+function calcularPctAcertoPorDia() {
+  const mapa = {};
+  registrosQuestoes.forEach((r) => {
+    if (!mapa[r.data]) mapa[r.data] = { total: 0, acertos: 0 };
+    mapa[r.data].total += r.total;
+    mapa[r.data].acertos += r.acertos;
+  });
+  return mapa;
+}
+
+function calcularInsightHumorDesempenho(diario, pctPorDia) {
+  const GRUPO_HUMOR = {
+    excelente: "positivo",
+    bom: "positivo",
+    normal: "neutro",
+    ruim: "negativo",
+    muito_ruim: "negativo",
+  };
+  const grupos = {
+    positivo: { total: 0, acertos: 0, dias: 0 },
+    neutro: { total: 0, acertos: 0, dias: 0 },
+    negativo: { total: 0, acertos: 0, dias: 0 },
+  };
+
+  diario.forEach((dia) => {
+    if (!dia.humor) return;
+    const q = pctPorDia[dia.data];
+    if (!q || q.total === 0) return;
+    const g = grupos[GRUPO_HUMOR[dia.humor]];
+    g.total += q.total;
+    g.acertos += q.acertos;
+    g.dias += 1;
+  });
+
+  const validos = Object.entries(grupos)
+    .filter(([, g]) => g.dias >= AMOSTRA_MINIMA_INSIGHT)
+    .map(([nome, g]) => ({
+      nome,
+      pct: Math.round((g.acertos / g.total) * 100),
+      dias: g.dias,
+    }));
+
+  if (validos.length < 2) return null;
+
+  const rotulo = {
+    positivo: "humor bom/excelente",
+    neutro: "humor normal",
+    negativo: "humor ruim/muito ruim",
+  };
+  const melhor = validos.reduce((a, b) => (b.pct > a.pct ? b : a));
+  const pior = validos.reduce((a, b) => (b.pct < a.pct ? b : a));
+  if (melhor.nome === pior.nome) return null;
+
+  return {
+    icone: "😊",
+    texto: `Em dias de <strong>${rotulo[melhor.nome]}</strong>, seu acerto médio é <strong>${melhor.pct}%</strong> (${melhor.dias} dias). Em dias de <strong>${rotulo[pior.nome]}</strong>, cai pra <strong>${pior.pct}%</strong> (${pior.dias} dias).`,
+  };
+}
+
+function calcularInsightAnsiedadeDesempenho(pctPorDia) {
+  const faixas = {
+    baixa: { total: 0, acertos: 0, dias: 0 },
+    alta: { total: 0, acertos: 0, dias: 0 },
+  };
+
+  // Uma ansiedade por dia (média das sessões daquele dia que tiveram
+  // check-in preenchido).
+  const ansiedadePorDia = {};
+  logsSessoes.forEach((log) => {
+    if (log.mood?.checkin?.ansiedade == null) return;
+    if (!ansiedadePorDia[log.data]) ansiedadePorDia[log.data] = [];
+    ansiedadePorDia[log.data].push(log.mood.checkin.ansiedade);
+  });
+
+  Object.entries(ansiedadePorDia).forEach(([data, valores]) => {
+    const q = pctPorDia[data];
+    if (!q || q.total === 0) return;
+    const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+    const faixa = media <= 3 ? "baixa" : media >= 7 ? "alta" : null;
+    if (!faixa) return;
+    faixas[faixa].total += q.total;
+    faixas[faixa].acertos += q.acertos;
+    faixas[faixa].dias += 1;
+  });
+
+  if (
+    faixas.baixa.dias < AMOSTRA_MINIMA_INSIGHT ||
+    faixas.alta.dias < AMOSTRA_MINIMA_INSIGHT
+  ) {
+    return null;
+  }
+
+  const pctBaixa = Math.round(
+    (faixas.baixa.acertos / faixas.baixa.total) * 100,
+  );
+  const pctAlta = Math.round((faixas.alta.acertos / faixas.alta.total) * 100);
+  if (pctBaixa === pctAlta) return null;
+
+  return {
+    icone: "😰",
+    texto: `Com <strong>ansiedade baixa</strong> (0-3), seu acerto médio é <strong>${pctBaixa}%</strong> (${faixas.baixa.dias} dias). Com <strong>ansiedade alta</strong> (7-10), fica em <strong>${pctAlta}%</strong> (${faixas.alta.dias} dias).`,
+  };
+}
+
+function calcularInsightSonoFoco() {
+  const grupos = {
+    bom: { minutos: 0, dias: 0 },
+    ruim: { minutos: 0, dias: 0 },
+  };
+  const GRUPO_SONO = {
+    excelente: "bom",
+    bom: "bom",
+    ruim: "ruim",
+    pessimo: "ruim",
+  };
+
+  const sonoPorDia = {};
+  logsSessoes.forEach((log) => {
+    if (!log.mood?.checkin?.sono) return;
+    // Usa o primeiro check-in do dia como referência de sono daquele dia.
+    if (!sonoPorDia[log.data]) sonoPorDia[log.data] = log.mood.checkin.sono;
+  });
+
+  const minutosPorDia = {};
+  logsSessoes.forEach((log) => {
+    minutosPorDia[log.data] = (minutosPorDia[log.data] || 0) + log.duracao;
+  });
+
+  Object.entries(sonoPorDia).forEach(([data, sono]) => {
+    const grupo = GRUPO_SONO[sono];
+    if (!grupo) return;
+    grupos[grupo].minutos += minutosPorDia[data] || 0;
+    grupos[grupo].dias += 1;
+  });
+
+  if (
+    grupos.bom.dias < AMOSTRA_MINIMA_INSIGHT ||
+    grupos.ruim.dias < AMOSTRA_MINIMA_INSIGHT
+  ) {
+    return null;
+  }
+
+  const mediaBom = Math.round(grupos.bom.minutos / grupos.bom.dias);
+  const mediaRuim = Math.round(grupos.ruim.minutos / grupos.ruim.dias);
+  const diferenca = mediaBom - mediaRuim;
+  if (Math.abs(diferenca) < 5) return null;
+
+  return {
+    icone: "😴",
+    texto:
+      diferenca > 0
+        ? `Em dias de <strong>sono bom/excelente</strong>, você estuda em média <strong>${formatarHorasMinutos(mediaBom)}</strong> — ${formatarHorasMinutos(diferenca)} a mais do que em dias de sono ruim/péssimo (<strong>${formatarHorasMinutos(mediaRuim)}</strong>).`
+        : `Curiosamente, em dias de <strong>sono ruim/péssimo</strong> você estudou mais (${formatarHorasMinutos(mediaRuim)}) do que em dias de sono bom (${formatarHorasMinutos(mediaBom)}) — vale ficar de olho se isso é sustentável.`,
+  };
+}
+
+function calcularInsightMateriaAnsiedade() {
+  const porMateria = {};
+  logsSessoes.forEach((log) => {
+    if (log.mood?.checkin?.ansiedade == null) return;
+    if (!porMateria[log.materia]) porMateria[log.materia] = [];
+    porMateria[log.materia].push(log.mood.checkin.ansiedade);
+  });
+
+  const candidatos = Object.entries(porMateria)
+    .filter(([, valores]) => valores.length >= AMOSTRA_MINIMA_INSIGHT)
+    .map(([materia, valores]) => ({
+      materia,
+      media: valores.reduce((a, b) => a + b, 0) / valores.length,
+      n: valores.length,
+    }))
+    .sort((a, b) => b.media - a.media);
+
+  if (candidatos.length === 0 || candidatos[0].media < 6) return null;
+
+  const top = candidatos[0];
+  return {
+    icone: "📚",
+    texto: `Você relata mais ansiedade estudando <strong>${escapeHtml(top.materia)}</strong> (média ${top.media.toFixed(1)}/10 em ${top.n} sessões) do que nas outras matérias.`,
+  };
+}
+
+function calcularMelhorPiorDiaSemana() {
+  const nomesDias = [
+    "Domingo",
+    "Segunda",
+    "Terça",
+    "Quarta",
+    "Quinta",
+    "Sexta",
+    "Sábado",
+  ];
+  const soma = new Array(7).fill(0);
+  const contagem = new Array(7).fill(0);
+
+  Object.entries(historicoEstudos).forEach(([dataStr, minutos]) => {
+    const diaSemana = new Date(dataStr + "T12:00:00").getDay();
+    soma[diaSemana] += minutos;
+    contagem[diaSemana] += 1;
+  });
+
+  const validos = nomesDias
+    .map((nome, i) => ({
+      nome,
+      media: contagem[i] > 0 ? soma[i] / contagem[i] : 0,
+      n: contagem[i],
+    }))
+    .filter((d) => d.n >= 2);
+
+  if (validos.length < 3) return null;
+
+  const melhor = validos.reduce((a, b) => (b.media > a.media ? b : a));
+  const pior = validos.reduce((a, b) => (b.media < a.media ? b : a));
+  if (melhor.nome === pior.nome) return null;
+
+  return {
+    icone: "📅",
+    texto: `Seu melhor dia da semana pra estudar costuma ser <strong>${melhor.nome}</strong> (média de ${formatarHorasMinutos(Math.round(melhor.media))}); o mais fraco é <strong>${pior.nome}</strong> (${formatarHorasMinutos(Math.round(pior.media))}).`,
+  };
+}
+
+function renderizarInsightsMoodTracker(diario) {
+  const container = document.getElementById("diario-insights");
+  if (!container) return;
+
+  const pctPorDia = calcularPctAcertoPorDia();
+  const insights = [
+    calcularInsightHumorDesempenho(diario, pctPorDia),
+    calcularInsightAnsiedadeDesempenho(pctPorDia),
+    calcularInsightSonoFoco(),
+    calcularInsightMateriaAnsiedade(),
+    calcularMelhorPiorDiaSemana(),
+  ].filter(Boolean);
+
+  if (insights.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+  container.innerHTML = `
+    <div class="diario-insights-card">
+      <h3 class="diario-insights-titulo">🧠 Insights</h3>
+      ${insights
+        .map(
+          (ins) => `
+        <div class="diario-insight-item">
+          <span class="diario-insight-icone">${ins.icone}</span>
+          <span>${ins.texto}</span>
+        </div>`,
+        )
+        .join("")}
+    </div>`;
+}
+
+// "😀😀🙂🙂😐🙂😀😀😕" — uma tira com o humor do dia dos últimos 30 dias,
+// pra bater o olho e ver o padrão emocional recente sem ler nada. Reusa o
+// mesmo "humor do dia" já calculado pra timeline (prioriza check-out,
+// cai pro check-in); dias sem nenhum check-in/check-out preenchido
+// aparecem como um ponto neutro, não ficam simplesmente ausentes — assim
+// a tira sempre tem 30 posições, fácil de comparar de relance.
+function renderizarEvolucaoEmocional(diario) {
+  const container = document.getElementById("diario-evolucao-emocional");
+  if (!container) return;
+
+  const humorPorData = {};
+  diario.forEach((dia) => {
+    if (dia.humor) humorPorData[dia.data] = dia.humor;
+  });
+
+  const hoje = new Date();
+  const pontos = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = somarDias(hoje, -i);
+    const dataStr = obterDataLocalString(d);
+    pontos.push({ data: dataStr, humor: humorPorData[dataStr] || null });
+  }
+
+  const temAlgumDado = pontos.some((p) => p.humor);
+  if (!temAlgumDado) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+  container.innerHTML = `
+    <div class="diario-insights-card">
+      <h3 class="diario-insights-titulo">📈 Evolução emocional (últimos 30 dias)</h3>
+      <div class="mood-evolucao-tira">
+        ${pontos
+          .map((p) => {
+            const dataFormatada = new Date(
+              p.data + "T00:00:00",
+            ).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+            return `<span class="mood-evolucao-ponto${p.humor ? "" : " mood-evolucao-sem-dado"}" title="${dataFormatada}${p.humor ? "" : " — sem registro"}">${p.humor ? MAPA_EMOJI_HUMOR[p.humor] : "·"}</span>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
+}
+
+// --- LINHA DO TEMPO DA PREPARAÇÃO (resumo mês a mês) ---
+function renderizarLinhaTempoMensal(diario) {
+  const card = document.getElementById("card-linha-tempo-mensal");
+  const lista = document.getElementById("linha-tempo-mensal-lista");
+  if (!card || !lista) return;
+
+  if (diario.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const porMes = {};
+  diario.forEach((dia) => {
+    const chaveMes = dia.data.slice(0, 7); // "YYYY-MM"
+    if (!porMes[chaveMes]) {
+      porMes[chaveMes] = { minutos: 0, humores: [] };
+    }
+    porMes[chaveMes].minutos += dia.minutos;
+    if (dia.humor) porMes[chaveMes].humores.push(dia.humor);
+  });
+
+  const melhorSimuladoPorMes = {};
+  registrosSimulados.forEach((s) => {
+    const chaveMes = s.data.slice(0, 7);
+    const pct = Math.round((s.acertos / s.total) * 100);
+    if (
+      !melhorSimuladoPorMes[chaveMes] ||
+      pct > melhorSimuladoPorMes[chaveMes]
+    ) {
+      melhorSimuladoPorMes[chaveMes] = pct;
+    }
+  });
+
+  const PESO_HUMOR = {
+    excelente: 2,
+    bom: 1,
+    normal: 0,
+    ruim: -1,
+    muito_ruim: -2,
+  };
+  const EMOJI_POR_MEDIA = (media) => {
+    if (media >= 1.2) return "😀";
+    if (media >= 0.4) return "🙂";
+    if (media >= -0.4) return "😐";
+    if (media >= -1.2) return "😕";
+    return "😞";
+  };
+
+  const meses = Object.keys(porMes).sort().reverse();
+
+  lista.innerHTML = meses
+    .map((chaveMes) => {
+      const info = porMes[chaveMes];
+      const [ano, mes] = chaveMes.split("-");
+      const nomeMes = new Date(`${chaveMes}-01T12:00:00`).toLocaleDateString(
+        "pt-BR",
+        { month: "long", year: "numeric" },
+      );
+
+      let emojiMes = "";
+      if (info.humores.length > 0) {
+        const media =
+          info.humores.reduce((soma, h) => soma + (PESO_HUMOR[h] || 0), 0) /
+          info.humores.length;
+        emojiMes = EMOJI_POR_MEDIA(media);
+      }
+
+      const simuladoTexto =
+        melhorSimuladoPorMes[chaveMes] != null
+          ? `<span class="linha-tempo-badge">🎯 melhor simulado: ${melhorSimuladoPorMes[chaveMes]}%</span>`
+          : "";
+
+      return `
+        <div class="linha-tempo-item">
+          <div class="linha-tempo-emoji">${emojiMes}</div>
+          <div class="linha-tempo-conteudo">
+            <strong class="linha-tempo-mes">${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)}</strong>
+            <div class="linha-tempo-detalhe">
+              ⏱️ ${formatarHorasMinutos(info.minutos)} estudadas
+              ${simuladoTexto}
+            </div>
+          </div>
+        </div>`;
+    })
+    .join("");
+}
+
 // --- EVOLUÇÃO AO LONGO DO TEMPO (linha: horas/semana + % acerto/semana) ---
 let graficoEvolucaoTemporal = null;
 
@@ -7790,6 +8560,7 @@ function renderizarTodoOPainel() {
   renderizarHeatmapHorario();
   renderizarRecomendacaoHoje();
   renderizarModoRetaFinal();
+  renderizarDiario();
   renderizarInsightTempoPorQuestao();
   atualizarMetaHorasSemanais();
 }

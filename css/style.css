@@ -485,6 +485,178 @@ body {
   color: var(--text-muted);
 }
 
+/* --- Diário de Estudos (Tier 2 do Mood Tracker) --- */
+.diario-memoria-card {
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.12),
+    rgba(59, 130, 246, 0.08)
+  );
+  border: 1px dashed var(--primary);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.diario-memoria-card strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--accent-text);
+  margin-bottom: 4px;
+}
+.diario-memoria-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  font-style: italic;
+}
+.diario-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.diario-entrada {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.diario-entrada-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.diario-entrada-emoji {
+  font-size: 1.8rem;
+  line-height: 1;
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.diario-entrada-data {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  text-transform: capitalize;
+}
+.diario-entrada-resumo {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.diario-entrada-nota {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  font-style: italic;
+  padding-left: 52px;
+}
+.diario-entrada-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-left: 52px;
+}
+.diario-tag {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.diario-insights-card {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.diario-insights-titulo {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--accent-text);
+}
+.diario-insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.diario-insight-item:first-of-type {
+  border-top: none;
+}
+.diario-insight-item strong {
+  color: var(--text-main);
+}
+.diario-insight-icone {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.mood-evolucao-tira {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mood-evolucao-ponto {
+  font-size: 1.15rem;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.mood-evolucao-sem-dado {
+  color: var(--border);
+  font-size: 1.3rem;
+  opacity: 0.5;
+}
+
+.linha-tempo-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px dashed var(--border);
+}
+.linha-tempo-item:first-child {
+  border-top: none;
+}
+.linha-tempo-emoji {
+  font-size: 1.6rem;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.linha-tempo-mes {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text-main);
+}
+.linha-tempo-detalhe {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.linha-tempo-badge {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.74rem;
+}
+
 .streak-badge-btn {
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   color: white;
@@ -636,6 +808,91 @@ h2 {
 .item-checkbox input {
   width: auto;
   margin: 0;
+}
+
+/* --- Mood Tracker (Tier 1: check-in + check-out) --- */
+.checkin-rotulo {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+}
+.checkin-chips-linha {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.checkin-chip-emoji {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.checkin-chip-emoji:hover {
+  border-color: var(--primary);
+}
+.checkin-chip-emoji.chip-ativa {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface-inset));
+  transform: scale(1.08);
+}
+.checkin-chips-texto {
+  gap: 6px;
+}
+.checkin-chip-texto {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.checkin-chip-texto:hover {
+  border-color: var(--primary);
+}
+.checkin-chip-texto.chip-ativa {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+.checkin-slider-linha {
+  margin-top: 10px;
+}
+.checkin-slider-linha input[type="range"] {
+  width: 100%;
+  margin: 4px 0 0;
+  accent-color: var(--primary);
+}
+.checkout-estrela {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  opacity: 0.25;
+  filter: grayscale(1);
+  transition: all 0.15s;
+  padding: 2px;
+}
+.checkout-estrela:hover {
+  opacity: 0.7;
+}
+.checkout-estrela.estrela-ativa {
+  opacity: 1;
+  filter: grayscale(0);
+}
+.modal-checkin-conteudo {
+  max-width: 440px;
 }
 
 /* Modal de Aviso / Confirmação genérico — substitui alert()/confirm() nativos
