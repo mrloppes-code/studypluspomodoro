@@ -1506,16 +1506,94 @@ function aoMudarMateriaSessao() {
   if (emEstadoDeFocoAtivo) salvarEstadoSessaoAtiva();
 }
 
+// --- TELA CHEIA REAL (Fullscreen API) ---
+// O modo foco sempre cobriu a tela via CSS (position: fixed), mas isso
+// não esconde a barra de tarefas do sistema operacional — só o navegador
+// em tela cheia DE VERDADE faz isso. Pedimos a API nativa como reforço;
+// se o navegador recusar (ex: não foi um gesto direto do usuário) ou não
+// suportar, o modo CSS continua cobrindo a tela sozinho, então nada
+// quebra — é só uma camada a mais quando disponível.
+function solicitarTelaCheiaReal() {
+  const el = document.documentElement;
+  const pedir =
+    el.requestFullscreen ||
+    el.webkitRequestFullscreen ||
+    el.mozRequestFullScreen ||
+    el.msRequestFullscreen;
+  if (!pedir) return;
+  try {
+    const resultado = pedir.call(el);
+    if (resultado && typeof resultado.catch === "function") {
+      resultado.catch(() => {});
+    }
+  } catch {
+    // Navegador mais antigo pode lançar erro em vez de rejeitar a
+    // Promise — ignora do mesmo jeito, o modo CSS já cobre a tela.
+  }
+}
+
+function elementoEmTelaCheiaReal() {
+  return (
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+function sairDaTelaCheiaReal() {
+  const sair =
+    document.exitFullscreen ||
+    document.webkitExitFullscreen ||
+    document.mozCancelFullScreen ||
+    document.msExitFullscreen;
+  if (!sair || !elementoEmTelaCheiaReal()) return;
+  try {
+    const resultado = sair.call(document);
+    if (resultado && typeof resultado.catch === "function") {
+      resultado.catch(() => {});
+    }
+  } catch {
+    // ignora — o objetivo é só garantir que não fica preso em tela cheia
+  }
+}
+
+// Se a pessoa sair da tela cheia nativa direto (tecla Esc, gesto do SO)
+// sem passar pelo botão "Sair da tela cheia" do app, sincroniza os dois
+// estados — sem isso, ficaria uma "tela cheia falsa" em CSS rodando
+// depois que a de verdade já fechou.
+function aoMudarEstadoTelaCheiaNativa() {
+  if (
+    !elementoEmTelaCheiaReal() &&
+    document.body.classList.contains("modo-isolamento-ativo")
+  ) {
+    desativarModoIsolamento();
+    if (typeof atualizarBotaoVoltarModoFoco === "function") {
+      atualizarBotaoVoltarModoFoco();
+    }
+  }
+}
+[
+  "fullscreenchange",
+  "webkitfullscreenchange",
+  "mozfullscreenchange",
+  "MSFullscreenChange",
+].forEach((evento) =>
+  document.addEventListener(evento, aoMudarEstadoTelaCheiaNativa),
+);
+
 function ativarModoIsolamento() {
   document.body.classList.add("modo-isolamento-ativo");
   moverPomodoroParaTelaCheia();
   moverSeletorMateriaParaTelaCheia();
+  solicitarTelaCheiaReal();
 }
 
 function desativarModoIsolamento() {
   document.body.classList.remove("modo-isolamento-ativo");
   restaurarPomodoroNaPosicaoOriginal();
   restaurarSeletorMateriaNaPosicaoOriginal();
+  sairDaTelaCheiaReal();
 }
 
 // --- TIMING / POMODORO ---
