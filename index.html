@@ -2398,7 +2398,16 @@
         <!-- ✍️ HOJE & REGISTROS: sessões, revisão, ritmo, questões e simulados -->
         <div class="container" id="estudos-sub-registros" style="display: none">
           <div class="card">
-            <h2>📝 Sessões de Hoje</h2>
+            <div class="card-header-com-acao">
+              <h2>📝 Sessões de Hoje</h2>
+              <button
+                type="button"
+                class="btn-registrar-sessao-avulsa"
+                onclick="abrirModalRegistrarSessao()"
+              >
+                Registrar Sessão
+              </button>
+            </div>
             <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
           </div>
           <div class="card" id="card-revisao-pendente" style="display: none">
@@ -2677,218 +2686,419 @@
           id="estudos-sub-desempenho"
           style="display: none"
         >
-          <div class="card full-width">
+          <div class="card resumo-card">
             <h2>📊 Desempenho por Matéria e Tópico</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
+            <p class="campo-ajuda">
               % de acerto em questões, matéria por matéria — da pior pra melhor.
-              Quando uma matéria já tem tópicos cadastrados, dá pra detalhar o
-              desempenho dentro dela também.
             </p>
-            <div
-              id="questoes-desempenho-bloco"
-              class="questoes-desempenho-bloco questoes-desempenho-bloco-solo"
-              style="display: none"
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-desempenho-materia-topico')"
             >
-              <p
-                id="questoes-desempenho-alerta"
-                class="questoes-desempenho-alerta"
-                style="display: none"
-              ></p>
-              <div class="questoes-desempenho-chart-wrapper">
-                <canvas id="chartQuestoesPorMateria"></canvas>
-              </div>
+              Ver Detalhes
+            </button>
+          </div>
 
+          <div
+            id="modal-desempenho-materia-topico"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-desempenho-materia-topico',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="
+                  fecharModalDetalheCard('modal-desempenho-materia-topico')
+                "
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📊 Desempenho por Matéria e Tópico</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                % de acerto em questões, matéria por matéria — da pior pra
+                melhor. Quando uma matéria já tem tópicos cadastrados, dá pra
+                detalhar o desempenho dentro dela também.
+              </p>
               <div
-                id="questoes-topico-detalhe-wrapper"
-                class="questoes-topico-detalhe-wrapper"
+                id="questoes-desempenho-bloco"
+                class="questoes-desempenho-bloco questoes-desempenho-bloco-solo"
                 style="display: none"
               >
-                <label
-                  for="questoes-topico-detalhe-select"
-                  class="questoes-topico-detalhe-label"
-                  >Detalhar tópicos de:</label
-                >
-                <select
-                  id="questoes-topico-detalhe-select"
-                  onchange="renderizarDesempenhoPorTopico(this.value)"
-                >
-                  <option value="">Selecione uma matéria</option>
-                </select>
                 <p
-                  id="questoes-topico-alerta"
+                  id="questoes-desempenho-alerta"
                   class="questoes-desempenho-alerta"
                   style="display: none"
                 ></p>
+                <div class="questoes-desempenho-chart-wrapper">
+                  <canvas id="chartQuestoesPorMateria"></canvas>
+                </div>
+
                 <div
-                  id="questoes-topico-chart-wrapper"
-                  class="questoes-desempenho-chart-wrapper"
+                  id="questoes-topico-detalhe-wrapper"
+                  class="questoes-topico-detalhe-wrapper"
                   style="display: none"
                 >
-                  <canvas id="chartQuestoesPorTopico"></canvas>
+                  <label
+                    for="questoes-topico-detalhe-select"
+                    class="questoes-topico-detalhe-label"
+                    >Detalhar tópicos de:</label
+                  >
+                  <select
+                    id="questoes-topico-detalhe-select"
+                    onchange="renderizarDesempenhoPorTopico(this.value)"
+                  >
+                    <option value="">Selecione uma matéria</option>
+                  </select>
+                  <p
+                    id="questoes-topico-alerta"
+                    class="questoes-desempenho-alerta"
+                    style="display: none"
+                  ></p>
+                  <div
+                    id="questoes-topico-chart-wrapper"
+                    class="questoes-desempenho-chart-wrapper"
+                    style="display: none"
+                  >
+                    <canvas id="chartQuestoesPorTopico"></canvas>
+                  </div>
                 </div>
               </div>
+              <p id="questoes-desempenho-vazio" class="sessoes-hoje-vazio">
+                Registre questões de pelo menos 2 matérias diferentes pra ver a
+                comparação aqui.
+              </p>
             </div>
-            <p id="questoes-desempenho-vazio" class="sessoes-hoje-vazio">
-              Registre questões de pelo menos 2 matérias diferentes pra ver a
-              comparação aqui.
-            </p>
           </div>
 
           <!-- RADAR DE COMPETÊNCIAS: visão geral do formato do desempenho
                (equilibrado x picos e vales), matéria por matéria. -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-radar-competencias"
             style="display: none"
           >
             <h2>🕸️ Radar de Competências</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              O % de acerto de cada matéria numa única visão — o formato do
-              polígono conta a história: redondo é sinal de preparo equilibrado,
-              com picos e vales é sinal de pontos fortes e fracos bem marcados.
-              Respeita o filtro de "Prova em foco" lá em cima.
+            <p class="campo-ajuda">
+              O formato do polígono revela preparo equilibrado ou pontos fortes
+              e fracos.
             </p>
-            <div class="radar-competencias-chart-wrapper">
-              <canvas id="chartRadarCompetencias"></canvas>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-radar-competencias')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-radar-competencias"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-radar-competencias',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-radar-competencias')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🕸️ Radar de Competências</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                O % de acerto de cada matéria numa única visão — o formato do
+                polígono conta a história: redondo é sinal de preparo
+                equilibrado, com picos e vales é sinal de pontos fortes e fracos
+                bem marcados. Respeita o filtro de "Prova em foco" lá em cima.
+              </p>
+              <div class="radar-competencias-chart-wrapper">
+                <canvas id="chartRadarCompetencias"></canvas>
+              </div>
             </div>
           </div>
 
           <!-- MATRIZ DE PRIORIDADE: peso da matéria no edital x % de acerto -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-matriz-prioridade"
             style="display: none"
           >
             <h2>🎯 Matriz de Prioridade de Estudo</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Cruza o peso que você deu a cada matéria (quanto ela cai na prova)
-              com o seu % de acerto nas questões dela. O que está no quadrante
-              de cima à esquerda — peso alto, desempenho baixo — é o que mais
-              precisa de atenção agora.
+            <p class="campo-ajuda">
+              Peso da matéria x % de acerto — mostra o que mais precisa de
+              atenção agora.
             </p>
-            <div class="matriz-prioridade-chart-wrapper">
-              <canvas id="chartMatrizPrioridade"></canvas>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-matriz-prioridade')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-matriz-prioridade"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-matriz-prioridade',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-matriz-prioridade')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🎯 Matriz de Prioridade de Estudo</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Cruza o peso que você deu a cada matéria (quanto ela cai na
+                prova) com o seu % de acerto nas questões dela. O que está no
+                quadrante de cima à esquerda — peso alto, desempenho baixo — é o
+                que mais precisa de atenção agora.
+              </p>
+              <div class="matriz-prioridade-chart-wrapper">
+                <canvas id="chartMatrizPrioridade"></canvas>
+              </div>
+              <div
+                id="matriz-prioridade-legenda"
+                class="matriz-prioridade-legenda"
+              ></div>
             </div>
-            <div
-              id="matriz-prioridade-legenda"
-              class="matriz-prioridade-legenda"
-            ></div>
           </div>
 
           <!-- CADERNO DE ERROS COM DIAGNÓSTICO DE CAUSA -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-caderno-erros"
             style="display: none"
           >
             <h2>📓 Caderno de Erros</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
+            <p class="campo-ajuda">
+              Não basta saber quanto errou — importa por quê.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-caderno-erros')"
             >
-              Tradição de estudo chinesa pro Gaokao (错题本): não basta saber
-              quanto você errou, importa <strong>por quê</strong>. Classifique o
-              motivo dos erros ao registrar questões — o gráfico abaixo muda o
-              plano de ação: se o problema é atenção, o remédio não é estudar
-              mais teoria.
-            </p>
-            <p id="caderno-erros-vazio" class="sessoes-hoje-vazio">
-              Ainda não há nenhum erro classificado. Ao registrar questões
-              erradas (em Hoje & Registros ou no Modo Prova), preencha o bloco
-              "🔍 Diagnóstico dos erros" pra essa análise aparecer aqui.
-            </p>
-            <div class="caderno-erros-corpo">
-              <div class="caderno-erros-chart-wrapper">
-                <canvas id="chartCadernoErros"></canvas>
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-caderno-erros"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(event, 'modal-caderno-erros')
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-caderno-erros')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📓 Caderno de Erros</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Tradição de estudo chinesa pro Gaokao (错题本): não basta saber
+                quanto você errou, importa <strong>por quê</strong>. Classifique
+                o motivo dos erros ao registrar questões — o gráfico abaixo muda
+                o plano de ação: se o problema é atenção, o remédio não é
+                estudar mais teoria.
+              </p>
+              <p id="caderno-erros-vazio" class="sessoes-hoje-vazio">
+                Ainda não há nenhum erro classificado. Ao registrar questões
+                erradas (em Hoje & Registros ou no Modo Prova), preencha o bloco
+                "🔍 Diagnóstico dos erros" pra essa análise aparecer aqui.
+              </p>
+              <div class="caderno-erros-corpo">
+                <div class="caderno-erros-chart-wrapper">
+                  <canvas id="chartCadernoErros"></canvas>
+                </div>
+                <p id="caderno-erros-insight" class="caderno-erros-insight"></p>
               </div>
-              <p id="caderno-erros-insight" class="caderno-erros-insight"></p>
             </div>
           </div>
 
           <!-- DESEMPENHO POR BANCA EXAMINADORA -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-desempenho-banca"
             style="display: none"
           >
             <h2>🏛️ Desempenho por Banca Examinadora</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
+            <p class="campo-ajuda">
+              Segmenta o % de acerto por banca — cada uma tem seu próprio estilo
+              de cobrança.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-desempenho-banca')"
             >
-              Cada banca tem seu próprio estilo de cobrança. Segmentar o % de
-              acerto por banca (e não só por matéria) revela se o problema é o
-              conteúdo em si ou o jeito que aquela banca específica cobra — dois
-              problemas com soluções diferentes.
-            </p>
-            <p id="desempenho-banca-vazio" class="sessoes-hoje-vazio">
-              Ainda não há nenhum registro de questões com banca informada. Ao
-              registrar questões (em Hoje & Registros ou no Modo Prova),
-              preencha o campo "Banca examinadora" pra essa análise aparecer
-              aqui.
-            </p>
-            <div id="desempenho-banca-corpo" style="display: none">
-              <div class="banca-chart-wrapper">
-                <canvas id="chartDesempenhoBanca"></canvas>
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-desempenho-banca"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-desempenho-banca',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-desempenho-banca')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🏛️ Desempenho por Banca Examinadora</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Cada banca tem seu próprio estilo de cobrança. Segmentar o % de
+                acerto por banca (e não só por matéria) revela se o problema é o
+                conteúdo em si ou o jeito que aquela banca específica cobra —
+                dois problemas com soluções diferentes.
+              </p>
+              <p id="desempenho-banca-vazio" class="sessoes-hoje-vazio">
+                Ainda não há nenhum registro de questões com banca informada. Ao
+                registrar questões (em Hoje & Registros ou no Modo Prova),
+                preencha o campo "Banca examinadora" pra essa análise aparecer
+                aqui.
+              </p>
+              <div id="desempenho-banca-corpo" style="display: none">
+                <div class="banca-chart-wrapper">
+                  <canvas id="chartDesempenhoBanca"></canvas>
+                </div>
+                <div id="desempenho-banca-comparativo"></div>
               </div>
-              <div id="desempenho-banca-comparativo"></div>
             </div>
           </div>
 
           <!-- QUESTÕES AVULSAS x SIMULADOS COMPLETOS -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-avulsas-vs-simulados"
             style="display: none"
           >
             <h2>🎯 Questões Avulsas vs. Simulados</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Se o seu % de acerto cai bastante nos simulados completos em
-              relação às questões soltas do dia a dia, o problema pode não ser
-              conteúdo — pode ser gestão de tempo ou ansiedade em condição real
-              de prova.
+            <p class="campo-ajuda">
+              Compara seu % de acerto em questões soltas com o de simulados
+              completos.
             </p>
-            <div class="avulsas-simulados-stats-row">
-              <div class="avulsas-simulados-stat-card">
-                <span class="avulsas-simulados-stat-label"
-                  >Questões avulsas</span
-                >
-                <span
-                  class="avulsas-simulados-stat-valor"
-                  id="avulsas-simulados-media-avulsas"
-                  >—</span
-                >
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-avulsas-vs-simulados')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-avulsas-vs-simulados"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-avulsas-vs-simulados',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-avulsas-vs-simulados')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🎯 Questões Avulsas vs. Simulados</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Se o seu % de acerto cai bastante nos simulados completos em
+                relação às questões soltas do dia a dia, o problema pode não ser
+                conteúdo — pode ser gestão de tempo ou ansiedade em condição
+                real de prova.
+              </p>
+              <div class="avulsas-simulados-stats-row">
+                <div class="avulsas-simulados-stat-card">
+                  <span class="avulsas-simulados-stat-label"
+                    >Questões avulsas</span
+                  >
+                  <span
+                    class="avulsas-simulados-stat-valor"
+                    id="avulsas-simulados-media-avulsas"
+                    >—</span
+                  >
+                </div>
+                <div class="avulsas-simulados-stat-card">
+                  <span class="avulsas-simulados-stat-label"
+                    >Simulados completos</span
+                  >
+                  <span
+                    class="avulsas-simulados-stat-valor"
+                    id="avulsas-simulados-media-simulados"
+                    >—</span
+                  >
+                </div>
               </div>
-              <div class="avulsas-simulados-stat-card">
-                <span class="avulsas-simulados-stat-label"
-                  >Simulados completos</span
-                >
-                <span
-                  class="avulsas-simulados-stat-valor"
-                  id="avulsas-simulados-media-simulados"
-                  >—</span
-                >
+              <p
+                id="avulsas-simulados-diagnostico"
+                class="questoes-desempenho-alerta"
+                style="display: none"
+              ></p>
+              <div class="chart-wrapper">
+                <canvas id="chartAvulsasVsSimulados"></canvas>
               </div>
-            </div>
-            <p
-              id="avulsas-simulados-diagnostico"
-              class="questoes-desempenho-alerta"
-              style="display: none"
-            ></p>
-            <div class="chart-wrapper">
-              <canvas id="chartAvulsasVsSimulados"></canvas>
             </div>
           </div>
         </div>
@@ -3060,90 +3270,285 @@
               >
             </div>
           </div>
-          <div class="card">
+          <div class="card resumo-card">
             <h2>📊 Histórico Recente (7 Dias)</h2>
-            <div class="historico-lista" id="historico-7-dias"></div>
+            <p class="campo-ajuda">
+              Quanto tempo você estudou em cada um dos últimos 7 dias.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-historico-7-dias')"
+            >
+              Ver Detalhes
+            </button>
           </div>
-          <div class="card">
+          <div
+            id="modal-historico-7-dias"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-historico-7-dias',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-historico-7-dias')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📊 Histórico Recente (7 Dias)</h2>
+              <div class="historico-lista" id="historico-7-dias"></div>
+            </div>
+          </div>
+
+          <div class="card resumo-card">
             <h2>✅ Taxa de Conclusão de Pomodoros</h2>
             <p class="campo-ajuda">
-              Quantos dos pomodoros que você iniciou realmente chegaram até o
-              fim, sem serem finalizados no meio do caminho.
+              Quantos pomodoros iniciados realmente chegaram até o fim.
             </p>
-            <div id="taxa-conclusao-conteudo"></div>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-taxa-conclusao')"
+            >
+              Ver Detalhes
+            </button>
           </div>
-          <div class="card">
+          <div
+            id="modal-taxa-conclusao"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(event, 'modal-taxa-conclusao')
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-taxa-conclusao')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>✅ Taxa de Conclusão de Pomodoros</h2>
+              <p class="campo-ajuda">
+                Quantos dos pomodoros que você iniciou realmente chegaram até o
+                fim, sem serem finalizados no meio do caminho.
+              </p>
+              <div id="taxa-conclusao-conteudo"></div>
+            </div>
+          </div>
+
+          <div class="card resumo-card">
             <h2>📊 Distribuição de Tempo</h2>
-            <div class="chart-wrapper">
-              <canvas id="chartMaterias"></canvas>
+            <p class="campo-ajuda">
+              Como seu tempo de estudo se divide entre as matérias.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-distribuicao-tempo')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+          <div
+            id="modal-distribuicao-tempo"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-distribuicao-tempo',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-distribuicao-tempo')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📊 Distribuição de Tempo</h2>
+              <div class="chart-wrapper">
+                <canvas id="chartMaterias"></canvas>
+              </div>
             </div>
           </div>
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-comparativo-provas"
             style="display: none"
           >
             <h2>📊 Comparativo entre Provas</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Com "Todas as Provas" selecionada no topo da página, veja lado a
-              lado como cada prova está indo.
+            <p class="campo-ajuda">
+              Veja lado a lado como cada prova cadastrada está indo.
             </p>
-            <div class="comparativo-provas-tabela-wrapper">
-              <table class="comparativo-provas-tabela">
-                <thead>
-                  <tr>
-                    <th>Prova</th>
-                    <th>Tempo Estudado</th>
-                    <th>Tópicos Concluídos</th>
-                    <th>% Acerto (Questões)</th>
-                    <th>Prazo</th>
-                  </tr>
-                </thead>
-                <tbody id="comparativo-provas-corpo"></tbody>
-              </table>
-            </div>
-            <div class="chart-wrapper">
-              <canvas id="chartComparativoProvas"></canvas>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-comparativo-provas')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-comparativo-provas"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-comparativo-provas',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-comparativo-provas')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📊 Comparativo entre Provas</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Com "Todas as Provas" selecionada no topo da página, veja lado a
+                lado como cada prova está indo.
+              </p>
+              <div class="comparativo-provas-tabela-wrapper">
+                <table class="comparativo-provas-tabela">
+                  <thead>
+                    <tr>
+                      <th>Prova</th>
+                      <th>Tempo Estudado</th>
+                      <th>Tópicos Concluídos</th>
+                      <th>% Acerto (Questões)</th>
+                      <th>Prazo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comparativo-provas-corpo"></tbody>
+                </table>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="chartComparativoProvas"></canvas>
+              </div>
             </div>
           </div>
           <!-- EVOLUÇÃO AO LONGO DO TEMPO -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-evolucao-temporal"
             style="display: none"
           >
             <h2>📈 Evolução ao Longo do Tempo</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Horas estudadas e % de acerto em questões, semana a semana —
-              últimas 8 semanas.
+            <p class="campo-ajuda">
+              Horas estudadas e % de acerto, semana a semana.
             </p>
-            <div class="chart-wrapper">
-              <canvas id="chartEvolucaoTemporal"></canvas>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-evolucao-temporal')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-evolucao-temporal"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-evolucao-temporal',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-evolucao-temporal')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📈 Evolução ao Longo do Tempo</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Horas estudadas e % de acerto em questões, semana a semana —
+                últimas 8 semanas.
+              </p>
+              <div class="chart-wrapper">
+                <canvas id="chartEvolucaoTemporal"></canvas>
+              </div>
             </div>
           </div>
+
           <!-- HEATMAP DE PRODUTIVIDADE POR HORÁRIO -->
           <div
-            class="card full-width"
+            class="card resumo-card"
             id="card-heatmap-horario"
             style="display: none"
           >
             <h2>🕐 Produtividade por Horário do Dia</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 10px"
-            >
-              Soma de todos os minutos estudados em cada horário, ao longo de
-              todo o histórico — mostra em que hora do dia você realmente rende
-              mais.
+            <p class="campo-ajuda">
+              Em que hora do dia você realmente rende mais.
             </p>
-            <div class="heatmap-horario-grade" id="heatmap-horario-grade"></div>
-            <p id="heatmap-horario-resumo" class="heatmap-horario-resumo"></p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-heatmap-horario')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-heatmap-horario"
+            class="modal-distracao"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(event, 'modal-heatmap-horario')
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-heatmap-horario')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🕐 Produtividade por Horário do Dia</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 10px"
+              >
+                Soma de todos os minutos estudados em cada horário, ao longo de
+                todo o histórico — mostra em que hora do dia você realmente
+                rende mais.
+              </p>
+              <div
+                class="heatmap-horario-grade"
+                id="heatmap-horario-grade"
+              ></div>
+              <p id="heatmap-horario-resumo" class="heatmap-horario-resumo"></p>
+            </div>
           </div>
         </div>
 
@@ -3318,6 +3723,173 @@ Licitações e Contratos"
                 Salvar Alterações
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- MODAL: REGISTRAR SESSÃO DE ESTUDO (registro avulso, sem passar pelo pomodoro) -->
+        <div
+          id="modal-registrar-sessao"
+          class="modal-distracao"
+          onclick="fecharModalRegistrarSessaoSeClicouFora(event)"
+        >
+          <div class="modal-conteudo modal-registrar-sessao-conteudo">
+            <h2 class="ra-titulo">Registrar Sessão de Estudo</h2>
+
+            <form
+              id="form-registrar-sessao"
+              onsubmit="registrarSessaoAvulsa(event)"
+            >
+              <div class="ra-grid-2">
+                <div>
+                  <label for="ra-disciplina">Disciplina</label>
+                  <input
+                    type="text"
+                    id="ra-disciplina"
+                    list="ra-lista-disciplinas"
+                    placeholder="Digite ou selecione..."
+                    autocomplete="off"
+                    oninput="atualizarAssuntosRegistroSessao()"
+                  />
+                  <datalist id="ra-lista-disciplinas"></datalist>
+                </div>
+                <div>
+                  <label for="ra-assunto">Assunto</label>
+                  <input
+                    type="text"
+                    id="ra-assunto"
+                    list="ra-lista-assuntos"
+                    placeholder="Digite ou selecione..."
+                    autocomplete="off"
+                  />
+                  <datalist id="ra-lista-assuntos"></datalist>
+                </div>
+              </div>
+
+              <div class="ra-grid-3">
+                <div>
+                  <label for="ra-tipo">Tipo de Sessão</label>
+                  <select id="ra-tipo">
+                    <option value="Teoria">Teoria</option>
+                    <option value="Revisão">Revisão</option>
+                    <option value="Questão">Questão</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Duração</label>
+                  <div class="ra-duracao-grupo">
+                    <input
+                      type="number"
+                      id="ra-horas"
+                      min="0"
+                      placeholder="Horas"
+                      title="Horas"
+                    />
+                    <input
+                      type="number"
+                      id="ra-min"
+                      min="0"
+                      max="59"
+                      placeholder="Min"
+                      title="Minutos"
+                    />
+                    <input
+                      type="number"
+                      id="ra-seg"
+                      min="0"
+                      max="59"
+                      placeholder="Seg"
+                      title="Segundos"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label for="ra-data">Data da Sessão</label>
+                  <input type="date" id="ra-data" />
+                </div>
+              </div>
+
+              <div class="ra-grid-4">
+                <div>
+                  <label for="ra-questoes-total">Qtd. Questões</label>
+                  <input
+                    type="number"
+                    id="ra-questoes-total"
+                    min="0"
+                    placeholder="Ex: 50"
+                  />
+                </div>
+                <div>
+                  <label for="ra-questoes-acertos">Acertos</label>
+                  <input
+                    type="number"
+                    id="ra-questoes-acertos"
+                    min="0"
+                    placeholder="Ex: 42"
+                  />
+                </div>
+                <div>
+                  <label for="ra-paginas">Páginas Lidas (Opc.)</label>
+                  <input
+                    type="number"
+                    id="ra-paginas"
+                    min="0"
+                    placeholder="Ex: 15"
+                  />
+                </div>
+                <div>
+                  <label for="ra-material">Material de Apoio (Opc.)</label>
+                  <input
+                    type="text"
+                    id="ra-material"
+                    placeholder="Ex: PDF Aula 01, Apostila"
+                  />
+                </div>
+              </div>
+
+              <label for="ra-comentarios"
+                >Comentários / Observações da Sessão</label
+              >
+              <textarea
+                id="ra-comentarios"
+                placeholder="Achei o tópico X difícil, preciso revisar a fórmula Y..."
+              ></textarea>
+
+              <div class="ra-videos-cabecalho">
+                <label>Videoaulas Assistidas</label>
+                <button
+                  type="button"
+                  class="ra-btn-adicionar-video"
+                  onclick="adicionarLinhaVideoRegistroSessao()"
+                >
+                  + Adicionar Vídeo
+                </button>
+              </div>
+              <div id="ra-videos-lista"></div>
+
+              <div class="ra-checkbox-bloco">
+                <input type="checkbox" id="ra-concluido" />
+                <label for="ra-concluido" class="ra-checkbox-texto">
+                  <span class="ra-checkbox-titulo">Estudo Terminado</span>
+                  <span class="ra-checkbox-descricao"
+                    >Marcar o assunto como concluído nas disciplinas e
+                    adicioná-lo à fila de revisões.</span
+                  >
+                </label>
+              </div>
+
+              <div class="ra-botoes-rodape">
+                <button
+                  type="button"
+                  class="ra-btn-cancelar"
+                  onclick="fecharModalRegistrarSessao()"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" class="ra-btn-salvar">
+                  Salvar Sessão
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>

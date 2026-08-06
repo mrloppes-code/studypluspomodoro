@@ -86,6 +86,28 @@ function mostrarConfirmacao(mensagem, opcoes = {}) {
   });
 }
 
+// --- MODAL GENÉRICO: "VER DETALHES" DOS CARDS DE ANÁLISE ---
+// Vários cards de análise (Desempenho, Radar, Matriz de Prioridade,
+// Caderno de Erros, etc.) viraram um card-resumo compacto na página + o
+// conteúdo completo (gráficos, tabelas) num modal, aberto sob demanda —
+// em vez de ficarem todos empilhados e poluindo a aba. Um único par de
+// funções abre/fecha qualquer um desses modais pelo id.
+function abrirModalDetalheCard(idModal) {
+  const modal = document.getElementById(idModal);
+  if (modal) modal.style.display = "flex";
+}
+
+function fecharModalDetalheCard(idModal) {
+  const modal = document.getElementById(idModal);
+  if (modal) modal.style.display = "none";
+}
+
+function fecharModalDetalheCardSeClicouFora(event, idModal) {
+  if (event.target.id === idModal) {
+    fecharModalDetalheCard(idModal);
+  }
+}
+
 // --- MODAL: SUGESTÕES E RECLAMAÇÕES ---
 function abrirModalFeedback() {
   const modal = document.getElementById("modal-feedback");
@@ -4088,6 +4110,278 @@ async function registrarQuestoes(event) {
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
   renderizarDesempenhoPorBanca();
+}
+
+// --- REGISTRO DE SESSÃO AVULSA ---
+// Registro manual de uma sessão de estudo já concluída (sem passar pelo
+// pomodoro/cronômetro). Alimenta as mesmas fontes de dados usadas pelo
+// resto do app (historicoEstudos, tempoPorMateria, logsSessoes,
+// registrosQuestoes) pra que horas, streak, matéria líder, questões etc.
+// contem essa sessão normalmente — e opcionalmente marca o assunto como
+// concluído, entrando na fila de revisão espaçada (SM-2).
+let contadorVideosRegistroSessao = 0;
+
+function abrirModalRegistrarSessao() {
+  const modal = document.getElementById("modal-registrar-sessao");
+  if (!modal) return;
+
+  document.getElementById("form-registrar-sessao").reset();
+  document.getElementById("ra-videos-lista").innerHTML = "";
+  contadorVideosRegistroSessao = 0;
+
+  const campoData = document.getElementById("ra-data");
+  if (campoData) campoData.value = obterDataLocalString(new Date());
+
+  popularDisciplinasRegistroSessao();
+  atualizarAssuntosRegistroSessao();
+
+  modal.style.display = "flex";
+}
+
+function fecharModalRegistrarSessao() {
+  const modal = document.getElementById("modal-registrar-sessao");
+  if (modal) modal.style.display = "none";
+}
+
+function fecharModalRegistrarSessaoSeClicouFora(event) {
+  if (event.target.id === "modal-registrar-sessao") {
+    fecharModalRegistrarSessao();
+  }
+}
+
+// Preenche a lista de sugestões de disciplina com as matérias já
+// cadastradas — mas o campo continua sendo texto livre (dá pra digitar
+// qualquer nome, inclusive uma disciplina ainda não cadastrada).
+function popularDisciplinasRegistroSessao() {
+  const lista = document.getElementById("ra-lista-disciplinas");
+  if (!lista) return;
+  lista.innerHTML = obterMateriasOrdenadasPorPeso()
+    .map((m) => `<option value="${escapeHtml(m.nome)}"></option>`)
+    .join("");
+}
+
+// Quando a disciplina digitada bate com uma matéria cadastrada, sugere os
+// tópicos/subtópicos dela no campo de assunto — mesmo espírito do
+// "Não especificar" nos formulários de questões, só que aqui como texto
+// livre em vez de select (a disciplina também pode não estar cadastrada).
+function atualizarAssuntosRegistroSessao() {
+  const lista = document.getElementById("ra-lista-assuntos");
+  const campoDisciplina = document.getElementById("ra-disciplina");
+  if (!lista || !campoDisciplina) return;
+
+  const materia = materias.find(
+    (m) =>
+      m.nome.trim().toLowerCase() ===
+      campoDisciplina.value.trim().toLowerCase(),
+  );
+  const topicos = materia ? materia.topicos || [] : [];
+  lista.innerHTML = topicos
+    .map((t) => `<option value="${escapeHtml(t.nome)}"></option>`)
+    .join("");
+}
+
+// Adiciona uma linha de videoaula (nome opcional + duração em H/Min).
+function adicionarLinhaVideoRegistroSessao() {
+  const lista = document.getElementById("ra-videos-lista");
+  if (!lista) return;
+  const idx = contadorVideosRegistroSessao++;
+  const linha = document.createElement("div");
+  linha.className = "ra-video-linha";
+  linha.dataset.idx = idx;
+  linha.innerHTML = `
+    <span class="ra-video-numero"></span>
+    <input type="text" class="ra-video-nome" placeholder="Nome do Vídeo (Opcional)" />
+    <input type="number" class="ra-video-horas" min="0" placeholder="H" title="Horas" />
+    <input type="number" class="ra-video-min" min="0" max="59" placeholder="Min" title="Minutos" />
+    <button type="button" class="ra-video-remover" onclick="removerLinhaVideoRegistroSessao(${idx})">Remover</button>
+  `;
+  lista.appendChild(linha);
+  renumerarVideosRegistroSessao();
+}
+
+function removerLinhaVideoRegistroSessao(idx) {
+  const lista = document.getElementById("ra-videos-lista");
+  if (!lista) return;
+  const alvo = lista.querySelector(`.ra-video-linha[data-idx="${idx}"]`);
+  if (alvo) alvo.remove();
+  renumerarVideosRegistroSessao();
+}
+
+// Os rótulos ("Vídeo 1:", "Vídeo 2:"...) são só posicionais — recalculados
+// toda vez que uma linha é adicionada ou removida.
+function renumerarVideosRegistroSessao() {
+  const linhas = document.querySelectorAll("#ra-videos-lista .ra-video-linha");
+  linhas.forEach((linha, i) => {
+    const numero = linha.querySelector(".ra-video-numero");
+    if (numero) numero.innerText = `Vídeo ${i + 1}:`;
+  });
+}
+
+// Localiza (ou cria) um tópico numa matéria, pra marcar "Estudo Terminado"
+// mesmo quando o assunto digitado ainda não existia como subtópico
+// cadastrado — mesmo espírito do "+ novo subtópico" dos formulários de
+// questões, só que automático aqui.
+function encontrarOuCriarTopicoRegistroSessao(materiaObj, nomeAssunto) {
+  if (!materiaObj.topicos) materiaObj.topicos = [];
+  let topico = materiaObj.topicos.find(
+    (t) => t.nome.trim().toLowerCase() === nomeAssunto.trim().toLowerCase(),
+  );
+  if (!topico) {
+    topico = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      nome: nomeAssunto.trim(),
+      concluido: false,
+    };
+    materiaObj.topicos.push(topico);
+  }
+  return topico;
+}
+
+async function registrarSessaoAvulsa(event) {
+  if (event) event.preventDefault();
+
+  const disciplina = document.getElementById("ra-disciplina").value.trim();
+  const assunto = document.getElementById("ra-assunto").value.trim();
+  const tipo = document.getElementById("ra-tipo").value;
+  const dataSessao =
+    document.getElementById("ra-data").value ||
+    obterDataLocalString(new Date());
+
+  if (!disciplina) {
+    await mostrarAlerta("Informe a disciplina da sessão.");
+    return;
+  }
+
+  const horas = parseInt(document.getElementById("ra-horas").value, 10) || 0;
+  const min = parseInt(document.getElementById("ra-min").value, 10) || 0;
+  const seg = parseInt(document.getElementById("ra-seg").value, 10) || 0;
+  const minutos = Math.round((horas * 3600 + min * 60 + seg) / 60);
+
+  if (minutos <= 0) {
+    await mostrarAlerta("Informe a duração da sessão (maior que zero).");
+    return;
+  }
+
+  const questoesTotalRaw = document.getElementById("ra-questoes-total").value;
+  const questoesAcertosRaw = document.getElementById(
+    "ra-questoes-acertos",
+  ).value;
+  const questoesTotal = questoesTotalRaw ? parseInt(questoesTotalRaw, 10) : 0;
+  const questoesAcertos = questoesAcertosRaw
+    ? parseInt(questoesAcertosRaw, 10)
+    : 0;
+
+  if (questoesTotal > 0 && (isNaN(questoesAcertos) || questoesAcertos < 0)) {
+    await mostrarAlerta("Informe quantas questões você acertou (0 ou mais).");
+    return;
+  }
+  if (questoesAcertos > questoesTotal) {
+    await mostrarAlerta(
+      "Acertos não pode ser maior que a quantidade de questões.",
+    );
+    return;
+  }
+
+  const paginasRaw = document.getElementById("ra-paginas").value;
+  const paginasLidas = paginasRaw ? parseInt(paginasRaw, 10) : null;
+  const materialApoio = document.getElementById("ra-material").value.trim();
+  const comentarios = document.getElementById("ra-comentarios").value.trim();
+  const estudoTerminado = document.getElementById("ra-concluido").checked;
+
+  const videoaulas = [];
+  document
+    .querySelectorAll("#ra-videos-lista .ra-video-linha")
+    .forEach((linha) => {
+      const nome = linha.querySelector(".ra-video-nome").value.trim();
+      const h = parseInt(linha.querySelector(".ra-video-horas").value, 10) || 0;
+      const m = parseInt(linha.querySelector(".ra-video-min").value, 10) || 0;
+      const duracaoMin = h * 60 + m;
+      if (nome || duracaoMin > 0) {
+        videoaulas.push({ nome: nome || "Vídeo sem nome", duracaoMin });
+      }
+    });
+
+  // Se a disciplina digitada bate com uma matéria cadastrada, o tempo e as
+  // questões entram vinculados a ela (mesmo tratamento de "Estudo Geral"
+  // usado no resto do app quando não há vínculo).
+  const materiaObj = materias.find(
+    (m) => m.nome.trim().toLowerCase() === disciplina.toLowerCase(),
+  );
+  const nomeMateriaFinal = materiaObj ? materiaObj.nome : disciplina;
+
+  historicoEstudos[dataSessao] = (historicoEstudos[dataSessao] || 0) + minutos;
+  localStorage.setItem("historicoEstudos", JSON.stringify(historicoEstudos));
+
+  tempoPorMateria[nomeMateriaFinal] =
+    (tempoPorMateria[nomeMateriaFinal] || 0) + minutos;
+  localStorage.setItem("tempoPorMateria", JSON.stringify(tempoPorMateria));
+
+  const horaAtual = new Date().toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  logsSessoes.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    data: dataSessao,
+    hora: horaAtual,
+    materia: nomeMateriaFinal,
+    duracao: minutos,
+    nota: comentarios,
+    mood: null,
+    tipo,
+    assunto: assunto || null,
+    questoesTotal: questoesTotal || null,
+    questoesAcertos: questoesTotal ? questoesAcertos : null,
+    paginasLidas,
+    materialApoio: materialApoio || null,
+    videoaulas: videoaulas.length ? videoaulas : null,
+  });
+  localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
+
+  if (questoesTotal > 0) {
+    registrosQuestoes.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      data: dataSessao,
+      materia: nomeMateriaFinal,
+      topico: assunto || null,
+      total: questoesTotal,
+      acertos: questoesAcertos,
+      banca: null,
+      causasErro: null,
+    });
+    localStorage.setItem(
+      "registrosQuestoes",
+      JSON.stringify(registrosQuestoes),
+    );
+  }
+
+  let avisoRevisao = "";
+  if (estudoTerminado) {
+    if (materiaObj && assunto) {
+      const topico = encontrarOuCriarTopicoRegistroSessao(materiaObj, assunto);
+      topico.concluido = true;
+      topico.concluidoEm = obterDataLocalString(new Date());
+      if (!topico.srs) {
+        topico.srs = SRS_PADRAO(materiaObj.peso || 1);
+      }
+      localStorage.setItem("materias", JSON.stringify(materias));
+    } else if (!materiaObj) {
+      avisoRevisao =
+        " A disciplina digitada ainda não está cadastrada, então o assunto não entrou na fila de revisões — cadastre a disciplina para isso funcionar.";
+    } else if (!assunto) {
+      avisoRevisao =
+        " Informe o assunto para marcá-lo como concluído e entrar na fila de revisões.";
+    }
+  }
+
+  fecharModalRegistrarSessao();
+  mostrarToastGamificacao(
+    "",
+    "Sessão registrada",
+    `${nomeMateriaFinal} · ${minutos} min${avisoRevisao}`,
+  );
+  renderizarTodoOPainel();
 }
 
 // Preenche o select de tópico com o conteúdo programático já cadastrado

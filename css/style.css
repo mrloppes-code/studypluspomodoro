@@ -5646,3 +5646,272 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 .cartao-conquista-botoes button {
   flex: 1;
 }
+
+/* --- REGISTRO DE SESSÃO AVULSA --- */
+.card-header-com-acao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.card-header-com-acao h2 {
+  margin: 0;
+}
+.btn-registrar-sessao-avulsa {
+  width: auto;
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-registrar-sessao-avulsa:hover {
+  background: var(--primary-hover);
+}
+
+.modal-registrar-sessao-conteudo {
+  max-width: 720px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+.ra-titulo {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.ra-grid-2,
+.ra-grid-3,
+.ra-grid-4 {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.ra-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.ra-grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.ra-grid-4 {
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+.ra-grid-2 label,
+.ra-grid-3 label,
+.ra-grid-4 label {
+  margin-top: 0;
+}
+.ra-grid-2 input,
+.ra-grid-3 input,
+.ra-grid-3 select,
+.ra-grid-4 input {
+  margin-bottom: 0;
+}
+
+.ra-duracao-grupo {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.ra-duracao-grupo input {
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.ra-videos-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.ra-videos-cabecalho label {
+  margin: 0;
+}
+.ra-btn-adicionar-video {
+  width: auto;
+  margin: 0;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ra-btn-adicionar-video:hover {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+#ra-videos-lista {
+  margin-top: 10px;
+}
+.ra-video-linha {
+  display: grid;
+  grid-template-columns: auto 1fr 70px 70px auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.ra-video-numero {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ra-video-linha input {
+  margin: 0;
+}
+.ra-video-remover {
+  width: auto;
+  margin: 0;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.ra-video-remover:hover {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.ra-checkbox-bloco {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin: 6px 0 18px 0;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.ra-checkbox-bloco input[type="checkbox"] {
+  width: auto;
+  margin: 3px 0 0 0;
+  flex-shrink: 0;
+}
+.ra-checkbox-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  margin: 0;
+}
+.ra-checkbox-titulo {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.ra-checkbox-descricao {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.ra-botoes-rodape {
+  display: flex;
+  gap: 12px;
+}
+.ra-btn-cancelar,
+.ra-btn-salvar {
+  flex: 1;
+  margin: 0;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ra-btn-cancelar {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+}
+.ra-btn-salvar {
+  flex: 2;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+}
+.ra-btn-salvar:hover {
+  background: var(--primary-hover);
+}
+
+@media (max-width: 640px) {
+  .ra-grid-2,
+  .ra-grid-3,
+  .ra-grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .ra-video-linha {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "numero numero"
+      "nome nome"
+      "horas min"
+      "remover remover";
+  }
+  .ra-video-numero {
+    grid-area: numero;
+  }
+  .ra-video-nome {
+    grid-area: nome;
+  }
+  .ra-video-horas {
+    grid-area: horas;
+  }
+  .ra-video-min {
+    grid-area: min;
+  }
+  .ra-video-remover {
+    grid-area: remover;
+  }
+}
+
+/* --- CARDS-RESUMO COM "VER DETALHES" EM MODAL --- */
+.resumo-card {
+  display: flex;
+  flex-direction: column;
+}
+.resumo-card h2 {
+  margin-bottom: 6px;
+}
+.resumo-card .campo-ajuda {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+.btn-ver-detalhes {
+  width: auto;
+  align-self: flex-start;
+  margin: 0;
+  padding: 9px 18px;
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-ver-detalhes:hover {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.modal-detalhe-conteudo {
+  max-width: 900px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  position: relative;
+}
+.modal-detalhe-conteudo h2 {
+  margin-top: 0;
+  padding-right: 30px;
+}
