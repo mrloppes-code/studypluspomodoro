@@ -142,6 +142,53 @@
       <span id="btn-novidades-bolinha" class="btn-novidades-bolinha"></span>
     </button>
 
+    <!-- BOTÃO FLUTUANTE SUSPENSO: MODO DE VISUALIZAÇÃO DOS CARDS DE ANÁLISE -->
+    <div
+      id="menu-modo-visualizacao-wrapper"
+      class="menu-modo-visualizacao-wrapper"
+    >
+      <button
+        type="button"
+        id="btn-modo-visualizacao"
+        class="btn-modo-visualizacao"
+        onclick="alternarMenuModoVisualizacao()"
+        title="Configurar modo de visualização dos cards de análise"
+      >
+        ⚙️
+      </button>
+      <div
+        id="menu-modo-visualizacao"
+        class="menu-modo-visualizacao"
+        style="display: none"
+      >
+        <p class="menu-modo-visualizacao-titulo">
+          Visualização dos cards de análise
+        </p>
+        <button
+          type="button"
+          class="opcao-modo-visualizacao"
+          data-modo="compacto"
+          onclick="selecionarModoVisualizacaoCards('compacto')"
+        >
+          <span class="opcao-modo-visualizacao-nome">Compacto</span>
+          <span class="opcao-modo-visualizacao-desc"
+            >Resumo com botão "Ver Detalhes"</span
+          >
+        </button>
+        <button
+          type="button"
+          class="opcao-modo-visualizacao"
+          data-modo="expandido"
+          onclick="selecionarModoVisualizacaoCards('expandido')"
+        >
+          <span class="opcao-modo-visualizacao-nome">Expandido</span>
+          <span class="opcao-modo-visualizacao-desc"
+            >Tudo visível na página, como antes</span
+          >
+        </button>
+      </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
 
     <!-- MODAL DE NOVIDADES / FUNCIONALIDADES -->
@@ -2702,7 +2749,7 @@
 
           <div
             id="modal-desempenho-materia-topico"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -2804,7 +2851,7 @@
 
           <div
             id="modal-radar-competencias"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -2859,7 +2906,7 @@
 
           <div
             id="modal-matriz-prioridade"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -2917,7 +2964,7 @@
 
           <div
             id="modal-caderno-erros"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(event, 'modal-caderno-erros')
             "
@@ -2978,7 +3025,7 @@
 
           <div
             id="modal-desempenho-banca"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3042,7 +3089,7 @@
 
           <div
             id="modal-avulsas-vs-simulados"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3285,7 +3332,7 @@
           </div>
           <div
             id="modal-historico-7-dias"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3322,7 +3369,7 @@
           </div>
           <div
             id="modal-taxa-conclusao"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(event, 'modal-taxa-conclusao')
             "
@@ -3360,7 +3407,7 @@
           </div>
           <div
             id="modal-distribuicao-tempo"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3403,7 +3450,7 @@
 
           <div
             id="modal-comparativo-provas"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3468,7 +3515,7 @@
 
           <div
             id="modal-evolucao-temporal"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(
                 event,
@@ -3493,7 +3540,7 @@
                 Horas estudadas e % de acerto em questões, semana a semana —
                 últimas 8 semanas.
               </p>
-              <div class="chart-wrapper">
+              <div class="chart-wrapper chart-wrapper-largo">
                 <canvas id="chartEvolucaoTemporal"></canvas>
               </div>
             </div>
@@ -3520,7 +3567,7 @@
 
           <div
             id="modal-heatmap-horario"
-            class="modal-distracao"
+            class="modal-distracao modal-detalhe-card"
             onclick="
               fecharModalDetalheCardSeClicouFora(event, 'modal-heatmap-horario')
             "

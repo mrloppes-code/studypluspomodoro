@@ -92,9 +92,30 @@ function mostrarConfirmacao(mensagem, opcoes = {}) {
 // conteúdo completo (gráficos, tabelas) num modal, aberto sob demanda —
 // em vez de ficarem todos empilhados e poluindo a aba. Um único par de
 // funções abre/fecha qualquer um desses modais pelo id.
+// Gráficos Chart.js criados enquanto o card ainda está escondido (dentro
+// de um modal fechado, ou de um card-resumo no modo compacto) nascem com
+// largura zero e não se ajustam sozinhos quando o card aparece depois —
+// por isso ficavam pequenos/espremidos ao abrir o "Ver Detalhes" ou trocar
+// de modo de visualização. Forçar um resize() em todos os gráficos ativos
+// logo após o card ficar visível resolve isso.
+function redimensionarGraficosVisiveis() {
+  if (typeof Chart === "undefined" || !Chart.instances) return;
+  requestAnimationFrame(() => {
+    Object.values(Chart.instances).forEach((instancia) => {
+      try {
+        instancia.resize();
+      } catch (erro) {
+        // Gráfico pode já ter sido destruído entre o agendamento e a
+        // execução do frame — ignora com segurança.
+      }
+    });
+  });
+}
+
 function abrirModalDetalheCard(idModal) {
   const modal = document.getElementById(idModal);
   if (modal) modal.style.display = "flex";
+  redimensionarGraficosVisiveis();
 }
 
 function fecharModalDetalheCard(idModal) {
@@ -107,6 +128,104 @@ function fecharModalDetalheCardSeClicouFora(event, idModal) {
     fecharModalDetalheCard(idModal);
   }
 }
+
+// --- MODO DE VISUALIZAÇÃO DOS CARDS DE ANÁLISE (compacto x expandido) ---
+// "Compacto" (padrão): cada card de análise é um resumo pequeno com botão
+// "Ver Detalhes" que abre o conteúdo completo num modal. "Expandido": volta
+// ao formato anterior à conversão, com tudo sempre visível direto na
+// página. A preferência fica salva e some/aparece revezando entre os dois
+// layouts via uma classe no <body> — nenhum conteúdo é duplicado, então
+// gráficos/canvas continuam com um único id cada.
+const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
+  "card-radar-competencias",
+  "card-matriz-prioridade",
+  "card-caderno-erros",
+  "card-desempenho-banca",
+  "card-avulsas-vs-simulados",
+  "card-comparativo-provas",
+  "card-evolucao-temporal",
+  "card-heatmap-horario",
+];
+
+function obterModoVisualizacaoCards() {
+  return localStorage.getItem("modoVisualizacaoCards") || "compacto";
+}
+
+function alternarMenuModoVisualizacao() {
+  const menu = document.getElementById("menu-modo-visualizacao");
+  if (!menu) return;
+  const abrindo = menu.style.display === "none" || !menu.style.display;
+  menu.style.display = abrindo ? "block" : "none";
+}
+
+function fecharMenuModoVisualizacao() {
+  const menu = document.getElementById("menu-modo-visualizacao");
+  if (menu) menu.style.display = "none";
+}
+
+// Clicar fora do menu suspenso fecha ele, igual aos outros menus/modais
+// do app.
+document.addEventListener("click", (event) => {
+  const wrapper = document.getElementById("menu-modo-visualizacao-wrapper");
+  const menu = document.getElementById("menu-modo-visualizacao");
+  if (!wrapper || !menu || menu.style.display !== "block") return;
+  if (!wrapper.contains(event.target)) fecharMenuModoVisualizacao();
+});
+
+function selecionarModoVisualizacaoCards(modo) {
+  aplicarModoVisualizacaoCards(modo);
+  fecharMenuModoVisualizacao();
+}
+
+function aplicarModoVisualizacaoCards(modo) {
+  document.body.classList.toggle("modo-cards-expandido", modo === "expandido");
+  localStorage.setItem("modoVisualizacaoCards", modo);
+  sincronizarVisibilidadeCardsDetalhe();
+  atualizarBotoesModoVisualizacaoCards();
+  redimensionarGraficosVisiveis();
+}
+
+function atualizarBotoesModoVisualizacaoCards() {
+  const modoAtual = obterModoVisualizacaoCards();
+  document.querySelectorAll(".opcao-modo-visualizacao").forEach((btn) => {
+    btn.classList.toggle("opcao-modo-ativa", btn.dataset.modo === modoAtual);
+  });
+}
+
+// Espelha o display do card-resumo (controlado pelas funções renderizarX()
+// já existentes, que escondem o card quando ainda não há dado suficiente)
+// pro card de detalhe correspondente — assim, no modo expandido, o card de
+// detalhe some/aparece exatamente como sumia/aparecia antes dessa conversão
+// pra modal, em vez de ficar sempre visível mesmo sem dado nenhum.
+function sincronizarVisibilidadeCardsDetalhe() {
+  IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL.forEach((idResumo) => {
+    const resumo = document.getElementById(idResumo);
+    const detalhe = document.getElementById(
+      idResumo.replace("card-", "modal-"),
+    );
+    if (!resumo || !detalhe) return;
+    detalhe.dataset.temDados = resumo.style.display === "none" ? "nao" : "sim";
+  });
+}
+
+// Observa mudanças no atributo "style" de cada card-resumo condicional —
+// assim, sempre que uma função renderizarX() escondê-lo/mostrá-lo (o que já
+// acontecia antes dessa conversão), o card de detalhe no modo expandido
+// acompanha automaticamente, sem precisar mexer em nenhuma dessas funções.
+function iniciarObservadorVisibilidadeCardsDetalhe() {
+  IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL.forEach((idResumo) => {
+    const resumo = document.getElementById(idResumo);
+    if (!resumo) return;
+    const observer = new MutationObserver(sincronizarVisibilidadeCardsDetalhe);
+    observer.observe(resumo, { attributes: true, attributeFilter: ["style"] });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  aplicarModoVisualizacaoCards(obterModoVisualizacaoCards());
+  iniciarObservadorVisibilidadeCardsDetalhe();
+  sincronizarVisibilidadeCardsDetalhe();
+});
 
 // --- MODAL: SUGESTÕES E RECLAMAÇÕES ---
 function abrirModalFeedback() {
@@ -266,35 +385,60 @@ let mesesParaExibir = 1;
 let ultimoIndiceFrase = -1;
 let ultimoIndiceDica = -1;
 
+// Ordenada em sequência de arco-íris (vermelhos → laranjas → amarelos →
+// verdes → turquesas/ciano → azuis → índigos/roxos → rosas → neutros) pra
+// ficar visualmente organizada na grade de seleção — nenhum hex existente
+// foi alterado ou removido (só reordenado), então matérias já cadastradas
+// com uma dessas cores continuam funcionando normalmente. As 8 marcadas
+// como "novo" foram adicionadas pra cobrir lacunas que deixavam cores
+// vizinhas parecidas demais, dando fôlego pra quem cadastra muitas
+// matérias/tópicos/subtópicos e precisa de cores bem distintas entre si.
 const paletaCores = [
-  { nome: "🔵 Azul", hex: "#3b82f6" },
-  { nome: "🟢 Verde", hex: "#10b981" },
-  { nome: "🟠 Laranja", hex: "#f97316" },
-  { nome: "🔴 Vermelho", hex: "#ef4444" },
-  { nome: "🔮 Roxo", hex: "#8b5cf6" },
-  { nome: "🐳 Ciano", hex: "#06b6d4" },
-  { nome: "🌸 Rosa", hex: "#ec4899" },
-  { nome: "🍯 Amarelo", hex: "#f59e0b" },
-  { nome: "🟣 Índigo", hex: "#6366f1" },
-  { nome: "🍏 Lima", hex: "#84cc16" },
-  { nome: "🌊 Turquesa", hex: "#14b8a6" },
-  { nome: "🟤 Marrom", hex: "#92400e" },
-  { nome: "⚪ Cinza", hex: "#64748b" },
-  { nome: "🍷 Vinho", hex: "#be123c" },
-  { nome: "⚓ Marinho", hex: "#1e40af" },
-  { nome: "🌿 Musgo", hex: "#4d7c0f" },
-  { nome: "🍈 Menta", hex: "#34d399" },
-  { nome: "🌅 Salmão", hex: "#fb7185" },
-  { nome: "🍇 Uva", hex: "#7c3aed" },
-  { nome: "🦚 Petróleo", hex: "#0e7490" },
-  { nome: "🌻 Girassol", hex: "#eab308" },
-  { nome: "🍫 Chocolate", hex: "#78350f" },
-  { nome: "🥝 Kiwi", hex: "#a3e635" },
-  { nome: "🌌 Anil", hex: "#4338ca" },
-  { nome: "🍬 Lilás", hex: "#c084fc" },
-  { nome: "🩶 Grafite", hex: "#334155" },
-  { nome: "🔥 Ferrugem", hex: "#c2410c" },
-  { nome: "🌤️ Azul Céu", hex: "#0ea5e9" },
+  // Vermelhos
+  { nome: "🔴 Vermelho", hex: "#ef4444", familia: "vermelhos" },
+  { nome: "🍷 Vinho", hex: "#be123c", familia: "vermelhos" },
+  { nome: "🌅 Salmão", hex: "#fb7185", familia: "vermelhos" },
+  // Laranjas
+  { nome: "🔥 Ferrugem", hex: "#c2410c", familia: "laranjas" },
+  { nome: "🍑 Pêssego", hex: "#fdba74", familia: "laranjas" }, // novo
+  { nome: "🟠 Laranja", hex: "#f97316", familia: "laranjas" },
+  { nome: "🟤 Marrom", hex: "#92400e", familia: "laranjas" },
+  { nome: "🍫 Chocolate", hex: "#78350f", familia: "laranjas" },
+  // Amarelos
+  { nome: "🌻 Girassol", hex: "#eab308", familia: "amarelos" },
+  { nome: "🍯 Amarelo", hex: "#f59e0b", familia: "amarelos" },
+  { nome: "🌾 Trigo", hex: "#ca8a04", familia: "amarelos" }, // novo
+  // Verdes
+  { nome: "🥝 Kiwi", hex: "#a3e635", familia: "verdes" },
+  { nome: "🍏 Lima", hex: "#84cc16", familia: "verdes" },
+  { nome: "🌿 Musgo", hex: "#4d7c0f", familia: "verdes" },
+  { nome: "🌲 Floresta", hex: "#15803d", familia: "verdes" }, // novo
+  { nome: "🟢 Verde", hex: "#10b981", familia: "verdes" },
+  { nome: "🍈 Menta", hex: "#34d399", familia: "verdes" },
+  // Turquesas / Ciano
+  { nome: "🌊 Turquesa", hex: "#14b8a6", familia: "turquesas" },
+  { nome: "🦚 Petróleo", hex: "#0e7490", familia: "turquesas" },
+  { nome: "🐳 Ciano", hex: "#06b6d4", familia: "turquesas" },
+  // Azuis
+  { nome: "❄️ Gelo", hex: "#7dd3fc", familia: "azuis" }, // novo
+  { nome: "🌤️ Azul Céu", hex: "#0ea5e9", familia: "azuis" },
+  { nome: "🔵 Azul", hex: "#3b82f6", familia: "azuis" },
+  { nome: "⚓ Marinho", hex: "#1e40af", familia: "azuis" },
+  // Índigos / Roxos
+  { nome: "🟣 Índigo", hex: "#6366f1", familia: "roxos" },
+  { nome: "🌌 Anil", hex: "#4338ca", familia: "roxos" },
+  { nome: "🌙 Meia-Noite", hex: "#1e1b4b", familia: "roxos" }, // novo
+  { nome: "🔮 Roxo", hex: "#8b5cf6", familia: "roxos" },
+  { nome: "🍇 Uva", hex: "#7c3aed", familia: "roxos" },
+  { nome: "🍬 Lilás", hex: "#c084fc", familia: "roxos" },
+  { nome: "🎆 Fúcsia", hex: "#d946ef", familia: "roxos" }, // novo
+  // Rosas
+  { nome: "🌸 Rosa", hex: "#ec4899", familia: "rosas" },
+  // Neutros
+  { nome: "🏖️ Areia", hex: "#a8a29e", familia: "neutros" }, // novo
+  { nome: "⚪ Cinza", hex: "#64748b", familia: "neutros" },
+  { nome: "🩶 Grafite", hex: "#334155", familia: "neutros" },
+  { nome: "⬛ Ardósia", hex: "#1e293b", familia: "neutros" }, // novo
 ];
 
 // --- FRASES MOTIVACIONAIS E PROVÉRBIOS (exibidas no modo foco) ---
@@ -548,6 +692,11 @@ function mostrarSubAbaEstudos(subaba) {
     if (painel) painel.style.display = chave === subaba ? "grid" : "none";
     if (botao) botao.classList.toggle("active", chave === subaba);
   });
+
+  // No modo expandido, os cards de gráfico dessa subaba estavam escondidos
+  // até agora — sem isso os gráficos apareciam pequenos/espremidos na
+  // primeira vez que a aba é aberta (ver redimensionarGraficosVisiveis).
+  redimensionarGraficosVisiveis();
 }
 
 // --- ÁUDIO (ALARME) ---
@@ -3617,15 +3766,22 @@ function renderizarEstrelasPeso(
 }
 
 // Constrói a grade de swatches de cor, reaproveitado no cadastro e na
-// edição de matéria.
+// edição de matéria. Um pequeno respiro extra é inserido sempre que a
+// família de cor muda (vermelhos → laranjas → amarelos...), pra grade dar
+// a impressão de um arco-íris organizado em vez de uma bagunça de bolinhas.
 function renderizarSwatchesCor(containerId, hiddenInputId, hexAtual, aoMudar) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = "";
+  let familiaAnterior = null;
   paletaCores.forEach((cor) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cor-swatch" + (cor.hex === hexAtual ? " selecionada" : "");
+    if (familiaAnterior !== null && cor.familia !== familiaAnterior) {
+      btn.classList.add("cor-swatch-nova-familia");
+    }
+    familiaAnterior = cor.familia;
     btn.style.background = cor.hex;
     btn.title = cor.nome;
     btn.addEventListener("click", () => {

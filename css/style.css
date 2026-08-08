@@ -1547,8 +1547,9 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 .cor-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 7px;
   margin-bottom: 14px;
+  max-width: 480px;
 }
 .cor-swatch {
   width: 26px;
@@ -1558,6 +1559,13 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   cursor: pointer;
   padding: 0;
   position: relative;
+  flex-shrink: 0;
+}
+/* Pequeno respiro visual entre uma família de cor e outra (vermelhos,
+   laranjas, amarelos...), pra grade parecer um arco-íris organizado em
+   vez de bolinhas soltas sem nenhum critério aparente. */
+.cor-swatch-nova-familia {
+  margin-left: 9px;
 }
 .cor-swatch:hover {
   transform: scale(1.1);
@@ -3091,6 +3099,22 @@ body.modo-isolamento-ativo .btn-voltar-modo-foco {
   max-width: 340px;
   height: 340px;
   margin: 16px auto 4px;
+}
+
+/* Gráficos de linha/evolução ficam melhores esticados na largura toda do
+   card, em vez do quadrado pequeno usado pelos gráficos de pizza/radar —
+   sem isso, a curva dos dados fica espremida num cantinho estreito.
+   Seletor combinado (duas classes) de propósito: garante prioridade sobre
+   o ".chart-wrapper" simples (max-width: 300px) definido mais abaixo no
+   arquivo, que senão sobrescreveria essa largura de volta. */
+.chart-wrapper.chart-wrapper-largo {
+  max-width: 100% !important;
+  height: 320px;
+}
+@media (max-width: 640px) {
+  .chart-wrapper.chart-wrapper-largo {
+    height: 260px;
+  }
 }
 
 /* Taxa de Conclusão de Pomodoros (iniciados x completos) */
@@ -5913,5 +5937,150 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 }
 .modal-detalhe-conteudo h2 {
   margin-top: 0;
-  padding-right: 30px;
+  padding-right: 40px;
+}
+/* O botão ✕ padrão fica parcialmente pra fora da borda (top/right
+   negativos), o que funciona nos outros modais — mas aqui o card tem
+   overflow-y:auto pra rolagem, e isso cortava o botão pela metade.
+   Reposicionado pra dentro da área visível só neste modal. */
+.modal-detalhe-conteudo .tela-login-fechar {
+  top: 14px;
+  right: 14px;
+}
+
+/* --- BOTÃO FLUTUANTE SUSPENSO: MODO DE VISUALIZAÇÃO DOS CARDS --- */
+.menu-modo-visualizacao-wrapper {
+  position: fixed;
+  bottom: 22px;
+  right: 214px;
+  z-index: 500;
+}
+.btn-modo-visualizacao {
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.btn-modo-visualizacao:hover {
+  transform: scale(1.08);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+.btn-modo-visualizacao:active {
+  transform: scale(0.96);
+}
+body.modo-isolamento-ativo .menu-modo-visualizacao-wrapper {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  .menu-modo-visualizacao-wrapper {
+    bottom: 16px;
+    right: 186px;
+  }
+  .btn-modo-visualizacao {
+    width: 46px;
+    height: 46px;
+    font-size: 1.15rem;
+  }
+}
+
+.menu-modo-visualizacao {
+  position: absolute;
+  bottom: 64px;
+  right: 0;
+  width: 260px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  padding: 12px;
+}
+.menu-modo-visualizacao-titulo {
+  margin: 0 0 10px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+.opcao-modo-visualizacao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 8px 0;
+  padding: 10px 12px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.opcao-modo-visualizacao:last-child {
+  margin-bottom: 0;
+}
+.opcao-modo-visualizacao:hover {
+  border-color: var(--primary);
+}
+.opcao-modo-visualizacao.opcao-modo-ativa {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface-inset));
+}
+.opcao-modo-visualizacao-nome {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.88rem;
+}
+.opcao-modo-visualizacao-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .menu-modo-visualizacao {
+    width: 230px;
+    right: -6px;
+  }
+}
+
+/* --- MODO EXPANDIDO: recria o layout anterior, tudo visível na página --- */
+body.modo-cards-expandido .resumo-card {
+  display: none !important;
+}
+body.modo-cards-expandido .modal-detalhe-card {
+  position: static !important;
+  display: block !important;
+  grid-column: span 2;
+  background: none !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: auto !important;
+  margin: 0 0 20px 0;
+}
+body.modo-cards-expandido .modal-detalhe-card[data-tem-dados="nao"] {
+  display: none !important;
+}
+body.modo-cards-expandido .modal-detalhe-card .modal-detalhe-conteudo {
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  border: 1px solid var(--border);
+}
+body.modo-cards-expandido
+  .modal-detalhe-card
+  .modal-detalhe-conteudo
+  .tela-login-fechar {
+  display: none;
 }
