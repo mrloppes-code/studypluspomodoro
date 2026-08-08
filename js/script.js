@@ -258,6 +258,8 @@ async function copiarEmailFeedback() {
 let historicoEstudos =
   JSON.parse(localStorage.getItem("historicoEstudos")) || {};
 let materias = JSON.parse(localStorage.getItem("materias")) || [];
+let anotacoesFlashcards =
+  JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
 let metas = JSON.parse(localStorage.getItem("metas")) || [];
 
 // Analisador de Edital (IA): retirado temporariamente pra manutenção (ver
@@ -684,6 +686,7 @@ function mostrarSubAbaEstudos(subaba) {
     analises: "estudos-sub-analises",
     retafinal: "estudos-sub-retafinal",
     diario: "estudos-sub-diario",
+    flashcards: "estudos-sub-flashcards",
   };
 
   Object.entries(grupos).forEach(([chave, idGrupo]) => {
@@ -697,6 +700,11 @@ function mostrarSubAbaEstudos(subaba) {
   // até agora — sem isso os gráficos apareciam pequenos/espremidos na
   // primeira vez que a aba é aberta (ver redimensionarGraficosVisiveis).
   redimensionarGraficosVisiveis();
+
+  if (subaba === "flashcards") {
+    popularMateriasFlashcard();
+    renderizarListaFlashcards();
+  }
 }
 
 // --- ÁUDIO (ALARME) ---
@@ -4538,6 +4546,238 @@ async function registrarSessaoAvulsa(event) {
     `${nomeMateriaFinal} · ${minutos} min${avisoRevisao}`,
   );
   renderizarTodoOPainel();
+}
+
+// --- FLASHCARDS (anotações próprias, em formato pergunta/resposta) ---
+// Alimentam a "Lista de Flashcards" na aba Estudos e, junto com a fila de
+// revisão espaçada e as provas mais próximas, a tela de boas-vindas exibida
+// toda vez que o app é aberto (ver exibirBoasVindasComFlashcards).
+function popularMateriasFlashcard() {
+  const lista = document.getElementById("flashcard-lista-materias");
+  if (!lista) return;
+  lista.innerHTML = obterMateriasOrdenadasPorPeso()
+    .map((m) => `<option value="${escapeHtml(m.nome)}"></option>`)
+    .join("");
+}
+
+function criarFlashcard(event) {
+  if (event) event.preventDefault();
+
+  const frenteInput = document.getElementById("flashcard-frente");
+  const versoInput = document.getElementById("flashcard-verso");
+  const materiaInput = document.getElementById("flashcard-materia");
+
+  const frente = frenteInput.value.trim();
+  const verso = versoInput.value.trim();
+  const materia = materiaInput.value.trim();
+
+  if (!frente || !verso) return;
+
+  anotacoesFlashcards.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    frente,
+    verso,
+    materia: materia || null,
+    criadoEm: obterDataLocalString(new Date()),
+  });
+  localStorage.setItem(
+    "anotacoesFlashcards",
+    JSON.stringify(anotacoesFlashcards),
+  );
+
+  document.getElementById("form-flashcard").reset();
+  renderizarListaFlashcards();
+  mostrarToastGamificacao("🗂️", "Flashcard criado", frente.slice(0, 60));
+}
+
+async function excluirFlashcard(id) {
+  const confirmou = await mostrarConfirmacao("Excluir esse flashcard?", {
+    perigo: true,
+  });
+  if (!confirmou) return;
+
+  anotacoesFlashcards = anotacoesFlashcards.filter((fc) => fc.id !== id);
+  localStorage.setItem(
+    "anotacoesFlashcards",
+    JSON.stringify(anotacoesFlashcards),
+  );
+  renderizarListaFlashcards();
+}
+
+function renderizarListaFlashcards() {
+  const container = document.getElementById("flashcards-lista");
+  const vazio = document.getElementById("flashcards-vazio");
+  if (!container || !vazio) return;
+
+  if (anotacoesFlashcards.length === 0) {
+    vazio.style.display = "block";
+    container.innerHTML = "";
+    return;
+  }
+  vazio.style.display = "none";
+
+  container.innerHTML = anotacoesFlashcards
+    .slice()
+    .reverse()
+    .map(
+      (fc) => `
+        <div class="flashcard-gerenciar-item">
+          <div class="flashcard-gerenciar-frente">${escapeHtml(fc.frente)}</div>
+          <div class="flashcard-gerenciar-verso">${escapeHtml(fc.verso)}</div>
+          <div class="flashcard-gerenciar-rodape">
+            ${
+              fc.materia
+                ? `<span class="flashcard-gerenciar-materia">${escapeHtml(fc.materia)}</span>`
+                : "<span></span>"
+            }
+            <button
+              type="button"
+              class="flashcard-gerenciar-excluir"
+              onclick="excluirFlashcard('${fc.id}')"
+            >
+              Excluir
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+// --- TELA DE BOAS-VINDAS: cards que "você não pode esquecer" ---
+// Reúne, num único carrossel viradável (estilo flashcard de verdade), três
+// fontes diferentes: (1) tópicos vencidos da revisão espaçada — a fila
+// SM-2 que já existia no app —, (2) provas agendadas que estão chegando, e
+// (3) os flashcards que a própria pessoa escreveu. Aparece toda vez que o
+// app é aberto; se não houver nada relevante pra mostrar, simplesmente não
+// abre (não faz sentido incomodar à toa).
+let boasVindasCards = [];
+let boasVindasIndice = 0;
+
+function montarCardsBoasVindas() {
+  const cards = [];
+
+  // 1) Tópicos vencidos da revisão espaçada (até 4, do mais atrasado)
+  calcularTopicosParaRevisar()
+    .slice(0, 4)
+    .forEach(({ materia, topico, diasAtraso }) => {
+      cards.push({
+        tipo: "revisao",
+        rotulo: "🧠 Revisão",
+        cor: materia.cor || "#64748b",
+        frente: topico.nome,
+        subtitulo: materia.nome,
+        verso:
+          diasAtraso <= 0
+            ? "Hoje é o dia de revisar esse tópico."
+            : `Atrasado ${diasAtraso} dia${diasAtraso === 1 ? "" : "s"} — bora recuperar o ritmo.`,
+      });
+    });
+
+  // 2) Provas agendadas nos próximos 21 dias (até 3, da mais próxima)
+  const hoje = new Date(obterDataLocalString(new Date()) + "T00:00:00");
+  metas
+    .filter((m) => m.dataLimite)
+    .map((m) => ({
+      meta: m,
+      dias: Math.round(
+        (new Date(m.dataLimite + "T00:00:00") - hoje) / 86400000,
+      ),
+    }))
+    .filter(({ dias }) => dias >= 0 && dias <= 21)
+    .sort((a, b) => a.dias - b.dias)
+    .slice(0, 3)
+    .forEach(({ meta, dias }) => {
+      cards.push({
+        tipo: "prova",
+        rotulo: "🎯 Prova Agendada",
+        cor: "#ef4444",
+        frente: meta.objetivoNome,
+        subtitulo:
+          dias === 0 ? "É hoje!" : `Faltam ${dias} dia${dias === 1 ? "" : "s"}`,
+        verso:
+          dias === 0
+            ? "É hoje! Respira, você chegou até aqui — boa prova! 🍀"
+            : `Faltam ${dias} dia${dias === 1 ? "" : "s"} pra "${meta.objetivoNome}". Bora aproveitar bem esse tempo.`,
+      });
+    });
+
+  // 3) Flashcards próprios — amostra embaralhada, pra não repetir sempre
+  // os mesmos toda vez que o app abre.
+  [...anotacoesFlashcards]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .forEach((fc) => {
+      cards.push({
+        tipo: "flashcard",
+        rotulo: "🗂️ Flashcard",
+        cor: "#8b5cf6",
+        frente: fc.frente,
+        subtitulo: fc.materia || "Anotação própria",
+        verso: fc.verso,
+      });
+    });
+
+  return cards;
+}
+
+function exibirBoasVindasComFlashcards() {
+  boasVindasCards = montarCardsBoasVindas();
+  if (boasVindasCards.length === 0) return;
+
+  boasVindasIndice = 0;
+  document.getElementById("boas-vindas-nome").innerText =
+    dadosPerfil.nome || "Estudante";
+  renderizarCardBoasVindas();
+  document.getElementById("modal-boas-vindas").style.display = "flex";
+}
+
+function renderizarCardBoasVindas() {
+  const total = boasVindasCards.length;
+  const card = boasVindasCards[boasVindasIndice];
+  if (!card) return;
+
+  document
+    .getElementById("boas-vindas-flip")
+    .classList.remove("boas-vindas-flip-virado");
+  document.getElementById("boas-vindas-tipo-rotulo").innerText = card.rotulo;
+  document.getElementById("boas-vindas-frente-texto").innerText = card.frente;
+  document.getElementById("boas-vindas-frente-sub").innerText = card.subtitulo;
+  document.getElementById("boas-vindas-verso-texto").innerText = card.verso;
+  document.getElementById("boas-vindas-frente").style.background = card.cor;
+  document.getElementById("boas-vindas-contador").innerText =
+    `${boasVindasIndice + 1} / ${total}`;
+  document.getElementById("boas-vindas-anterior").disabled =
+    boasVindasIndice === 0;
+  document.getElementById("boas-vindas-proximo").innerText =
+    boasVindasIndice === total - 1 ? "Concluir ✓" : "Próximo ▸";
+}
+
+function virarCardBoasVindas() {
+  document
+    .getElementById("boas-vindas-flip")
+    .classList.toggle("boas-vindas-flip-virado");
+}
+
+function cardBoasVindasAnterior() {
+  if (boasVindasIndice > 0) {
+    boasVindasIndice--;
+    renderizarCardBoasVindas();
+  }
+}
+
+function cardBoasVindasProximo() {
+  if (boasVindasIndice < boasVindasCards.length - 1) {
+    boasVindasIndice++;
+    renderizarCardBoasVindas();
+  } else {
+    fecharModalBoasVindas();
+  }
+}
+
+function fecharModalBoasVindas() {
+  const modal = document.getElementById("modal-boas-vindas");
+  if (modal) modal.style.display = "none";
 }
 
 // Preenche o select de tópico com o conteúdo programático já cadastrado
@@ -11004,6 +11244,7 @@ function baixarCartaoConquista() {
 // (Essa mesma lista é reaproveitada por js/auth-sync.js pra decidir o que
 // sincronizar com a nuvem quando o login estiver configurado.)
 const CHAVES_BACKUP = [
+  "anotacoesFlashcards",
   "bancoDistracoes",
   "conquistasDesbloqueadas",
   "dadosPerfil",
@@ -11119,6 +11360,8 @@ function recarregarEstadoDoLocalStorage() {
   historicoEstudos = JSON.parse(localStorage.getItem("historicoEstudos")) || {};
   materias = JSON.parse(localStorage.getItem("materias")) || [];
   metas = JSON.parse(localStorage.getItem("metas")) || [];
+  anotacoesFlashcards =
+    JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
   tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
   logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
   dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
@@ -11173,6 +11416,7 @@ function iniciarAppEstudeMais() {
   verificarSimuladoCronometradoEmAndamento();
   restaurarSessaoAtivaSalva();
   restaurarOrdemWidgetsPainel();
+  exibirBoasVindasComFlashcards();
 }
 
 // ============================================================

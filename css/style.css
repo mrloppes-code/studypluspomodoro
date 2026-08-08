@@ -5734,7 +5734,8 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 .ra-grid-2 input,
 .ra-grid-3 input,
 .ra-grid-3 select,
-.ra-grid-4 input {
+.ra-grid-4 input,
+.ra-grid-2 textarea {
   margin-bottom: 0;
 }
 
@@ -6083,4 +6084,176 @@ body.modo-cards-expandido
   .modal-detalhe-conteudo
   .tela-login-fechar {
   display: none;
+}
+
+/* --- FLASHCARDS: FORMULÁRIO E LISTA DE GERENCIAMENTO --- */
+.flashcards-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.flashcard-gerenciar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.flashcard-gerenciar-frente {
+  font-weight: 700;
+  color: var(--text-main);
+}
+.flashcard-gerenciar-verso {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.flashcard-gerenciar-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+.flashcard-gerenciar-materia {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.flashcard-gerenciar-excluir {
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.flashcard-gerenciar-excluir:hover {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* --- MODAL DE BOAS-VINDAS: CARD VIRÁVEL (FLASHCARD DE VERDADE) --- */
+.modal-boas-vindas-conteudo {
+  max-width: 460px;
+}
+.boas-vindas-flip-container {
+  perspective: 1200px;
+  width: 100%;
+  margin: 18px 0 16px;
+}
+.boas-vindas-flip {
+  position: relative;
+  width: 100%;
+  height: 230px;
+  cursor: pointer;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+.boas-vindas-flip-virado {
+  transform: rotateY(180deg);
+}
+.boas-vindas-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+}
+.boas-vindas-frente {
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.boas-vindas-tipo-rotulo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+.boas-vindas-frente-texto {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.35;
+}
+.boas-vindas-frente-sub {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+.boas-vindas-verso {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  transform: rotateY(180deg);
+}
+.boas-vindas-verso-texto {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.boas-vindas-toque-dica {
+  position: absolute;
+  bottom: 12px;
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
+.boas-vindas-navegacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.boas-vindas-navegacao button {
+  width: auto;
+  margin: 0;
+  padding: 9px 16px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.boas-vindas-navegacao button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.boas-vindas-navegacao button:not(:disabled):hover {
+  border-color: var(--primary);
+}
+.boas-vindas-contador {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.boas-vindas-fechar-link {
+  width: 100%;
+  margin: 14px 0 0 0;
+  padding: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.boas-vindas-fechar-link:hover {
+  color: var(--text-main);
 }

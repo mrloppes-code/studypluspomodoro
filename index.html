@@ -191,6 +191,90 @@
 
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- MODAL DE BOAS-VINDAS: mostra tópicos vencidos da revisão espaçada,
+         provas próximas e flashcards próprios em formato de card viradável,
+         toda vez que o app é aberto. -->
+    <div id="modal-boas-vindas" class="modal-distracao">
+      <div class="modal-conteudo modal-boas-vindas-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalBoasVindas()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+
+        <h2 style="margin-top: 0">
+          👋 Bem-vindo(a), <strong id="boas-vindas-nome">Estudante</strong>, ao
+          Estude+!
+        </h2>
+        <p class="campo-ajuda" style="margin-top: -6px">
+          Estes são alguns cards que você não pode esquecer:
+        </p>
+
+        <div class="boas-vindas-flip-container">
+          <div
+            id="boas-vindas-flip"
+            class="boas-vindas-flip"
+            onclick="virarCardBoasVindas()"
+          >
+            <div
+              id="boas-vindas-frente"
+              class="boas-vindas-face boas-vindas-frente"
+            >
+              <span
+                id="boas-vindas-tipo-rotulo"
+                class="boas-vindas-tipo-rotulo"
+              ></span>
+              <p
+                id="boas-vindas-frente-texto"
+                class="boas-vindas-frente-texto"
+              ></p>
+              <span
+                id="boas-vindas-frente-sub"
+                class="boas-vindas-frente-sub"
+              ></span>
+              <span class="boas-vindas-toque-dica">Toque para virar</span>
+            </div>
+            <div class="boas-vindas-face boas-vindas-verso">
+              <p
+                id="boas-vindas-verso-texto"
+                class="boas-vindas-verso-texto"
+              ></p>
+              <span class="boas-vindas-toque-dica">Toque para voltar</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="boas-vindas-navegacao">
+          <button
+            type="button"
+            id="boas-vindas-anterior"
+            onclick="cardBoasVindasAnterior()"
+          >
+            ◂ Anterior
+          </button>
+          <span id="boas-vindas-contador" class="boas-vindas-contador"></span>
+          <button
+            type="button"
+            id="boas-vindas-proximo"
+            onclick="cardBoasVindasProximo()"
+          >
+            Próximo ▸
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="boas-vindas-fechar-link"
+          onclick="fecharModalBoasVindas()"
+        >
+          Fechar por agora
+        </button>
+      </div>
+    </div>
+
     <!-- MODAL DE NOVIDADES / FUNCIONALIDADES -->
     <div
       id="modal-novidades"
@@ -2273,6 +2357,14 @@
           >
             📔 Diário
           </button>
+          <button
+            type="button"
+            id="estudos-sub-flashcards-btn"
+            class="estudos-subnav-btn"
+            onclick="mostrarSubAbaEstudos('flashcards')"
+          >
+            🗂️ Flashcards
+          </button>
         </div>
 
         <!-- 📋 CADASTRO: matérias, metas e a lista de metas fixadas -->
@@ -3660,6 +3752,74 @@
               ver o caminho todo de uma vez.
             </p>
             <div id="linha-tempo-mensal-lista"></div>
+          </div>
+        </div>
+
+        <!-- 🗂️ FLASHCARDS: anotações no formato pergunta/resposta, que
+             também alimentam a tela de boas-vindas junto com a fila de
+             revisão espaçada e as provas mais próximas. -->
+        <div
+          class="container"
+          id="estudos-sub-flashcards"
+          style="display: none"
+        >
+          <div class="card full-width">
+            <h2>🗂️ Criar Flashcard</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Escreva uma pergunta na frente e a resposta no verso. Esses cards
+              entram na tela de boas-vindas, junto com os tópicos vencidos da
+              revisão espaçada e as provas mais próximas — pra você não esquecer
+              do que mais importa.
+            </p>
+            <form id="form-flashcard" onsubmit="criarFlashcard(event)">
+              <div class="ra-grid-2">
+                <div>
+                  <label for="flashcard-frente">Frente (pergunta)</label>
+                  <textarea
+                    id="flashcard-frente"
+                    maxlength="300"
+                    placeholder="Ex: O que é habeas corpus?"
+                    required
+                  ></textarea>
+                </div>
+                <div>
+                  <label for="flashcard-verso">Verso (resposta)</label>
+                  <textarea
+                    id="flashcard-verso"
+                    maxlength="500"
+                    placeholder="Ex: Remédio constitucional que protege o direito de ir e vir..."
+                    required
+                  ></textarea>
+                </div>
+              </div>
+              <label for="flashcard-materia">Matéria (opcional)</label>
+              <input
+                type="text"
+                id="flashcard-materia"
+                list="flashcard-lista-materias"
+                placeholder="Digite ou selecione..."
+                autocomplete="off"
+              />
+              <datalist id="flashcard-lista-materias"></datalist>
+              <button
+                type="submit"
+                class="ra-btn-salvar"
+                style="width: auto; flex: none; padding: 10px 22px"
+              >
+                Criar Flashcard
+              </button>
+            </form>
+          </div>
+
+          <div class="card full-width">
+            <h2>🗂️ Meus Flashcards</h2>
+            <p id="flashcards-vazio" class="sessoes-hoje-vazio">
+              Você ainda não criou nenhum flashcard.
+            </p>
+            <div id="flashcards-lista" class="flashcards-lista"></div>
           </div>
         </div>
 
