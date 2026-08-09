@@ -6257,3 +6257,210 @@ body.modo-cards-expandido
 .boas-vindas-fechar-link:hover {
   color: var(--text-main);
 }
+
+/* --- BANNER DE REVISÃO DE FLASHCARDS --- */
+.flashcards-revisar-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.flashcards-revisar-banner span {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+.flashcard-gerenciar-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.flashcard-gerenciar-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+/* --- MODAL: REVISÃO DE FLASHCARDS ESTILO ANKI --- */
+.revisar-flashcard-card {
+  min-height: 190px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  margin: 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+.revisar-flashcard-frente-texto {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.4;
+}
+.revisar-flashcard-divisor {
+  width: 100%;
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 6px 0;
+}
+.revisar-flashcard-verso-texto {
+  font-size: 1rem;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.revisar-flashcard-avaliacao {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+.revisar-flashcard-btn-avaliar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #fff;
+}
+.revisar-flashcard-preview {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.revisar-flashcard-btn-errei {
+  background: #ef4444;
+}
+.revisar-flashcard-btn-dificil {
+  background: #f97316;
+}
+.revisar-flashcard-btn-bom {
+  background: #10b981;
+}
+.revisar-flashcard-btn-facil {
+  background: #3b82f6;
+}
+.revisar-flashcard-btn-avaliar:hover {
+  filter: brightness(1.12);
+}
+@media (max-width: 480px) {
+  .revisar-flashcard-avaliacao {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* --- LEMBRETES: FORMULÁRIO E LISTA DE GERENCIAMENTO --- */
+.lembrete-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.lembrete-input-row input {
+  flex: 1;
+  margin-bottom: 0;
+}
+.lembretes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lembrete-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.lembrete-item-texto {
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+.lembrete-item-excluir {
+  width: auto;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.lembrete-item-excluir:hover {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+/* --- LEMBRETES NA TELA DE BOAS-VINDAS --- */
+.boas-vindas-lembretes-titulo {
+  margin: 0 0 8px 0;
+  font-weight: 700;
+  color: var(--accent-text);
+  font-size: 0.92rem;
+}
+.boas-vindas-lembretes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.boas-vindas-lembrete-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+}
+.boas-vindas-lembrete-texto {
+  color: var(--text-main);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+.boas-vindas-lembrete-concluir {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.boas-vindas-lembrete-concluir:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}

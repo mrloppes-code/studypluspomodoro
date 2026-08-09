@@ -209,60 +209,71 @@
           👋 Bem-vindo(a), <strong id="boas-vindas-nome">Estudante</strong>, ao
           Estude+!
         </h2>
-        <p class="campo-ajuda" style="margin-top: -6px">
-          Estes são alguns cards que você não pode esquecer:
-        </p>
 
-        <div class="boas-vindas-flip-container">
+        <div id="boas-vindas-lembretes-secao" style="display: none">
+          <p class="boas-vindas-lembretes-titulo">📌 Não esqueça:</p>
           <div
-            id="boas-vindas-flip"
-            class="boas-vindas-flip"
-            onclick="virarCardBoasVindas()"
-          >
-            <div
-              id="boas-vindas-frente"
-              class="boas-vindas-face boas-vindas-frente"
-            >
-              <span
-                id="boas-vindas-tipo-rotulo"
-                class="boas-vindas-tipo-rotulo"
-              ></span>
-              <p
-                id="boas-vindas-frente-texto"
-                class="boas-vindas-frente-texto"
-              ></p>
-              <span
-                id="boas-vindas-frente-sub"
-                class="boas-vindas-frente-sub"
-              ></span>
-              <span class="boas-vindas-toque-dica">Toque para virar</span>
-            </div>
-            <div class="boas-vindas-face boas-vindas-verso">
-              <p
-                id="boas-vindas-verso-texto"
-                class="boas-vindas-verso-texto"
-              ></p>
-              <span class="boas-vindas-toque-dica">Toque para voltar</span>
-            </div>
-          </div>
+            id="boas-vindas-lembretes-lista"
+            class="boas-vindas-lembretes-lista"
+          ></div>
         </div>
 
-        <div class="boas-vindas-navegacao">
-          <button
-            type="button"
-            id="boas-vindas-anterior"
-            onclick="cardBoasVindasAnterior()"
-          >
-            ◂ Anterior
-          </button>
-          <span id="boas-vindas-contador" class="boas-vindas-contador"></span>
-          <button
-            type="button"
-            id="boas-vindas-proximo"
-            onclick="cardBoasVindasProximo()"
-          >
-            Próximo ▸
-          </button>
+        <div id="boas-vindas-cards-secao">
+          <p class="campo-ajuda" style="margin-top: -6px">
+            Estes são alguns cards que você não pode esquecer:
+          </p>
+
+          <div class="boas-vindas-flip-container">
+            <div
+              id="boas-vindas-flip"
+              class="boas-vindas-flip"
+              onclick="virarCardBoasVindas()"
+            >
+              <div
+                id="boas-vindas-frente"
+                class="boas-vindas-face boas-vindas-frente"
+              >
+                <span
+                  id="boas-vindas-tipo-rotulo"
+                  class="boas-vindas-tipo-rotulo"
+                ></span>
+                <p
+                  id="boas-vindas-frente-texto"
+                  class="boas-vindas-frente-texto"
+                ></p>
+                <span
+                  id="boas-vindas-frente-sub"
+                  class="boas-vindas-frente-sub"
+                ></span>
+                <span class="boas-vindas-toque-dica">Toque para virar</span>
+              </div>
+              <div class="boas-vindas-face boas-vindas-verso">
+                <p
+                  id="boas-vindas-verso-texto"
+                  class="boas-vindas-verso-texto"
+                ></p>
+                <span class="boas-vindas-toque-dica">Toque para voltar</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="boas-vindas-navegacao">
+            <button
+              type="button"
+              id="boas-vindas-anterior"
+              onclick="cardBoasVindasAnterior()"
+            >
+              ◂ Anterior
+            </button>
+            <span id="boas-vindas-contador" class="boas-vindas-contador"></span>
+            <button
+              type="button"
+              id="boas-vindas-proximo"
+              onclick="cardBoasVindasProximo()"
+            >
+              Próximo ▸
+            </button>
+          </div>
         </div>
 
         <button
@@ -3815,11 +3826,173 @@
           </div>
 
           <div class="card full-width">
+            <h2>📌 Lembretes</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Bilhetes rápidos que aparecem na tela de boas-vindas até você
+              marcar como concluído — use pra avisos que não podem ser
+              esquecidos (documento pra levar, prazo de inscrição, o que revisar
+              antes da prova...).
+            </p>
+            <form id="form-lembrete" onsubmit="criarLembrete(event)">
+              <div class="lembrete-input-row">
+                <input
+                  type="text"
+                  id="lembrete-texto"
+                  maxlength="200"
+                  placeholder="Ex: Levar documento com foto no dia da prova"
+                  required
+                />
+                <button
+                  type="submit"
+                  class="ra-btn-salvar"
+                  style="width: auto; flex: none; padding: 10px 22px"
+                >
+                  Adicionar
+                </button>
+              </div>
+            </form>
+            <p id="lembretes-vazio" class="sessoes-hoje-vazio">
+              Nenhum lembrete cadastrado.
+            </p>
+            <div id="lembretes-lista" class="lembretes-lista"></div>
+          </div>
+
+          <div class="card full-width" id="card-revisar-flashcards-banner">
+            <h2>🔁 Revisão de Flashcards</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Cada flashcard tem seu próprio cronograma de revisão espaçada — o
+              mesmo algoritmo SM-2 usado nos tópicos, no estilo Anki: quanto
+              melhor você lembra, mais o intervalo até a próxima revisão
+              aumenta.
+            </p>
+            <div class="flashcards-revisar-banner">
+              <span id="flashcards-revisar-contagem"
+                >Nenhum flashcard cadastrado ainda.</span
+              >
+              <button
+                type="button"
+                id="flashcards-btn-revisar-agora"
+                class="ra-btn-salvar"
+                style="width: auto; flex: none; padding: 10px 22px"
+                onclick="iniciarRevisaoFlashcards()"
+                disabled
+              >
+                Revisar Agora
+              </button>
+            </div>
+          </div>
+
+          <div class="card full-width">
             <h2>🗂️ Meus Flashcards</h2>
             <p id="flashcards-vazio" class="sessoes-hoje-vazio">
               Você ainda não criou nenhum flashcard.
             </p>
             <div id="flashcards-lista" class="flashcards-lista"></div>
+          </div>
+        </div>
+
+        <!-- MODAL: REVISÃO DE FLASHCARDS ESTILO ANKI -->
+        <div id="modal-revisar-flashcards" class="modal-distracao">
+          <div class="modal-conteudo modal-boas-vindas-conteudo">
+            <button
+              type="button"
+              class="tela-login-fechar"
+              onclick="fecharModalRevisarFlashcards()"
+              title="Fechar"
+            >
+              ✕
+            </button>
+            <h2 style="margin-top: 0">🔁 Revisão de Flashcards</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -6px"
+              id="revisar-flashcard-contador"
+            ></p>
+
+            <div class="revisar-flashcard-card">
+              <span
+                class="flashcard-gerenciar-materia"
+                id="revisar-flashcard-materia"
+              ></span>
+              <p
+                class="revisar-flashcard-frente-texto"
+                id="revisar-flashcard-frente"
+              ></p>
+              <div id="revisar-flashcard-resposta-area" style="display: none">
+                <hr class="revisar-flashcard-divisor" />
+                <p
+                  class="revisar-flashcard-verso-texto"
+                  id="revisar-flashcard-verso"
+                ></p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              id="revisar-flashcard-btn-mostrar"
+              class="ra-btn-salvar"
+              style="width: 100%; margin-top: 16px"
+              onclick="mostrarRespostaRevisaoFlashcard()"
+            >
+              Mostrar Resposta
+            </button>
+
+            <div
+              id="revisar-flashcard-avaliacao"
+              class="revisar-flashcard-avaliacao"
+              style="display: none"
+            >
+              <button
+                type="button"
+                class="revisar-flashcard-btn-avaliar revisar-flashcard-btn-errei"
+                onclick="avaliarRevisaoFlashcard(0)"
+              >
+                <span>Errei</span>
+                <span
+                  class="revisar-flashcard-preview"
+                  id="preview-intervalo-errei"
+                ></span>
+              </button>
+              <button
+                type="button"
+                class="revisar-flashcard-btn-avaliar revisar-flashcard-btn-dificil"
+                onclick="avaliarRevisaoFlashcard(3)"
+              >
+                <span>Difícil</span>
+                <span
+                  class="revisar-flashcard-preview"
+                  id="preview-intervalo-dificil"
+                ></span>
+              </button>
+              <button
+                type="button"
+                class="revisar-flashcard-btn-avaliar revisar-flashcard-btn-bom"
+                onclick="avaliarRevisaoFlashcard(4)"
+              >
+                <span>Bom</span>
+                <span
+                  class="revisar-flashcard-preview"
+                  id="preview-intervalo-bom"
+                ></span>
+              </button>
+              <button
+                type="button"
+                class="revisar-flashcard-btn-avaliar revisar-flashcard-btn-facil"
+                onclick="avaliarRevisaoFlashcard(5)"
+              >
+                <span>Fácil</span>
+                <span
+                  class="revisar-flashcard-preview"
+                  id="preview-intervalo-facil"
+                ></span>
+              </button>
+            </div>
           </div>
         </div>
 

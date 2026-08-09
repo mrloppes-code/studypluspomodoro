@@ -260,6 +260,7 @@ let historicoEstudos =
 let materias = JSON.parse(localStorage.getItem("materias")) || [];
 let anotacoesFlashcards =
   JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
+let lembretes = JSON.parse(localStorage.getItem("lembretes")) || [];
 let metas = JSON.parse(localStorage.getItem("metas")) || [];
 
 // Analisador de Edital (IA): retirado temporariamente pra manutenção (ver
@@ -704,6 +705,7 @@ function mostrarSubAbaEstudos(subaba) {
   if (subaba === "flashcards") {
     popularMateriasFlashcard();
     renderizarListaFlashcards();
+    renderizarListaLembretes();
   }
 }
 
@@ -4548,6 +4550,67 @@ async function registrarSessaoAvulsa(event) {
   renderizarTodoOPainel();
 }
 
+// --- LEMBRETES (bilhetes rápidos, sem revisão espaçada) ---
+// Diferente do flashcard, o lembrete não tem "frente/verso" nem entra no
+// SM-2 — é só um bilhete que fica batendo na tela de boas-vindas até você
+// marcar como concluído (ou excluir direto na aba Flashcards).
+function criarLembrete(event) {
+  if (event) event.preventDefault();
+
+  const input = document.getElementById("lembrete-texto");
+  const texto = input.value.trim();
+  if (!texto) return;
+
+  lembretes.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    texto,
+    criadoEm: obterDataLocalString(new Date()),
+  });
+  localStorage.setItem("lembretes", JSON.stringify(lembretes));
+
+  input.value = "";
+  renderizarListaLembretes();
+  mostrarToastGamificacao("📌", "Lembrete criado", texto.slice(0, 60));
+}
+
+function excluirLembrete(id) {
+  lembretes = lembretes.filter((l) => l.id !== id);
+  localStorage.setItem("lembretes", JSON.stringify(lembretes));
+  renderizarListaLembretes();
+}
+
+function renderizarListaLembretes() {
+  const container = document.getElementById("lembretes-lista");
+  const vazio = document.getElementById("lembretes-vazio");
+  if (!container || !vazio) return;
+
+  if (lembretes.length === 0) {
+    vazio.style.display = "block";
+    container.innerHTML = "";
+    return;
+  }
+  vazio.style.display = "none";
+
+  container.innerHTML = lembretes
+    .slice()
+    .reverse()
+    .map(
+      (l) => `
+        <div class="lembrete-item">
+          <span class="lembrete-item-texto">${escapeHtml(l.texto)}</span>
+          <button
+            type="button"
+            class="lembrete-item-excluir"
+            onclick="excluirLembrete('${l.id}')"
+          >
+            ✓ Concluído
+          </button>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 // --- FLASHCARDS (anotações próprias, em formato pergunta/resposta) ---
 // Alimentam a "Lista de Flashcards" na aba Estudos e, junto com a fila de
 // revisão espaçada e as provas mais próximas, a tela de boas-vindas exibida
@@ -4579,6 +4642,7 @@ function criarFlashcard(event) {
     verso,
     materia: materia || null,
     criadoEm: obterDataLocalString(new Date()),
+    srs: SRS_PADRAO(1),
   });
   localStorage.setItem(
     "anotacoesFlashcards",
@@ -4605,8 +4669,27 @@ async function excluirFlashcard(id) {
 }
 
 function renderizarListaFlashcards() {
+  garantirSrsEmFlashcards();
+
   const container = document.getElementById("flashcards-lista");
   const vazio = document.getElementById("flashcards-vazio");
+  const contagemEl = document.getElementById("flashcards-revisar-contagem");
+  const btnRevisar = document.getElementById("flashcards-btn-revisar-agora");
+
+  if (contagemEl && btnRevisar) {
+    if (anotacoesFlashcards.length === 0) {
+      contagemEl.innerText = "Nenhum flashcard cadastrado ainda.";
+      btnRevisar.disabled = true;
+    } else {
+      const devidos = calcularFlashcardsParaRevisar().length;
+      contagemEl.innerText =
+        devidos === 0
+          ? "Nenhum flashcard pendente de revisão hoje. 🎉"
+          : `${devidos} flashcard${devidos === 1 ? "" : "s"} pendente${devidos === 1 ? "" : "s"} de revisão hoje.`;
+      btnRevisar.disabled = devidos === 0;
+    }
+  }
+
   if (!container || !vazio) return;
 
   if (anotacoesFlashcards.length === 0) {
@@ -4625,11 +4708,14 @@ function renderizarListaFlashcards() {
           <div class="flashcard-gerenciar-frente">${escapeHtml(fc.frente)}</div>
           <div class="flashcard-gerenciar-verso">${escapeHtml(fc.verso)}</div>
           <div class="flashcard-gerenciar-rodape">
-            ${
-              fc.materia
-                ? `<span class="flashcard-gerenciar-materia">${escapeHtml(fc.materia)}</span>`
-                : "<span></span>"
-            }
+            <div class="flashcard-gerenciar-tags">
+              ${
+                fc.materia
+                  ? `<span class="flashcard-gerenciar-materia">${escapeHtml(fc.materia)}</span>`
+                  : ""
+              }
+              <span class="flashcard-gerenciar-status">${rotuloStatusSrsFlashcard(fc.srs)}</span>
+            </div>
             <button
               type="button"
               class="flashcard-gerenciar-excluir"
@@ -4642,6 +4728,154 @@ function renderizarListaFlashcards() {
       `,
     )
     .join("");
+}
+
+// --- REVISÃO ESPAÇADA DOS FLASHCARDS (SM-2, estilo Anki) ---
+// Reaproveita o mesmíssimo motor SM-2 (SRS_PADRAO / aplicarSM2) já usado
+// pelos tópicos das matérias — cada flashcard vira um "cartão" com seu
+// próprio fator de facilidade, intervalo e número de repetições.
+
+// Flashcards criados antes desse recurso existir ainda não têm o campo
+// "srs" — ganham um cartão novo aqui, agendado pra hoje.
+function garantirSrsEmFlashcards() {
+  let mudou = false;
+  anotacoesFlashcards.forEach((fc) => {
+    if (!fc.srs) {
+      fc.srs = SRS_PADRAO(1);
+      mudou = true;
+    }
+  });
+  if (mudou) {
+    localStorage.setItem(
+      "anotacoesFlashcards",
+      JSON.stringify(anotacoesFlashcards),
+    );
+  }
+}
+
+function calcularFlashcardsParaRevisar() {
+  garantirSrsEmFlashcards();
+  const hojeStr = obterDataLocalString(new Date());
+  const resultado = [];
+
+  anotacoesFlashcards.forEach((fc) => {
+    if (fc.srs.proximaRevisao <= hojeStr) {
+      const diasAtraso = Math.floor(
+        (new Date(hojeStr + "T00:00:00") -
+          new Date(fc.srs.proximaRevisao + "T00:00:00")) /
+          86400000,
+      );
+      resultado.push({ flashcard: fc, diasAtraso });
+    }
+  });
+
+  resultado.sort((a, b) => b.diasAtraso - a.diasAtraso);
+  return resultado;
+}
+
+function rotuloStatusSrsFlashcard(srs) {
+  if (!srs) return "Novo";
+  const hojeStr = obterDataLocalString(new Date());
+  if (srs.proximaRevisao <= hojeStr) {
+    const diasAtraso = Math.floor(
+      (new Date(hojeStr + "T00:00:00") -
+        new Date(srs.proximaRevisao + "T00:00:00")) /
+        86400000,
+    );
+    return diasAtraso <= 0 ? "Revisar hoje" : `Atrasado ${diasAtraso}d`;
+  }
+  const diasFaltam = Math.floor(
+    (new Date(srs.proximaRevisao + "T00:00:00") -
+      new Date(hojeStr + "T00:00:00")) /
+      86400000,
+  );
+  return `Revisar em ${diasFaltam}d`;
+}
+
+let filaRevisaoFlashcards = [];
+
+async function iniciarRevisaoFlashcards() {
+  filaRevisaoFlashcards = calcularFlashcardsParaRevisar().map(
+    (x) => x.flashcard,
+  );
+  if (filaRevisaoFlashcards.length === 0) {
+    await mostrarAlerta("Nenhum flashcard pendente de revisão agora. 🎉");
+    return;
+  }
+  document.getElementById("modal-revisar-flashcards").style.display = "flex";
+  renderizarCardRevisaoFlashcard();
+}
+
+function renderizarCardRevisaoFlashcard() {
+  const fc = filaRevisaoFlashcards[0];
+  if (!fc) return;
+
+  const restantes = filaRevisaoFlashcards.length;
+  document.getElementById("revisar-flashcard-contador").innerText =
+    `${restantes} flashcard${restantes === 1 ? "" : "s"} restante${restantes === 1 ? "" : "s"}`;
+  document.getElementById("revisar-flashcard-materia").innerText =
+    fc.materia || "Sem matéria";
+  document.getElementById("revisar-flashcard-frente").innerText = fc.frente;
+  document.getElementById("revisar-flashcard-verso").innerText = fc.verso;
+
+  document.getElementById("revisar-flashcard-resposta-area").style.display =
+    "none";
+  document.getElementById("revisar-flashcard-btn-mostrar").style.display =
+    "block";
+  document.getElementById("revisar-flashcard-avaliacao").style.display = "none";
+
+  atualizarPreviewIntervalosRevisaoFlashcard(fc);
+}
+
+function mostrarRespostaRevisaoFlashcard() {
+  document.getElementById("revisar-flashcard-resposta-area").style.display =
+    "block";
+  document.getElementById("revisar-flashcard-btn-mostrar").style.display =
+    "none";
+  document.getElementById("revisar-flashcard-avaliacao").style.display = "grid";
+}
+
+// Simula, sem aplicar de verdade, qual seria o próximo intervalo pra cada
+// uma das 4 avaliações — exatamente como o Anki mostra o número de dias
+// embaixo de cada botão antes de você clicar nele.
+function atualizarPreviewIntervalosRevisaoFlashcard(fc) {
+  const qualidades = { errei: 0, dificil: 3, bom: 4, facil: 5 };
+  Object.entries(qualidades).forEach(([chave, qualidade]) => {
+    const clone = JSON.parse(JSON.stringify(fc.srs));
+    aplicarSM2(clone, qualidade);
+    const el = document.getElementById(`preview-intervalo-${chave}`);
+    if (el)
+      el.innerText = `${clone.interval} dia${clone.interval === 1 ? "" : "s"}`;
+  });
+}
+
+function avaliarRevisaoFlashcard(qualidade) {
+  const fc = filaRevisaoFlashcards[0];
+  if (!fc) return;
+
+  aplicarSM2(fc.srs, qualidade);
+  localStorage.setItem(
+    "anotacoesFlashcards",
+    JSON.stringify(anotacoesFlashcards),
+  );
+
+  filaRevisaoFlashcards.shift();
+  if (filaRevisaoFlashcards.length === 0) {
+    mostrarToastGamificacao(
+      "🎉",
+      "Revisão concluída!",
+      "Você revisou todos os flashcards pendentes de hoje.",
+    );
+    fecharModalRevisarFlashcards();
+    return;
+  }
+  renderizarCardRevisaoFlashcard();
+}
+
+function fecharModalRevisarFlashcards() {
+  const modal = document.getElementById("modal-revisar-flashcards");
+  if (modal) modal.style.display = "none";
+  renderizarListaFlashcards();
 }
 
 // --- TELA DE BOAS-VINDAS: cards que "você não pode esquecer" ---
@@ -4702,34 +4936,98 @@ function montarCardsBoasVindas() {
       });
     });
 
-  // 3) Flashcards próprios — amostra embaralhada, pra não repetir sempre
-  // os mesmos toda vez que o app abre.
-  [...anotacoesFlashcards]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
-    .forEach((fc) => {
-      cards.push({
-        tipo: "flashcard",
-        rotulo: "🗂️ Flashcard",
-        cor: "#8b5cf6",
-        frente: fc.frente,
-        subtitulo: fc.materia || "Anotação própria",
-        verso: fc.verso,
-      });
+  // 3) Flashcards próprios — prioriza os que estão devidos pela revisão
+  // espaçada (igual à lógica dos tópicos); se não houver nenhum devido
+  // ainda, cai pra uma amostra embaralhada dos cadastrados.
+  const flashcardsDevidos = calcularFlashcardsParaRevisar().map(
+    (x) => x.flashcard,
+  );
+  const amostraFlashcards =
+    flashcardsDevidos.length > 0
+      ? flashcardsDevidos.slice(0, 3)
+      : [...anotacoesFlashcards].sort(() => Math.random() - 0.5).slice(0, 3);
+
+  amostraFlashcards.forEach((fc) => {
+    cards.push({
+      tipo: "flashcard",
+      rotulo: "🗂️ Flashcard",
+      cor: "#8b5cf6",
+      frente: fc.frente,
+      subtitulo: fc.materia || "Anotação própria",
+      verso: fc.verso,
     });
+  });
 
   return cards;
 }
 
 function exibirBoasVindasComFlashcards() {
   boasVindasCards = montarCardsBoasVindas();
-  if (boasVindasCards.length === 0) return;
+  renderizarLembretesBoasVindas();
 
-  boasVindasIndice = 0;
+  if (boasVindasCards.length === 0 && lembretes.length === 0) return;
+
   document.getElementById("boas-vindas-nome").innerText =
     dadosPerfil.nome || "Estudante";
-  renderizarCardBoasVindas();
+
+  const secaoCards = document.getElementById("boas-vindas-cards-secao");
+  if (boasVindasCards.length > 0) {
+    secaoCards.style.display = "block";
+    boasVindasIndice = 0;
+    renderizarCardBoasVindas();
+  } else {
+    secaoCards.style.display = "none";
+  }
+
   document.getElementById("modal-boas-vindas").style.display = "flex";
+}
+
+// Lista de lembretes dentro da própria tela de boas-vindas — cada um pode
+// ser marcado como concluído ali mesmo, sem precisar sair da tela pra ir
+// até a aba Flashcards.
+function renderizarLembretesBoasVindas() {
+  const secao = document.getElementById("boas-vindas-lembretes-secao");
+  const lista = document.getElementById("boas-vindas-lembretes-lista");
+  if (!secao || !lista) return;
+
+  if (lembretes.length === 0) {
+    secao.style.display = "none";
+    return;
+  }
+  secao.style.display = "block";
+
+  lista.innerHTML = lembretes
+    .slice()
+    .reverse()
+    .map(
+      (l) => `
+        <div class="boas-vindas-lembrete-item">
+          <span class="boas-vindas-lembrete-texto">${escapeHtml(l.texto)}</span>
+          <button
+            type="button"
+            class="boas-vindas-lembrete-concluir"
+            onclick="concluirLembreteBoasVindas('${l.id}')"
+            title="Marcar como concluído"
+          >
+            ✓
+          </button>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function concluirLembreteBoasVindas(id) {
+  lembretes = lembretes.filter((l) => l.id !== id);
+  localStorage.setItem("lembretes", JSON.stringify(lembretes));
+  renderizarLembretesBoasVindas();
+  renderizarListaLembretes();
+
+  // Se essa era a última coisa na tela (sem lembretes e sem cards), fecha
+  // sozinha em vez de deixar o modal vazio na cara da pessoa.
+  if (lembretes.length === 0 && boasVindasCards.length === 0) {
+    fecharModalBoasVindas();
+  }
 }
 
 function renderizarCardBoasVindas() {
@@ -11245,6 +11543,7 @@ function baixarCartaoConquista() {
 // sincronizar com a nuvem quando o login estiver configurado.)
 const CHAVES_BACKUP = [
   "anotacoesFlashcards",
+  "lembretes",
   "bancoDistracoes",
   "conquistasDesbloqueadas",
   "dadosPerfil",
@@ -11362,6 +11661,7 @@ function recarregarEstadoDoLocalStorage() {
   metas = JSON.parse(localStorage.getItem("metas")) || [];
   anotacoesFlashcards =
     JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
+  lembretes = JSON.parse(localStorage.getItem("lembretes")) || [];
   tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
   logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
   dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
