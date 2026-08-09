@@ -11838,6 +11838,19 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.24",
+    titulo:
+      "Flashcards estilo Anki, Registro de Sessão Avulsa e cards de análise em modo compacto",
+    itens: [
+      "Novo 🗂️ Flashcards em Estudos → Flashcards: crie cards de pergunta/resposta e revise com o mesmo algoritmo SM-2 (estilo Anki) usado nos tópicos — 4 botões de avaliação (Errei/Difícil/Bom/Fácil), cada um já mostrando em quantos dias o card volta a aparecer antes de você clicar.",
+      "Nova tela de boas-vindas: toda vez que o app é aberto, um carrossel de cards viráveis reúne os tópicos vencidos da revisão espaçada, as provas mais próximas e os flashcards pendentes de revisão.",
+      "Novo 📌 Lembretes em Estudos → Flashcards: bilhetes rápidos (documento pra levar, prazo de inscrição etc.) que aparecem no topo da tela de boas-vindas até serem marcados como concluídos.",
+      "Novo botão ✍️ Registrar Sessão em Hoje & Registros: lance manualmente uma sessão de estudo já concluída (sem passar pelo pomodoro) — tipo (Teoria/Revisão/Questão), duração, questões e acertos, páginas lidas, material de apoio, videoaulas assistidas, com opção de marcar o assunto como concluído e entrar na fila de revisão.",
+      "Novo botão ⚙️ flutuante de modo de visualização: escolha entre o modo Compacto (cards de análise viram um resumo com botão 'Ver Detalhes' em modal) e Expandido (tudo visível na página, como era antes) em Estudos → Desempenho e Análises.",
+      "Paleta de cores de matéria ampliada de 28 para 36 cores, reorganizada por família (vermelhos, laranjas, amarelos, verdes...) — mais fácil de escolher cores bem distintas com muitas matérias e tópicos cadastrados.",
+    ],
+  },
+  {
     versao: "1.23",
     titulo: "Analisador de Edital em manutenção",
     itens: [
@@ -12047,13 +12060,22 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
   {
     categoria: "📚 Matérias, Metas e Provas",
     itens: [
-      "Matérias com cor, peso de prioridade e vínculo a uma meta",
+      "Matérias com cor (36 tons organizados por família), peso de prioridade e vínculo a uma meta",
       "Sub-tópicos do edital por matéria, com progresso — incluindo cadastro rápido de subtópicos direto na tela de registrar questões",
       "Cadastro de Prova de Concurso: data da prova, remuneração, valor e período de inscrição, com alarme de prazo (banner + notificação)",
       "Meta de Horas Semanais: alvo recorrente de horas por semana, independente de prova",
+      "Registro de Sessão Avulsa: lance manualmente uma sessão de estudo já concluída (sem passar pelo pomodoro) — tipo, duração, questões, páginas lidas e videoaulas assistidas",
       "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
       "Questões resolvidas e simulados/provas completas, com histórico",
       "Modo Reta Final: checklist diário automático que ativa quando uma prova está a 30 dias ou menos, juntando revisões atrasadas, pontos fracos e matérias de maior peso",
+    ],
+  },
+  {
+    categoria: "🗂️ Flashcards e Lembretes",
+    itens: [
+      "Flashcards de pergunta/resposta com revisão espaçada estilo Anki (algoritmo SM-2), com preview do intervalo em cada botão de avaliação antes de você clicar",
+      "Lembretes: bilhetes rápidos que ficam visíveis até serem marcados como concluídos",
+      "Tela de boas-vindas ao abrir o app: carrossel de cards viráveis com tópicos vencidos da revisão, provas próximas e flashcards pendentes, mais os lembretes em aberto",
     ],
   },
   {
@@ -12068,6 +12090,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "Radar de Competências: gráfico de teia com o % de acerto por matéria",
       "Caderno de Erros com diagnóstico de causa: classifique o motivo de cada erro (conteúdo, confusão de conceito, leitura ou atenção) e veja a distribuição",
       "Tempo médio por questão: cruza velocidade com precisão pra separar 'não sabe' de 'sabe, mas é lento'",
+      "Modo de visualização Compacto (resumo + 'Ver Detalhes' em modal) ou Expandido (tudo visível na página) pros cards de análise, trocável a qualquer momento pelo botão ⚙️ flutuante",
       "Exportar relatório de estudos em PDF",
     ],
   },
