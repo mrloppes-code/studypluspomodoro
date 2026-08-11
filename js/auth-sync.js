@@ -244,10 +244,18 @@ async function sincronizarParaNuvem() {
   sincronizandoAgora = true;
   try {
     const dados = coletarDadosParaNuvem();
-    const { error } = await sb
-      .from("dados_usuario")
-      .update({ dados, atualizado_em: new Date().toISOString() })
-      .eq("user_id", usuarioAtual.id);
+    // upsert (não update): numa conta recém-criada ainda não existe
+    // nenhuma linha em dados_usuario pra esse user_id — um update puro
+    // não daria erro nenhum, só não salvaria nada (0 linhas afetadas),
+    // fazendo a primeira sincronização "sumir" silenciosamente.
+    const { error } = await sb.from("dados_usuario").upsert(
+      {
+        user_id: usuarioAtual.id,
+        dados,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
     if (error) console.error("Erro ao sincronizar com a nuvem:", error);
   } catch (err) {
     console.error("Erro ao sincronizar com a nuvem:", err);

@@ -261,6 +261,8 @@ let materias = JSON.parse(localStorage.getItem("materias")) || [];
 let anotacoesFlashcards =
   JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
 let lembretes = JSON.parse(localStorage.getItem("lembretes")) || [];
+let totalRevisoesFlashcards =
+  parseInt(localStorage.getItem("totalRevisoesFlashcards"), 10) || 0;
 let metas = JSON.parse(localStorage.getItem("metas")) || [];
 
 // Analisador de Edital (IA): retirado temporariamente pra manutenção (ver
@@ -4858,6 +4860,19 @@ function avaliarRevisaoFlashcard(qualidade) {
     "anotacoesFlashcards",
     JSON.stringify(anotacoesFlashcards),
   );
+
+  // Cada avaliação (independente da nota) conta como uma revisão de
+  // verdade pra fins de XP — revisar 20 cards é esforço real, igual
+  // completar pomodoros ou acumular minutos estudados.
+  totalRevisoesFlashcards++;
+  localStorage.setItem(
+    "totalRevisoesFlashcards",
+    String(totalRevisoesFlashcards),
+  );
+  // Atualiza XP/nível/conquistas em tempo real (dispara toast de "subiu de
+  // nível" ou de conquista nova na hora, sem esperar o próximo carregamento
+  // do painel).
+  renderizarGamificacao();
 
   filaRevisaoFlashcards.shift();
   if (filaRevisaoFlashcards.length === 0) {
@@ -10969,16 +10984,19 @@ function obterStatsGamificacao() {
     diasComMetaBatidaSeguidos,
     temSessaoMadrugada,
     temSessaoNoturna,
+    flashcardsRevisados: totalRevisoesFlashcards,
   };
 }
 
 function calcularXPTotal(stats) {
   // 1 XP por minuto estudado + 15 XP por pomodoro completo + 10 XP por dia
-  // de streak atual
+  // de streak atual + 2 XP por flashcard revisado (independente da nota —
+  // é o esforço de revisar que conta, não só acertar).
   return (
     stats.minutosTotais * 1 +
     stats.pomodorosTotais * 15 +
-    stats.streakAtual * 10
+    stats.streakAtual * 10 +
+    stats.flashcardsRevisados * 2
   );
 }
 
@@ -11003,6 +11021,20 @@ const CONQUISTAS = [
     desc: "Estudou 30 dias seguidos",
     icone: "🔥",
     check: (s) => s.streakAtual >= 30,
+  },
+  {
+    id: "flashcards20",
+    nome: "Repetidor",
+    desc: "Revisou 20 flashcards",
+    icone: "🗂️",
+    check: (s) => s.flashcardsRevisados >= 20,
+  },
+  {
+    id: "flashcards100",
+    nome: "Mestre dos Flashcards",
+    desc: "Revisou 100 flashcards",
+    icone: "🗂️",
+    check: (s) => s.flashcardsRevisados >= 100,
   },
   {
     id: "horas10",
@@ -11544,6 +11576,7 @@ function baixarCartaoConquista() {
 const CHAVES_BACKUP = [
   "anotacoesFlashcards",
   "lembretes",
+  "totalRevisoesFlashcards",
   "bancoDistracoes",
   "conquistasDesbloqueadas",
   "dadosPerfil",
@@ -11662,6 +11695,8 @@ function recarregarEstadoDoLocalStorage() {
   anotacoesFlashcards =
     JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
   lembretes = JSON.parse(localStorage.getItem("lembretes")) || [];
+  totalRevisoesFlashcards =
+    parseInt(localStorage.getItem("totalRevisoesFlashcards"), 10) || 0;
   tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
   logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
   dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
