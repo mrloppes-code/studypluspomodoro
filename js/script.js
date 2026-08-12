@@ -2790,14 +2790,25 @@ function atualizarJanelaPip(textoFormatado) {
 // Sincroniza a aba ativa do Timer de Preparação com o valor salvo no
 // navegador assim que a página carrega (a aba de Tempo de Foco já nasce
 // certa no HTML, então só precisamos ajustar a de Preparação aqui).
-document.addEventListener("DOMContentLoaded", () => {
+// Sincroniza a aba ativa do Timer de Preparação com o valor atual de
+// tempoPreparoMinutos. Não pode rodar só uma vez no DOMContentLoaded: se
+// o usuário estiver logado, a sincronização com a nuvem só termina DEPOIS
+// do DOMContentLoaded (é assíncrona) e pode trazer um tempoPreparoMinutos
+// diferente do salvo neste aparelho — sem repetir essa sincronização
+// depois que os dados da nuvem chegam, a aba destacada fica desatualizada
+// mesmo com o valor certo em memória. Era exatamente isso que fazia o
+// Timer de Preparação rodar de verdade (5/10/15 min) enquanto a aba
+// mostrava "Sem preparo" como se estivesse selecionada.
+function sincronizarAbaTimerPreparo() {
   document.querySelectorAll(".aba-tempo-preparo").forEach((btn) => {
     btn.classList.toggle(
       "aba-ativa",
       parseInt(btn.dataset.min, 10) === tempoPreparoMinutos,
     );
   });
-});
+}
+
+document.addEventListener("DOMContentLoaded", sincronizarAbaTimerPreparo);
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
@@ -4555,22 +4566,30 @@ async function registrarSessaoAvulsa(event) {
 // --- LEMBRETES (bilhetes rápidos, sem revisão espaçada) ---
 // Diferente do flashcard, o lembrete não tem "frente/verso" nem entra no
 // SM-2 — é só um bilhete que fica batendo na tela de boas-vindas até você
-// marcar como concluído (ou excluir direto na aba Flashcards).
+// marcar como concluído (ou excluir direto na aba Flashcards). Pode ter
+// prioridade "urgente" e/ou uma data associada (prazo de inscrição, data
+// da prova...), com destaque visual quando essa data estiver perto.
 function criarLembrete(event) {
   if (event) event.preventDefault();
 
   const input = document.getElementById("lembrete-texto");
+  const dataInput = document.getElementById("lembrete-data");
+  const prioridadeInput = document.getElementById("lembrete-prioridade");
   const texto = input.value.trim();
   if (!texto) return;
 
   lembretes.push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     texto,
+    data: dataInput.value || null,
+    prioridade: prioridadeInput.value === "urgente" ? "urgente" : "normal",
     criadoEm: obterDataLocalString(new Date()),
   });
   localStorage.setItem("lembretes", JSON.stringify(lembretes));
 
   input.value = "";
+  dataInput.value = "";
+  prioridadeInput.value = "normal";
   renderizarListaLembretes();
   mostrarToastGamificacao("📌", "Lembrete criado", texto.slice(0, 60));
 }
@@ -4579,6 +4598,59 @@ function excluirLembrete(id) {
   lembretes = lembretes.filter((l) => l.id !== id);
   localStorage.setItem("lembretes", JSON.stringify(lembretes));
   renderizarListaLembretes();
+}
+
+// Urgente sempre primeiro; entre os não-urgentes, quem tem data vem antes
+// de quem não tem (ordenado pela mais próxima); sem data nenhuma, o mais
+// recente primeiro.
+function ordenarLembretes(lista) {
+  return lista.slice().sort((a, b) => {
+    const aUrgente = a.prioridade === "urgente";
+    const bUrgente = b.prioridade === "urgente";
+    if (aUrgente !== bUrgente) return aUrgente ? -1 : 1;
+    if (a.data && b.data) return a.data.localeCompare(b.data);
+    if (a.data && !b.data) return -1;
+    if (!a.data && b.data) return 1;
+    return (b.criadoEm || "").localeCompare(a.criadoEm || "");
+  });
+}
+
+// Monta o texto e o nível de urgência visual da data do lembrete (vencido
+// / hoje-amanhã-em breve / normal), pra destacar quando estiver próxima.
+function formatarBadgeDataLembrete(dataStr) {
+  if (!dataStr) return null;
+  const hoje = new Date(obterDataLocalString(new Date()) + "T00:00:00");
+  const data = new Date(dataStr + "T00:00:00");
+  const dias = Math.round((data - hoje) / 86400000);
+  const dataFormatada = data.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+  if (dias < 0)
+    return { texto: `Venceu em ${dataFormatada}`, urgencia: "vencido" };
+  if (dias === 0) return { texto: "Hoje", urgencia: "proximo" };
+  if (dias === 1) return { texto: "Amanhã", urgencia: "proximo" };
+  if (dias <= 3) return { texto: `Em ${dias} dias`, urgencia: "proximo" };
+  return { texto: dataFormatada, urgencia: "normal" };
+}
+
+function montarBadgesLembrete(l) {
+  const badgeData = formatarBadgeDataLembrete(l.data);
+  let html = "";
+  if (l.prioridade === "urgente") {
+    html += `<span class="lembrete-badge lembrete-badge-urgente">🔴 Urgente</span>`;
+  }
+  if (badgeData) {
+    const classeExtra =
+      badgeData.urgencia === "vencido"
+        ? "lembrete-badge-vencido"
+        : badgeData.urgencia === "proximo"
+          ? "lembrete-badge-proximo"
+          : "";
+    html += `<span class="lembrete-badge lembrete-badge-data ${classeExtra}">📅 ${badgeData.texto}</span>`;
+  }
+  return html;
 }
 
 function renderizarListaLembretes() {
@@ -4593,13 +4665,18 @@ function renderizarListaLembretes() {
   }
   vazio.style.display = "none";
 
-  container.innerHTML = lembretes
-    .slice()
-    .reverse()
-    .map(
-      (l) => `
-        <div class="lembrete-item">
-          <span class="lembrete-item-texto">${escapeHtml(l.texto)}</span>
+  container.innerHTML = ordenarLembretes(lembretes)
+    .map((l) => {
+      const badgeData = formatarBadgeDataLembrete(l.data);
+      const destaque =
+        l.prioridade === "urgente" ||
+        (badgeData && badgeData.urgencia !== "normal");
+      return `
+        <div class="lembrete-item ${destaque ? "lembrete-item-destaque" : ""}">
+          <div class="lembrete-item-conteudo">
+            <span class="lembrete-item-texto">${escapeHtml(l.texto)}</span>
+            <div class="lembrete-item-badges">${montarBadgesLembrete(l)}</div>
+          </div>
           <button
             type="button"
             class="lembrete-item-excluir"
@@ -4608,9 +4685,254 @@ function renderizarListaLembretes() {
             ✓ Concluído
           </button>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
+}
+
+// --- IMPORTAR / EXPORTAR FLASHCARDS (CSV e formato Anki) ---
+// Pra quem já tem baralhos prontos em outro app ou quer migrar pro Anki e
+// continuar usando de lá. O formato CSV é o "nativo" do Estude+ (com
+// coluna de matéria); o .txt separado por tab é o formato que o Anki
+// entende direto na tela de importação dele.
+
+function baixarArquivoTexto(conteudo, nomeArquivo, tipoMime, comBom) {
+  const texto = comBom ? "\uFEFF" + conteudo : conteudo;
+  const blob = new Blob([texto], { type: tipoMime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nomeArquivo;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escaparCampoCsv(valor) {
+  const texto = String(valor ?? "");
+  if (/[",\n]/.test(texto)) return `"${texto.replace(/"/g, '""')}"`;
+  return texto;
+}
+
+function exportarFlashcardsCsv() {
+  if (anotacoesFlashcards.length === 0) {
+    mostrarAlerta("Você ainda não tem nenhum flashcard pra exportar.");
+    return;
+  }
+  const linhas = ["frente,verso,materia,criadoEm"];
+  anotacoesFlashcards.forEach((fc) => {
+    linhas.push(
+      [
+        escaparCampoCsv(fc.frente),
+        escaparCampoCsv(fc.verso),
+        escaparCampoCsv(fc.materia || ""),
+        escaparCampoCsv(fc.criadoEm || ""),
+      ].join(","),
+    );
+  });
+  // BOM (\uFEFF) ajuda Excel/Numbers a detectar UTF-8 certo e não
+  // bagunçar os acentos.
+  baixarArquivoTexto(
+    linhas.join("\n"),
+    "estude-mais-flashcards.csv",
+    "text/csv;charset=utf-8",
+    true,
+  );
+  mostrarToastGamificacao(
+    "📤",
+    "Flashcards exportados",
+    `${anotacoesFlashcards.length} card${anotacoesFlashcards.length === 1 ? "" : "s"} em CSV.`,
+  );
+}
+
+function exportarFlashcardsAnki() {
+  if (anotacoesFlashcards.length === 0) {
+    mostrarAlerta("Você ainda não tem nenhum flashcard pra exportar.");
+    return;
+  }
+  // Anki lê frente/verso separados por tab; quebras de linha viram <br>
+  // (Anki entende HTML simples nos campos) e um tab dentro do texto vira
+  // espaço, pra não confundir com o separador de coluna.
+  const linhas = anotacoesFlashcards.map((fc) => {
+    const frente = (fc.frente || "").replace(/\t/g, " ").replace(/\n/g, "<br>");
+    const verso = (fc.verso || "").replace(/\t/g, " ").replace(/\n/g, "<br>");
+    return `${frente}\t${verso}`;
+  });
+  baixarArquivoTexto(
+    linhas.join("\n"),
+    "estude-mais-flashcards-anki.txt",
+    "text/plain;charset=utf-8",
+    false,
+  );
+  mostrarToastGamificacao(
+    "📤",
+    "Flashcards exportados",
+    `${anotacoesFlashcards.length} card${anotacoesFlashcards.length === 1 ? "" : "s"} prontos pra importar no Anki.`,
+  );
+}
+
+// Parser de CSV com suporte a campos entre aspas (vírgula/quebra de linha
+// dentro do campo, aspas duplicadas pra escapar aspas literais) — um
+// split(",") simples quebraria em respostas que contêm vírgula.
+function analisarLinhasCsv(texto) {
+  const linhas = [];
+  let linhaAtual = [];
+  let campoAtual = "";
+  let dentroDeAspas = false;
+
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (dentroDeAspas) {
+      if (c === '"') {
+        if (texto[i + 1] === '"') {
+          campoAtual += '"';
+          i++;
+        } else {
+          dentroDeAspas = false;
+        }
+      } else {
+        campoAtual += c;
+      }
+    } else if (c === '"') {
+      dentroDeAspas = true;
+    } else if (c === ",") {
+      linhaAtual.push(campoAtual);
+      campoAtual = "";
+    } else if (c === "\n") {
+      linhaAtual.push(campoAtual);
+      linhas.push(linhaAtual);
+      linhaAtual = [];
+      campoAtual = "";
+    } else if (c !== "\r") {
+      campoAtual += c;
+    }
+  }
+  if (campoAtual !== "" || linhaAtual.length > 0) {
+    linhaAtual.push(campoAtual);
+    linhas.push(linhaAtual);
+  }
+  return linhas;
+}
+
+// Remove marcação HTML comum em exports do Anki (campos lá aceitam HTML)
+// e decodifica entidades básicas, pra não sobrar "&lt;div&gt;" literal no
+// meio do texto importado.
+function limparTextoImportado(texto) {
+  return texto
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .trim();
+}
+
+async function importarArquivoFlashcards(event) {
+  const input = event.target;
+  const arquivo = input.files && input.files[0];
+  if (!arquivo) return;
+
+  const texto = await arquivo.text();
+  input.value = ""; // permite selecionar o mesmo arquivo de novo depois
+
+  const linhasBrutas = texto
+    .split(/\r\n|\n/)
+    .filter((l) => l.trim() !== "" && !l.trim().startsWith("#"));
+
+  if (linhasBrutas.length === 0) {
+    await mostrarAlerta("Esse arquivo está vazio.");
+    return;
+  }
+
+  // Detecta o separador: tab é o padrão do Anki, ponto-e-vírgula é a
+  // alternativa mais comum, vírgula (com suporte a aspas) é o padrão CSV.
+  const primeiraLinha = linhasBrutas[0];
+  let delimitador = ",";
+  if (primeiraLinha.includes("\t")) delimitador = "\t";
+  else if (!primeiraLinha.includes(",") && primeiraLinha.includes(";"))
+    delimitador = ";";
+
+  let linhas;
+  if (delimitador === ",") {
+    linhas = analisarLinhasCsv(linhasBrutas.join("\n"));
+  } else {
+    linhas = linhasBrutas.map((l) => l.split(delimitador));
+  }
+
+  // Descarta a primeira linha se for claramente um cabeçalho.
+  const rotulosFrente = ["frente", "front", "pergunta", "question"];
+  const rotulosVerso = ["verso", "back", "resposta", "answer"];
+  if (
+    linhas.length > 0 &&
+    rotulosFrente.includes((linhas[0][0] || "").trim().toLowerCase()) &&
+    rotulosVerso.includes((linhas[0][1] || "").trim().toLowerCase())
+  ) {
+    linhas = linhas.slice(1);
+  }
+
+  const existentes = new Set(
+    anotacoesFlashcards.map(
+      (fc) =>
+        `${fc.frente.trim().toLowerCase()}|${fc.verso.trim().toLowerCase()}`,
+    ),
+  );
+  const vistosNesseArquivo = new Set();
+  const novos = [];
+
+  linhas.forEach((cols, idx) => {
+    const frente = limparTextoImportado((cols[0] || "").trim());
+    const verso = limparTextoImportado((cols[1] || "").trim());
+    const materia = limparTextoImportado((cols[2] || "").trim());
+    if (!frente || !verso) return;
+
+    const chave = `${frente.toLowerCase()}|${verso.toLowerCase()}`;
+    if (existentes.has(chave) || vistosNesseArquivo.has(chave)) return;
+    vistosNesseArquivo.add(chave);
+
+    novos.push({
+      id:
+        Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + idx,
+      frente,
+      verso,
+      materia: materia || null,
+      criadoEm: obterDataLocalString(new Date()),
+      srs: SRS_PADRAO(1),
+    });
+  });
+
+  const ignorados = linhas.length - novos.length;
+
+  if (novos.length === 0) {
+    await mostrarAlerta(
+      ignorados > 0
+        ? "Todos os flashcards desse arquivo já existem na sua lista."
+        : "Nenhum flashcard válido encontrado nesse arquivo. Confira se cada linha tem pelo menos frente e verso.",
+    );
+    return;
+  }
+
+  const confirmou = await mostrarConfirmacao(
+    `Encontramos ${novos.length} flashcard${novos.length === 1 ? "" : "s"} novo${novos.length === 1 ? "" : "s"} nesse arquivo${ignorados > 0 ? ` (${ignorados} já existia${ignorados === 1 ? "" : "m"} e foi${ignorados === 1 ? "" : "ram"} ignorado${ignorados === 1 ? "" : "s"})` : ""}. Importar?`,
+    { icone: "📥", titulo: "Importar flashcards" },
+  );
+  if (!confirmou) return;
+
+  anotacoesFlashcards.push(...novos);
+  localStorage.setItem(
+    "anotacoesFlashcards",
+    JSON.stringify(anotacoesFlashcards),
+  );
+  renderizarListaFlashcards();
+  mostrarToastGamificacao(
+    "📥",
+    "Flashcards importados",
+    `${novos.length} novo${novos.length === 1 ? "" : "s"} adicionado${novos.length === 1 ? "" : "s"}.`,
+  );
 }
 
 // --- FLASHCARDS (anotações próprias, em formato pergunta/resposta) ---
@@ -5011,13 +5333,19 @@ function renderizarLembretesBoasVindas() {
   }
   secao.style.display = "block";
 
-  lista.innerHTML = lembretes
-    .slice()
-    .reverse()
-    .map(
-      (l) => `
-        <div class="boas-vindas-lembrete-item">
-          <span class="boas-vindas-lembrete-texto">${escapeHtml(l.texto)}</span>
+  lista.innerHTML = ordenarLembretes(lembretes)
+    .map((l) => {
+      const badgeData = formatarBadgeDataLembrete(l.data);
+      const destaque =
+        l.prioridade === "urgente" ||
+        (badgeData && badgeData.urgencia !== "normal");
+      const badges = montarBadgesLembrete(l);
+      return `
+        <div class="boas-vindas-lembrete-item ${destaque ? "boas-vindas-lembrete-destaque" : ""}">
+          <div class="boas-vindas-lembrete-conteudo">
+            <span class="boas-vindas-lembrete-texto">${escapeHtml(l.texto)}</span>
+            ${badges ? `<div class="lembrete-item-badges">${badges}</div>` : ""}
+          </div>
           <button
             type="button"
             class="boas-vindas-lembrete-concluir"
@@ -5027,8 +5355,8 @@ function renderizarLembretesBoasVindas() {
             ✓
           </button>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
 }
 
@@ -11748,6 +12076,7 @@ function iniciarAppEstudeMais() {
   renderizarTodoOPainel();
   renderizarTarefas();
   atualizarProgressoPomodoros();
+  sincronizarAbaTimerPreparo();
   verificarSimuladoCronometradoEmAndamento();
   restaurarSessaoAtivaSalva();
   restaurarOrdemWidgetsPainel();

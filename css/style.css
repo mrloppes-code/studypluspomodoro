@@ -6370,11 +6370,18 @@ body.modo-cards-expandido
 /* --- LEMBRETES: FORMULÁRIO E LISTA DE GERENCIAMENTO --- */
 .lembrete-input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
 }
-.lembrete-input-row input {
+.lembrete-input-row input[type="text"] {
   flex: 1;
+  min-width: 220px;
+  margin-bottom: 0;
+}
+.lembrete-input-row input[type="date"],
+.lembrete-input-row select {
+  width: auto;
   margin-bottom: 0;
 }
 .lembretes-lista {
@@ -6390,11 +6397,51 @@ body.modo-cards-expandido
   padding: 10px 14px;
   background: var(--surface-inset);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
   border-radius: 8px;
+}
+.lembrete-item-destaque {
+  border-left-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 6%, var(--surface-inset));
+}
+.lembrete-item-conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .lembrete-item-texto {
   color: var(--text-main);
   font-size: 0.92rem;
+}
+.lembrete-item-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lembrete-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.lembrete-badge-urgente {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.lembrete-badge-proximo {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: #f97316;
+  color: #f97316;
+}
+.lembrete-badge-vencido {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 .lembrete-item-excluir {
   width: auto;
@@ -6440,6 +6487,16 @@ body.modo-cards-expandido
   border-left: 3px solid var(--primary);
   border-radius: 6px;
 }
+.boas-vindas-lembrete-destaque {
+  border-left-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 8%, var(--surface-inset));
+}
+.boas-vindas-lembrete-conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
 .boas-vindas-lembrete-texto {
   color: var(--text-main);
   font-size: 0.86rem;
@@ -6463,4 +6520,32 @@ body.modo-cards-expandido
   border-color: #10b981;
   background: rgba(16, 185, 129, 0.15);
   color: #10b981;
+}
+
+/* --- IMPORTAR / EXPORTAR FLASHCARDS --- */
+.flashcards-import-export-botoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.flashcards-btn-importar,
+.flashcards-btn-exportar {
+  width: auto;
+  margin: 0;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+.flashcards-btn-importar:hover,
+.flashcards-btn-exportar:hover {
+  border-color: var(--primary);
+  color: var(--accent-text);
 }

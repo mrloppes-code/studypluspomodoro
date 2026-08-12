@@ -3845,6 +3845,15 @@
                   placeholder="Ex: Levar documento com foto no dia da prova"
                   required
                 />
+                <input
+                  type="date"
+                  id="lembrete-data"
+                  title="Data do lembrete (opcional)"
+                />
+                <select id="lembrete-prioridade" title="Prioridade">
+                  <option value="normal">Normal</option>
+                  <option value="urgente">🔴 Urgente</option>
+                </select>
                 <button
                   type="submit"
                   class="ra-btn-salvar"
@@ -3889,7 +3898,46 @@
           </div>
 
           <div class="card full-width">
-            <h2>🗂️ Meus Flashcards</h2>
+            <div class="card-header-com-acao">
+              <h2>🗂️ Meus Flashcards</h2>
+              <div class="flashcards-import-export-botoes">
+                <label
+                  class="flashcards-btn-importar"
+                  for="flashcards-input-importar"
+                  >Importar</label
+                >
+                <input
+                  type="file"
+                  id="flashcards-input-importar"
+                  accept=".csv,.txt"
+                  style="display: none"
+                  onchange="importarArquivoFlashcards(event)"
+                />
+                <button
+                  type="button"
+                  class="flashcards-btn-exportar"
+                  onclick="exportarFlashcardsCsv()"
+                >
+                  Exportar CSV
+                </button>
+                <button
+                  type="button"
+                  class="flashcards-btn-exportar"
+                  onclick="exportarFlashcardsAnki()"
+                >
+                  Exportar p/ Anki
+                </button>
+              </div>
+            </div>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Importe um .csv (colunas frente, verso, matéria) ou um .txt
+              exportado do Anki (frente e verso separados por tab). Ao importar
+              o .txt no Anki, escolha "Fields separated by: Tab" na tela de
+              importação.
+            </p>
             <p id="flashcards-vazio" class="sessoes-hoje-vazio">
               Você ainda não criou nenhum flashcard.
             </p>
