@@ -7976,6 +7976,36 @@ function calcularEstatisticasPorProva() {
     const questoesTotal = registrosDaMeta.reduce((s, r) => s + r.total, 0);
     const questoesAcertos = registrosDaMeta.reduce((s, r) => s + r.acertos, 0);
 
+    // Sessões de estudo (Pomodoro + registros avulsos) das matérias vinculadas
+    // a esta prova — dá pra ver quantas sessões, em quantos dias diferentes,
+    // e a duração média de cada uma.
+    const sessoesDaMeta = logsSessoes.filter((log) =>
+      nomesDaMeta.has(log.materia),
+    );
+    const numSessoes = sessoesDaMeta.length;
+    const diasEstudadosDistintos = new Set(sessoesDaMeta.map((log) => log.data))
+      .size;
+    const duracaoMediaSessao =
+      numSessoes > 0 ? Math.round(tempoMinutos / numSessoes) : 0;
+
+    // Simulados completos vinculados direto à prova (independe de matéria).
+    const simuladosDaMeta = (registrosSimulados || []).filter(
+      (sim) => (sim.metaVinculada || "") === meta.objetivoNome,
+    );
+    const simuladosTotal = simuladosDaMeta.length;
+    const simuladosQuestoesTotal = simuladosDaMeta.reduce(
+      (s, sim) => s + (sim.total || 0),
+      0,
+    );
+    const simuladosAcertosTotal = simuladosDaMeta.reduce(
+      (s, sim) => s + (sim.acertos || 0),
+      0,
+    );
+    const simuladosPercentualAcerto =
+      simuladosQuestoesTotal > 0
+        ? Math.round((simuladosAcertosTotal / simuladosQuestoesTotal) * 100)
+        : null;
+
     const prazo = new Date(meta.dataLimite + "T23:59:59");
     const diasRestantes = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24));
 
@@ -7994,6 +8024,11 @@ function calcularEstatisticasPorProva() {
         questoesTotal > 0
           ? Math.round((questoesAcertos / questoesTotal) * 100)
           : null,
+      numSessoes,
+      diasEstudadosDistintos,
+      duracaoMediaSessao,
+      simuladosTotal,
+      simuladosPercentualAcerto,
       diasRestantes,
     };
   });
@@ -8136,6 +8171,7 @@ function renderizarComparativoProvas() {
 // estiver ativa) e independe do filtro de "prova em foco" no topo.
 let graficoComparativoCadastroTempo = null;
 let graficoComparativoCadastroDesempenho = null;
+let graficoComparativoCadastroSimulados = null;
 
 async function abrirComparativoProvasCadastradas() {
   if (metas.length < 2) {
@@ -8154,9 +8190,15 @@ function renderizarComparativoProvasCadastro() {
   const corpoTabela = document.getElementById(
     "comparativo-provas-cadastro-corpo",
   );
+  const corpoTabelaSessoes = document.getElementById(
+    "comparativo-provas-cadastro-sessoes-corpo",
+  );
   const canvasTempo = document.getElementById("chartComparativoCadastroTempo");
   const canvasDesempenho = document.getElementById(
     "chartComparativoCadastroDesempenho",
+  );
+  const canvasSimulados = document.getElementById(
+    "chartComparativoCadastroSimulados",
   );
   if (!corpoTabela) return;
 
@@ -8189,6 +8231,30 @@ function renderizarComparativoProvasCadastro() {
       `;
     })
     .join("");
+
+  if (corpoTabelaSessoes) {
+    corpoTabelaSessoes.innerHTML = stats
+      .map((s) => {
+        const simuladosTexto =
+          s.simuladosTotal > 0 ? `${s.simuladosTotal}` : "—";
+        const simuladosAcertoTexto =
+          s.simuladosPercentualAcerto != null
+            ? `${s.simuladosPercentualAcerto}%`
+            : "—";
+
+        return `
+          <tr>
+            <td><strong>🎯 ${escapeHtml(s.objetivoNome)}</strong></td>
+            <td>${s.numSessoes}</td>
+            <td>${s.diasEstudadosDistintos}</td>
+            <td>${s.numSessoes > 0 ? formatarHorasMinutos(s.duracaoMediaSessao) : "—"}</td>
+            <td>${simuladosTexto}</td>
+            <td>${simuladosAcertoTexto}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
 
   const estiloRaiz = getComputedStyle(document.documentElement);
   const corTextoMuted =
@@ -8298,6 +8364,90 @@ function renderizarComparativoProvasCadastro() {
               callbacks: {
                 label: (contexto) =>
                   ` ${contexto.dataset.label}: ${contexto.parsed.y}%`,
+              },
+            },
+          },
+        },
+      },
+    );
+  }
+
+  if (canvasSimulados) {
+    if (graficoComparativoCadastroSimulados) {
+      graficoComparativoCadastroSimulados.destroy();
+    }
+    graficoComparativoCadastroSimulados = new Chart(
+      canvasSimulados.getContext("2d"),
+      {
+        type: "bar",
+        data: {
+          labels: stats.map((s) => s.objetivoNome),
+          datasets: [
+            {
+              type: "bar",
+              label: "Simulados realizados",
+              data: stats.map((s) => s.simuladosTotal),
+              backgroundColor: "#f59e0b",
+              borderRadius: 6,
+              yAxisID: "yQtd",
+            },
+            {
+              type: "line",
+              label: "% Acerto nos simulados",
+              data: stats.map((s) => s.simuladosPercentualAcerto || 0),
+              borderColor: "#10b981",
+              backgroundColor: "#10b981",
+              yAxisID: "yPct",
+              tension: 0.3,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            yQtd: {
+              position: "left",
+              beginAtZero: true,
+              ticks: {
+                color: corTextoMuted,
+                font: { family: fonteApp },
+                precision: 0,
+              },
+              grid: { color: "rgba(148,163,184,0.15)" },
+            },
+            yPct: {
+              position: "right",
+              min: 0,
+              max: 100,
+              ticks: {
+                color: corTextoMuted,
+                font: { family: fonteApp },
+                callback: (valor) => `${valor}%`,
+              },
+              grid: { display: false },
+            },
+            x: {
+              ticks: { color: corTextoMuted, font: { family: fonteApp } },
+              grid: { display: false },
+            },
+          },
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                color: corTextoMuted,
+                font: { family: fonteApp, size: 12 },
+              },
+            },
+            tooltip: {
+              bodyFont: { family: fonteApp },
+              titleFont: { family: fonteApp },
+              callbacks: {
+                label: (contexto) =>
+                  contexto.dataset.yAxisID === "yPct"
+                    ? ` ${contexto.dataset.label}: ${contexto.parsed.y}%`
+                    : ` ${contexto.dataset.label}: ${contexto.parsed.y}`,
               },
             },
           },
