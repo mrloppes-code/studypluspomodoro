@@ -3997,6 +3997,25 @@ function calcularTopicosParaRevisar() {
   return resultado;
 }
 
+// Marca uma matéria (sem tópicos cadastrados) como revisada manualmente —
+// pra quando o usuário estudou por fora do Pomodoro (livro, vídeo, resumo
+// no caderno etc.) e não quer que o lembrete continue ativo à toa.
+function marcarRevisaoManual(nomeMateria) {
+  const materia = materias.find((m) => m.nome === nomeMateria);
+  if (!materia) return;
+
+  materia.ultimaRevisaoManual = obterDataLocalString(new Date());
+  localStorage.setItem("materias", JSON.stringify(materias));
+
+  mostrarToastGamificacao(
+    "✅",
+    "Revisão marcada!",
+    `${nomeMateria} — contagem reiniciada`,
+  );
+
+  renderizarRevisaoPendente();
+}
+
 // Heurística antiga, mantida como reserva pra matérias que ainda não têm
 // nenhum tópico cadastrado — assim quem não usa sub-tópicos ainda continua
 // recebendo algum lembrete, baseado no peso de prioridade da matéria.
@@ -4008,11 +4027,13 @@ function calcularRevisoesPendentes() {
     if ((m.topicos || []).length > 0) return; // essa matéria já usa o SM-2 por tópico
 
     const sessoesDaMateria = logsSessoes.filter((l) => l.materia === m.nome);
-    if (sessoesDaMateria.length === 0) return;
+    const datasCandidatas = sessoesDaMateria.map((l) => l.data);
+    if (m.ultimaRevisaoManual) datasCandidatas.push(m.ultimaRevisaoManual);
+    if (datasCandidatas.length === 0) return;
 
-    const dataMaisRecente = sessoesDaMateria.reduce(
-      (max, l) => (l.data > max ? l.data : max),
-      sessoesDaMateria[0].data,
+    const dataMaisRecente = datasCandidatas.reduce(
+      (max, d) => (d > max ? d : max),
+      datasCandidatas[0],
     );
     const dataUltima = new Date(dataMaisRecente + "T00:00:00");
     const diasDesde = Math.floor((hoje - dataUltima) / 86400000);
@@ -4047,8 +4068,9 @@ function renderizarRevisaoPendente() {
   const existeAlgumTopicoConcluido = materiasDoFiltro.some((m) =>
     (m.topicos || []).some((t) => t.concluido),
   );
-  const algumaMateriaJaEstudada = materiasDoFiltro.some((m) =>
-    logsSessoes.some((l) => l.materia === m.nome),
+  const algumaMateriaJaEstudada = materiasDoFiltro.some(
+    (m) =>
+      logsSessoes.some((l) => l.materia === m.nome) || m.ultimaRevisaoManual,
   );
 
   if (!existeAlgumTopicoConcluido && !algumaMateriaJaEstudada) {
@@ -4102,13 +4124,23 @@ function renderizarRevisaoPendente() {
               <span class="revisao-nome">${escapeHtml(materia.nome)}</span>
               <span class="revisao-dias">Sem revisão há ${diasDesde} dia${diasDesde === 1 ? "" : "s"} · sem tópicos cadastrados</span>
             </div>
-            <button
-              type="button"
-              class="revisao-btn-estudar"
-              onclick="iniciarRevisaoRapida('${nomeEscapado}')"
-            >
-              ▶️ Revisar
-            </button>
+            <div class="revisao-acoes">
+              <button
+                type="button"
+                class="revisao-btn-check"
+                title="Já revisei isso fora do Pomodoro"
+                onclick="marcarRevisaoManual('${nomeEscapado}')"
+              >
+                ✅
+              </button>
+              <button
+                type="button"
+                class="revisao-btn-estudar"
+                onclick="iniciarRevisaoRapida('${nomeEscapado}')"
+              >
+                ▶️ Revisar
+              </button>
+            </div>
           </div>
         `;
       })

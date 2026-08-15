@@ -4094,6 +4094,39 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   background: var(--primary-hover);
 }
 
+/* Botões de ação (✅ marcar revisado / ▶️ revisar) das matérias sem
+   tópicos cadastrados ainda — ficam lado a lado à direita do item. */
+.revisao-acoes {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.revisao-btn-check {
+  background: var(--card-bg);
+  border: 1px solid var(--success);
+  color: var(--success);
+  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    transform 0.1s,
+    background 0.15s,
+    color 0.15s;
+}
+.revisao-btn-check:hover {
+  background: var(--success);
+  color: white;
+  transform: scale(1.08);
+}
+
 /* Linha de tópico com avaliação SM-2 (😵/😐/😄) */
 .revisao-item-topico {
   align-items: center;
@@ -4141,6 +4174,13 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 
 @media (max-width: 480px) {
+  .revisao-item {
+    flex-wrap: wrap;
+  }
+  .revisao-acoes {
+    width: 100%;
+    justify-content: flex-end;
+  }
   .revisao-item-topico {
     flex-wrap: wrap;
   }
