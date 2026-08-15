@@ -695,7 +695,15 @@ function mostrarSubAbaEstudos(subaba) {
   Object.entries(grupos).forEach(([chave, idGrupo]) => {
     const painel = document.getElementById(idGrupo);
     const botao = document.getElementById(`${idGrupo}-btn`);
-    if (painel) painel.style.display = chave === subaba ? "grid" : "none";
+    if (painel) {
+      // "Hoje & Registros" mistura cards de altura muito diferente (ex:
+      // Ritmo Sugerido com 1 item x Questões Resolvidas com form + lista)
+      // — em grid de 2 colunas isso deixa vãos enormes. Esse painel usa
+      // empilhamento vertical (flex-column, ver style.css); os demais
+      // continuam em grid normal.
+      const exibir = idGrupo === "estudos-sub-registros" ? "flex" : "grid";
+      painel.style.display = chave === subaba ? exibir : "none";
+    }
     if (botao) botao.classList.toggle("active", chave === subaba);
   });
 
