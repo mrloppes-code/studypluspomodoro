@@ -764,6 +764,12 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  /* Sem isso, o Grid estica todo card pra igualar a altura do vizinho mais
+     alto na mesma linha — daí cards com pouco conteúdo (ex: "Ritmo
+     Sugerido" com 1 item só, ou um formulário curto) ficam com um vazio
+     enorme embaixo só pra acompanhar o card ao lado. Com "start", cada
+     card cresce/encolhe conforme o próprio conteúdo. */
+  align-items: start;
 }
 .full-width {
   grid-column: span 2;
