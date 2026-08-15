@@ -678,6 +678,41 @@ function navegarPara(pagina) {
   }
 }
 
+// --- MASONRY DA SEÇÃO "HOJE & REGISTROS" ---
+// Distribui os cards dessa seção entre as duas colunas reais (ver
+// style.css) pela altura JÁ RENDERIZADA de cada coluna — cada card, na
+// ordem de prioridade abaixo, entra na coluna mais curta no momento. Isso
+// evita tanto o vão de um grid/coluna-CSS comum quanto o desperdício de
+// espaço de empilhar tudo numa coluna só.
+// Chamada sempre que o conteúdo de algum desses cards muda (ver
+// try/finally nas funções renderizarSessoesHoje, renderizarRevisaoPendente,
+// renderizarRitmoSugerido, renderizarQuestoesResolvidas, renderizarSimulados)
+// e ao abrir a aba (mostrarSubAbaEstudos), já que com o painel escondido
+// (display:none) tudo mede 0 de altura e a distribuição sairia errada.
+function montarColunasRegistros() {
+  const painel = document.getElementById("estudos-sub-registros");
+  const colEsq = document.getElementById("registros-col-esquerda");
+  const colDir = document.getElementById("registros-col-direita");
+  if (!painel || !colEsq || !colDir) return;
+  if (painel.style.display === "none") return;
+
+  const idsEmOrdem = [
+    "card-sessoes-hoje",
+    "card-revisao-pendente",
+    "card-ritmo-sugerido",
+    "card-questoes",
+    "card-simulados",
+  ];
+
+  idsEmOrdem.forEach((id) => {
+    const card = document.getElementById(id);
+    if (!card || card.style.display === "none") return;
+    const destino =
+      colEsq.offsetHeight <= colDir.offsetHeight ? colEsq : colDir;
+    destino.appendChild(card);
+  });
+}
+
 // --- SUB-ABAS DA PÁGINA ESTUDOS (Cadastro / Hoje & Registros / Análises) ---
 // Puramente visual: só troca qual grupo de cards aparece. Nenhum dado ou
 // função muda de comportamento, é a mesma coisa de antes, só organizada.
@@ -706,6 +741,10 @@ function mostrarSubAbaEstudos(subaba) {
     }
     if (botao) botao.classList.toggle("active", chave === subaba);
   });
+
+  // Só agora que o painel de "Registros" está com display aplicado é que
+  // dá pra medir a altura real das colunas e distribuir os cards.
+  if (subaba === "registros") montarColunasRegistros();
 
   // No modo expandido, os cards de gráfico dessa subaba estavam escondidos
   // até agora — sem isso os gráficos apareciam pequenos/espremidos na
@@ -4068,38 +4107,41 @@ function renderizarRevisaoPendente() {
   const containerTopicos = document.getElementById("revisao-topicos-lista");
   const containerMaterias = document.getElementById("revisao-pendente-lista");
   if (!card || !containerTopicos || !containerMaterias) return;
+  // try/finally: garante a redistribuição das colunas (ver
+  // montarColunasRegistros) mesmo quando a função sai mais cedo (sem
+  // tópicos pendentes), já que isso muda a altura ou visibilidade do card.
+  try {
+    const topicosDevidos = calcularTopicosParaRevisar();
+    const materiasSemTopicos = calcularRevisoesPendentes();
+    const materiasDoFiltro = obterMateriasDoFiltroAtivo();
 
-  const topicosDevidos = calcularTopicosParaRevisar();
-  const materiasSemTopicos = calcularRevisoesPendentes();
-  const materiasDoFiltro = obterMateriasDoFiltroAtivo();
+    const existeAlgumTopicoConcluido = materiasDoFiltro.some((m) =>
+      (m.topicos || []).some((t) => t.concluido),
+    );
+    const algumaMateriaJaEstudada = materiasDoFiltro.some(
+      (m) =>
+        logsSessoes.some((l) => l.materia === m.nome) || m.ultimaRevisaoManual,
+    );
 
-  const existeAlgumTopicoConcluido = materiasDoFiltro.some((m) =>
-    (m.topicos || []).some((t) => t.concluido),
-  );
-  const algumaMateriaJaEstudada = materiasDoFiltro.some(
-    (m) =>
-      logsSessoes.some((l) => l.materia === m.nome) || m.ultimaRevisaoManual,
-  );
+    if (!existeAlgumTopicoConcluido && !algumaMateriaJaEstudada) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
 
-  if (!existeAlgumTopicoConcluido && !algumaMateriaJaEstudada) {
-    card.style.display = "none";
-    return;
-  }
-  card.style.display = "block";
-
-  // Tópicos com SM-2 (o sistema "de verdade")
-  if (topicosDevidos.length === 0) {
-    containerTopicos.innerHTML = existeAlgumTopicoConcluido
-      ? '<p class="sessoes-hoje-vazio">Nenhum tópico vencido pra revisar agora. 🎉</p>'
-      : "";
-  } else {
-    containerTopicos.innerHTML = topicosDevidos
-      .map(({ materia, topico, diasAtraso }) => {
-        const rotuloAtraso =
-          diasAtraso <= 0
-            ? "Revisar hoje"
-            : `Atrasado ${diasAtraso} dia${diasAtraso === 1 ? "" : "s"}`;
-        return `
+    // Tópicos com SM-2 (o sistema "de verdade")
+    if (topicosDevidos.length === 0) {
+      containerTopicos.innerHTML = existeAlgumTopicoConcluido
+        ? '<p class="sessoes-hoje-vazio">Nenhum tópico vencido pra revisar agora. 🎉</p>'
+        : "";
+    } else {
+      containerTopicos.innerHTML = topicosDevidos
+        .map(({ materia, topico, diasAtraso }) => {
+          const rotuloAtraso =
+            diasAtraso <= 0
+              ? "Revisar hoje"
+              : `Atrasado ${diasAtraso} dia${diasAtraso === 1 ? "" : "s"}`;
+          return `
           <div class="revisao-item revisao-item-topico">
             <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
             <div class="revisao-info">
@@ -4114,18 +4156,18 @@ function renderizarRevisaoPendente() {
             </div>
           </div>
         `;
-      })
-      .join("");
-  }
+        })
+        .join("");
+    }
 
-  // Fallback pra matérias sem tópicos cadastrados
-  if (materiasSemTopicos.length === 0) {
-    containerMaterias.innerHTML = "";
-  } else {
-    containerMaterias.innerHTML = materiasSemTopicos
-      .map(({ materia, diasDesde }) => {
-        const nomeEscapado = escapeHtml(materia.nome).replace(/'/g, "\\'");
-        return `
+    // Fallback pra matérias sem tópicos cadastrados
+    if (materiasSemTopicos.length === 0) {
+      containerMaterias.innerHTML = "";
+    } else {
+      containerMaterias.innerHTML = materiasSemTopicos
+        .map(({ materia, diasDesde }) => {
+          const nomeEscapado = escapeHtml(materia.nome).replace(/'/g, "\\'");
+          return `
           <div class="revisao-item">
             <span class="revisao-dot" style="background:${materia.cor || "#64748b"}"></span>
             <div class="revisao-info">
@@ -4151,17 +4193,20 @@ function renderizarRevisaoPendente() {
             </div>
           </div>
         `;
-      })
-      .join("");
-  }
+        })
+        .join("");
+    }
 
-  if (
-    topicosDevidos.length === 0 &&
-    materiasSemTopicos.length === 0 &&
-    existeAlgumTopicoConcluido
-  ) {
-    containerTopicos.innerHTML =
-      '<p class="sessoes-hoje-vazio">Tudo em dia! Nenhuma revisão pendente agora. 🎉</p>';
+    if (
+      topicosDevidos.length === 0 &&
+      materiasSemTopicos.length === 0 &&
+      existeAlgumTopicoConcluido
+    ) {
+      containerTopicos.innerHTML =
+        '<p class="sessoes-hoje-vazio">Tudo em dia! Nenhuma revisão pendente agora. 🎉</p>';
+    }
+  } finally {
+    montarColunasRegistros();
   }
 }
 
@@ -5925,72 +5970,76 @@ function excluirRegistroQuestoes(id) {
 }
 
 function renderizarQuestoesResolvidas() {
-  const seletorMateria = document.getElementById("questoes-materia");
-  if (seletorMateria) {
-    const valorAtual = seletorMateria.value;
-    seletorMateria.innerHTML =
-      '<option value="Estudo Geral">Estudo Geral</option>';
-    obterMateriasOrdenadasPorPeso().forEach((m) => {
-      seletorMateria.innerHTML += `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`;
-    });
-    if ([...seletorMateria.options].some((o) => o.value === valorAtual)) {
-      seletorMateria.value = valorAtual;
+  // try/finally: garante a redistribuição das colunas (ver
+  // montarColunasRegistros) mesmo quando a função sai mais cedo (lista
+  // vazia), já que isso muda a altura do card.
+  try {
+    const seletorMateria = document.getElementById("questoes-materia");
+    if (seletorMateria) {
+      const valorAtual = seletorMateria.value;
+      seletorMateria.innerHTML =
+        '<option value="Estudo Geral">Estudo Geral</option>';
+      obterMateriasOrdenadasPorPeso().forEach((m) => {
+        seletorMateria.innerHTML += `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`;
+      });
+      if ([...seletorMateria.options].some((o) => o.value === valorAtual)) {
+        seletorMateria.value = valorAtual;
+      }
     }
-  }
-  atualizarOpcoesTopicoQuestoes();
+    atualizarOpcoesTopicoQuestoes();
 
-  // Com uma prova em foco, considera só as questões de matérias vinculadas
-  // a ela (mais "Estudo Geral", que não pertence a nenhuma prova específica
-  // e por isso não teria como ser filtrado por uma).
-  const filtroProva = obterMetaFiltroAtiva();
-  const nomesFiltro = filtroProva
-    ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
-    : null;
-  const registrosDoFiltro = nomesFiltro
-    ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
-    : registrosQuestoes;
+    // Com uma prova em foco, considera só as questões de matérias vinculadas
+    // a ela (mais "Estudo Geral", que não pertence a nenhuma prova específica
+    // e por isso não teria como ser filtrado por uma).
+    const filtroProva = obterMetaFiltroAtiva();
+    const nomesFiltro = filtroProva
+      ? new Set(obterMateriasDoFiltroAtivo().map((m) => m.nome))
+      : null;
+    const registrosDoFiltro = nomesFiltro
+      ? registrosQuestoes.filter((r) => nomesFiltro.has(r.materia))
+      : registrosQuestoes;
 
-  const hoje = obterDataLocalString(new Date());
-  const registrosHoje = registrosDoFiltro.filter((r) => r.data === hoje);
-  const totalHoje = registrosHoje.reduce((s, r) => s + r.total, 0);
-  const acertosHoje = registrosHoje.reduce((s, r) => s + r.acertos, 0);
-  const totalGeral = registrosDoFiltro.reduce((s, r) => s + r.total, 0);
-  const acertosGeral = registrosDoFiltro.reduce((s, r) => s + r.acertos, 0);
+    const hoje = obterDataLocalString(new Date());
+    const registrosHoje = registrosDoFiltro.filter((r) => r.data === hoje);
+    const totalHoje = registrosHoje.reduce((s, r) => s + r.total, 0);
+    const acertosHoje = registrosHoje.reduce((s, r) => s + r.acertos, 0);
+    const totalGeral = registrosDoFiltro.reduce((s, r) => s + r.total, 0);
+    const acertosGeral = registrosDoFiltro.reduce((s, r) => s + r.acertos, 0);
 
-  const elHoje = document.getElementById("questoes-stat-hoje");
-  if (elHoje) {
-    elHoje.innerText =
-      totalHoje > 0
-        ? `${totalHoje} hoje · ${Math.round((acertosHoje / totalHoje) * 100)}% de acerto`
-        : "Nenhuma hoje ainda";
-  }
+    const elHoje = document.getElementById("questoes-stat-hoje");
+    if (elHoje) {
+      elHoje.innerText =
+        totalHoje > 0
+          ? `${totalHoje} hoje · ${Math.round((acertosHoje / totalHoje) * 100)}% de acerto`
+          : "Nenhuma hoje ainda";
+    }
 
-  const elGeral = document.getElementById("questoes-stat-geral");
-  if (elGeral) {
-    elGeral.innerText =
-      totalGeral > 0
-        ? `${totalGeral} no total · ${Math.round((acertosGeral / totalGeral) * 100)}% de acerto`
-        : "Nenhuma registrada ainda";
-  }
+    const elGeral = document.getElementById("questoes-stat-geral");
+    if (elGeral) {
+      elGeral.innerText =
+        totalGeral > 0
+          ? `${totalGeral} no total · ${Math.round((acertosGeral / totalGeral) * 100)}% de acerto`
+          : "Nenhuma registrada ainda";
+    }
 
-  const lista = document.getElementById("questoes-lista-recente");
-  if (!lista) return;
+    const lista = document.getElementById("questoes-lista-recente");
+    if (!lista) return;
 
-  const recentes = [...registrosDoFiltro].reverse().slice(0, 8);
-  if (recentes.length === 0) {
-    lista.innerHTML = filtroProva
-      ? '<p class="sessoes-hoje-vazio">Nenhuma questão registrada para essa prova ainda.</p>'
-      : '<p class="sessoes-hoje-vazio">Nenhuma questão registrada ainda.</p>';
-    return;
-  }
+    const recentes = [...registrosDoFiltro].reverse().slice(0, 8);
+    if (recentes.length === 0) {
+      lista.innerHTML = filtroProva
+        ? '<p class="sessoes-hoje-vazio">Nenhuma questão registrada para essa prova ainda.</p>'
+        : '<p class="sessoes-hoje-vazio">Nenhuma questão registrada ainda.</p>';
+      return;
+    }
 
-  lista.innerHTML = recentes
-    .map((r) => {
-      const pct = Math.round((r.acertos / r.total) * 100);
-      const materiaLabel = r.topico
-        ? `${escapeHtml(r.materia)} › ${escapeHtml(r.topico)}`
-        : escapeHtml(r.materia);
-      return `
+    lista.innerHTML = recentes
+      .map((r) => {
+        const pct = Math.round((r.acertos / r.total) * 100);
+        const materiaLabel = r.topico
+          ? `${escapeHtml(r.materia)} › ${escapeHtml(r.topico)}`
+          : escapeHtml(r.materia);
+        return `
         <div class="questoes-item">
           <div class="questoes-item-info">
             <span class="questoes-item-materia">${materiaLabel}</span>
@@ -5999,10 +6048,13 @@ function renderizarQuestoesResolvidas() {
           <button type="button" onclick="excluirRegistroQuestoes('${r.id}')" title="Excluir registro">✕</button>
         </div>
       `;
-    })
-    .join("");
+      })
+      .join("");
 
-  renderizarDesempenhoQuestoes(registrosDoFiltro);
+    renderizarDesempenhoQuestoes(registrosDoFiltro);
+  } finally {
+    montarColunasRegistros();
+  }
 }
 
 // --- DESEMPENHO POR MATÉRIA (questões) ---
@@ -7370,48 +7422,52 @@ function verificarSimuladoCronometradoEmAndamento() {
 }
 
 function renderizarSimulados() {
-  const seletorMeta = document.getElementById("simulado-meta");
-  if (seletorMeta) {
-    const valorAtual = seletorMeta.value;
-    seletorMeta.innerHTML = '<option value="">Sem prova vinculada</option>';
-    metas.forEach((m) => {
-      seletorMeta.innerHTML += `<option value="${escapeHtml(m.objetivoNome)}">${escapeHtml(m.objetivoNome)}</option>`;
-    });
-    if ([...seletorMeta.options].some((o) => o.value === valorAtual)) {
-      seletorMeta.value = valorAtual;
+  // try/finally: garante a redistribuição das colunas (ver
+  // montarColunasRegistros) mesmo quando a função sai mais cedo (lista
+  // vazia), já que isso muda a altura do card.
+  try {
+    const seletorMeta = document.getElementById("simulado-meta");
+    if (seletorMeta) {
+      const valorAtual = seletorMeta.value;
+      seletorMeta.innerHTML = '<option value="">Sem prova vinculada</option>';
+      metas.forEach((m) => {
+        seletorMeta.innerHTML += `<option value="${escapeHtml(m.objetivoNome)}">${escapeHtml(m.objetivoNome)}</option>`;
+      });
+      if ([...seletorMeta.options].some((o) => o.value === valorAtual)) {
+        seletorMeta.value = valorAtual;
+      }
     }
-  }
 
-  const lista = document.getElementById("simulados-lista-recente");
-  if (!lista) return;
+    const lista = document.getElementById("simulados-lista-recente");
+    if (!lista) return;
 
-  const ordenados = [...registrosSimulados].sort((a, b) =>
-    a.data < b.data ? 1 : -1,
-  );
+    const ordenados = [...registrosSimulados].sort((a, b) =>
+      a.data < b.data ? 1 : -1,
+    );
 
-  if (ordenados.length === 0) {
+    if (ordenados.length === 0) {
+      lista.innerHTML =
+        '<p class="sessoes-hoje-vazio">Nenhum simulado registrado ainda.</p>';
+      return;
+    }
+
+    // Nota média geral, pra dar um resumo rápido no topo da lista.
+    const totalGeral = registrosSimulados.reduce((s, r) => s + r.total, 0);
+    const acertosGeral = registrosSimulados.reduce((s, r) => s + r.acertos, 0);
+    const mediaGeralHtml =
+      totalGeral > 0
+        ? `<div class="simulados-media-geral">Média geral: <strong>${Math.round((acertosGeral / totalGeral) * 100)}%</strong> em ${registrosSimulados.length} simulado(s)</div>`
+        : "";
+
     lista.innerHTML =
-      '<p class="sessoes-hoje-vazio">Nenhum simulado registrado ainda.</p>';
-    return;
-  }
-
-  // Nota média geral, pra dar um resumo rápido no topo da lista.
-  const totalGeral = registrosSimulados.reduce((s, r) => s + r.total, 0);
-  const acertosGeral = registrosSimulados.reduce((s, r) => s + r.acertos, 0);
-  const mediaGeralHtml =
-    totalGeral > 0
-      ? `<div class="simulados-media-geral">Média geral: <strong>${Math.round((acertosGeral / totalGeral) * 100)}%</strong> em ${registrosSimulados.length} simulado(s)</div>`
-      : "";
-
-  lista.innerHTML =
-    mediaGeralHtml +
-    ordenados
-      .map((r) => {
-        const pct = Math.round((r.acertos / r.total) * 100);
-        const vinculo = r.metaVinculada
-          ? `🎯 ${escapeHtml(r.metaVinculada)}`
-          : "Sem prova vinculada";
-        return `
+      mediaGeralHtml +
+      ordenados
+        .map((r) => {
+          const pct = Math.round((r.acertos / r.total) * 100);
+          const vinculo = r.metaVinculada
+            ? `🎯 ${escapeHtml(r.metaVinculada)}`
+            : "Sem prova vinculada";
+          return `
         <div class="simulados-item">
           <div class="simulados-item-info">
             <span class="simulados-item-nome">${escapeHtml(r.nome)}</span>
@@ -7420,8 +7476,11 @@ function renderizarSimulados() {
           <button type="button" onclick="excluirRegistroSimulado('${r.id}')" title="Excluir registro">✕</button>
         </div>
       `;
-      })
-      .join("");
+        })
+        .join("");
+  } finally {
+    montarColunasRegistros();
+  }
 }
 
 function abrirModalEditarMateria(indice) {
@@ -8549,28 +8608,31 @@ function renderizarRitmoSugerido() {
   const card = document.getElementById("card-ritmo-sugerido");
   const lista = document.getElementById("ritmo-sugerido-lista");
   if (!card || !lista) return;
+  // try/finally: garante a redistribuição das colunas (ver
+  // montarColunasRegistros) mesmo quando a função sai mais cedo (sem
+  // itens), já que isso muda a altura ou visibilidade do card.
+  try {
+    const itens = calcularRitmoSugerido();
 
-  const itens = calcularRitmoSugerido();
+    if (itens.length === 0) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
 
-  if (itens.length === 0) {
-    card.style.display = "none";
-    return;
-  }
-  card.style.display = "block";
+    lista.innerHTML = itens
+      .map((item) => {
+        const prazoTexto =
+          item.diasRestantes > 0
+            ? `${item.diasRestantes} dias até a prova`
+            : item.diasRestantes === 0
+              ? "A prova é hoje"
+              : "Prazo já passou";
+        const avisoEstimativa = item.estimativaGenerica
+          ? '<span class="ritmo-aviso" title="Ainda sem tópicos concluídos nessa matéria — estimativa inicial genérica até você concluir os primeiros">⚠️ estimativa inicial</span>'
+          : "";
 
-  lista.innerHTML = itens
-    .map((item) => {
-      const prazoTexto =
-        item.diasRestantes > 0
-          ? `${item.diasRestantes} dias até a prova`
-          : item.diasRestantes === 0
-            ? "A prova é hoje"
-            : "Prazo já passou";
-      const avisoEstimativa = item.estimativaGenerica
-        ? '<span class="ritmo-aviso" title="Ainda sem tópicos concluídos nessa matéria — estimativa inicial genérica até você concluir os primeiros">⚠️ estimativa inicial</span>'
-        : "";
-
-      return `
+        return `
         <div class="ritmo-item">
           <span class="ritmo-dot" style="background:${item.materia.cor || "#64748b"}"></span>
           <div class="ritmo-info">
@@ -8588,8 +8650,11 @@ function renderizarRitmoSugerido() {
           </div>
         </div>
       `;
-    })
-    .join("");
+      })
+      .join("");
+  } finally {
+    montarColunasRegistros();
+  }
 }
 
 // --- "O QUE EU FAÇO AGORA?" (cruza revisão pendente + ritmo + questões) ---
@@ -10163,24 +10228,28 @@ function renderizarMetasEGraficos() {
 function renderizarSessoesHoje() {
   const container = document.getElementById("sessoes-hoje-lista");
   if (!container) return;
+  // try/finally: garante que a redistribuição das colunas (ver
+  // montarColunasRegistros) rode mesmo quando a função sai mais cedo
+  // (lista vazia), já que qualquer mudança de conteúdo pode mudar a
+  // altura do card.
+  try {
+    const hojeStr = obterDataLocalString(new Date());
+    const sessoesHoje = logsSessoes
+      .map((log, indice) => ({ ...log, _indice: indice }))
+      .filter((log) => log.data === hojeStr)
+      .reverse();
 
-  const hojeStr = obterDataLocalString(new Date());
-  const sessoesHoje = logsSessoes
-    .map((log, indice) => ({ ...log, _indice: indice }))
-    .filter((log) => log.data === hojeStr)
-    .reverse();
+    if (sessoesHoje.length === 0) {
+      container.innerHTML =
+        '<p class="sessoes-hoje-vazio">Nenhuma sessão registrada hoje ainda.</p>';
+      return;
+    }
 
-  if (sessoesHoje.length === 0) {
-    container.innerHTML =
-      '<p class="sessoes-hoje-vazio">Nenhuma sessão registrada hoje ainda.</p>';
-    return;
-  }
-
-  container.innerHTML = sessoesHoje
-    .map((log) => {
-      const materiaObj = materias.find((m) => m.nome === log.materia);
-      const cor = materiaObj ? materiaObj.cor : "#64748b";
-      return `
+    container.innerHTML = sessoesHoje
+      .map((log) => {
+        const materiaObj = materias.find((m) => m.nome === log.materia);
+        const cor = materiaObj ? materiaObj.cor : "#64748b";
+        return `
         <div class="sessao-hoje-card">
           <span class="sessao-hoje-dot" style="background:${cor}"></span>
           <div class="sessao-hoje-info">
@@ -10198,8 +10267,11 @@ function renderizarSessoesHoje() {
           >✕</button>
         </div>
       `;
-    })
-    .join("");
+      })
+      .join("");
+  } finally {
+    montarColunasRegistros();
+  }
 }
 
 async function excluirSessaoDoDia(indice) {

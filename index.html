@@ -2647,285 +2647,304 @@
 
         <!-- ✍️ HOJE & REGISTROS: sessões, revisão, ritmo, questões e simulados -->
         <div class="container" id="estudos-sub-registros" style="display: none">
-          <div class="card">
-            <div class="card-header-com-acao">
-              <h2>📝 Sessões de Hoje</h2>
-              <button
-                type="button"
-                class="btn-registrar-sessao-avulsa"
-                onclick="abrirModalRegistrarSessao()"
-              >
-                Registrar Sessão
-              </button>
+          <div class="registros-col" id="registros-col-esquerda">
+            <div class="card" id="card-sessoes-hoje">
+              <div class="card-header-com-acao">
+                <h2>📝 Sessões de Hoje</h2>
+                <button
+                  type="button"
+                  class="btn-registrar-sessao-avulsa"
+                  onclick="abrirModalRegistrarSessao()"
+                >
+                  Registrar Sessão
+                </button>
+              </div>
+              <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
             </div>
-            <div class="sessoes-hoje-lista" id="sessoes-hoje-lista"></div>
-          </div>
-          <div class="card" id="card-revisao-pendente" style="display: none">
-            <h2>📖 Revisão Pendente</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Cada tópico concluído vira um "cartão" de revisão espaçada (igual
-              Anki): avalie como lembrou e o intervalo até a próxima revisão
-              aumenta ou volta pro início — 😵 não lembrei, 😐 foi difícil, 😄
-              lembrei bem.
-            </p>
-            <div
-              id="revisao-topicos-lista"
-              class="revisao-pendente-lista"
-            ></div>
-            <div
-              id="revisao-pendente-lista"
-              class="revisao-pendente-lista revisao-fallback-lista"
-            ></div>
-          </div>
-          <div class="card" id="card-ritmo-sugerido" style="display: none">
-            <h2>⏳ Ritmo Sugerido por Matéria</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Cruza os tópicos que faltam em cada matéria vinculada a uma prova
-              com os dias restantes até ela, e sugere quanto tempo por dia
-              dedicar pra não deixar nada acumulado pra última hora. A
-              estimativa usa seu próprio ritmo (tempo já estudado ÷ tópicos já
-              concluídos naquela matéria) assim que você tiver alguns
-              concluídos.
-            </p>
-            <div id="ritmo-sugerido-lista" class="ritmo-sugerido-lista"></div>
-          </div>
-          <div class="card">
-            <h2>📝 Questões Resolvidas</h2>
-            <form id="form-questoes" onsubmit="registrarQuestoes(event)">
-              <label for="questoes-materia">Matéria:</label>
-              <select
-                id="questoes-materia"
-                onchange="atualizarOpcoesTopicoQuestoes()"
+            <div class="card" id="card-revisao-pendente" style="display: none">
+              <h2>📖 Revisão Pendente</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
               >
-                <option value="Estudo Geral">Estudo Geral</option>
-              </select>
-
-              <div id="questoes-topico-wrapper" style="display: none">
-                <div class="topico-label-linha">
-                  <label for="questoes-topico"
-                    >Tópico / subtópico (opcional):</label
-                  >
-                  <button
-                    type="button"
-                    class="topico-add-btn"
-                    onclick="alternarNovoSubtopico('questoes')"
-                    title="Cadastrar um novo subtópico nesta matéria"
-                  >
-                    + novo
-                  </button>
-                </div>
-                <select id="questoes-topico">
-                  <option value="">Não especificar</option>
+                Cada tópico concluído vira um "cartão" de revisão espaçada
+                (igual Anki): avalie como lembrou e o intervalo até a próxima
+                revisão aumenta ou volta pro início — 😵 não lembrei, 😐 foi
+                difícil, 😄 lembrei bem.
+              </p>
+              <div
+                id="revisao-topicos-lista"
+                class="revisao-pendente-lista"
+              ></div>
+              <div
+                id="revisao-pendente-lista"
+                class="revisao-pendente-lista revisao-fallback-lista"
+              ></div>
+            </div>
+            <div class="card" id="card-ritmo-sugerido" style="display: none">
+              <h2>⏳ Ritmo Sugerido por Matéria</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Cruza os tópicos que faltam em cada matéria vinculada a uma
+                prova com os dias restantes até ela, e sugere quanto tempo por
+                dia dedicar pra não deixar nada acumulado pra última hora. A
+                estimativa usa seu próprio ritmo (tempo já estudado ÷ tópicos já
+                concluídos naquela matéria) assim que você tiver alguns
+                concluídos.
+              </p>
+              <div id="ritmo-sugerido-lista" class="ritmo-sugerido-lista"></div>
+            </div>
+            <div class="card" id="card-questoes">
+              <h2>📝 Questões Resolvidas</h2>
+              <form id="form-questoes" onsubmit="registrarQuestoes(event)">
+                <label for="questoes-materia">Matéria:</label>
+                <select
+                  id="questoes-materia"
+                  onchange="atualizarOpcoesTopicoQuestoes()"
+                >
+                  <option value="Estudo Geral">Estudo Geral</option>
                 </select>
-                <div
-                  id="questoes-novo-subtopico-bloco"
-                  class="novo-subtopico-bloco"
-                  style="display: none"
-                >
-                  <input
-                    type="text"
-                    id="questoes-novo-subtopico-input"
-                    placeholder="Nome do novo subtópico"
-                  />
-                  <button
-                    type="button"
-                    onclick="adicionarSubtopicoRapido('questoes')"
+
+                <div id="questoes-topico-wrapper" style="display: none">
+                  <div class="topico-label-linha">
+                    <label for="questoes-topico"
+                      >Tópico / subtópico (opcional):</label
+                    >
+                    <button
+                      type="button"
+                      class="topico-add-btn"
+                      onclick="alternarNovoSubtopico('questoes')"
+                      title="Cadastrar um novo subtópico nesta matéria"
+                    >
+                      + novo
+                    </button>
+                  </div>
+                  <select id="questoes-topico">
+                    <option value="">Não especificar</option>
+                  </select>
+                  <div
+                    id="questoes-novo-subtopico-bloco"
+                    class="novo-subtopico-bloco"
+                    style="display: none"
                   >
-                    Adicionar
-                  </button>
+                    <input
+                      type="text"
+                      id="questoes-novo-subtopico-input"
+                      placeholder="Nome do novo subtópico"
+                    />
+                    <button
+                      type="button"
+                      onclick="adicionarSubtopicoRapido('questoes')"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="questoes-form-linha">
-                <div>
-                  <label for="questoes-total">Total de questões:</label>
-                  <input type="number" id="questoes-total" min="1" required />
+                <div class="questoes-form-linha">
+                  <div>
+                    <label for="questoes-total">Total de questões:</label>
+                    <input type="number" id="questoes-total" min="1" required />
+                  </div>
+                  <div>
+                    <label for="questoes-acertos">Acertos:</label>
+                    <input
+                      type="number"
+                      id="questoes-acertos"
+                      min="0"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label for="questoes-acertos">Acertos:</label>
-                  <input type="number" id="questoes-acertos" min="0" required />
-                </div>
-              </div>
 
-              <label for="questoes-banca">Banca examinadora (opcional):</label>
-              <select
-                id="questoes-banca"
-                onchange="alternarBancaOutra('questoes')"
-              >
-                <option value="">Não especificar</option>
-                <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
-                <option value="FGV">FGV</option>
-                <option value="FCC">FCC</option>
-                <option value="Vunesp">Vunesp</option>
-                <option value="IBFC">IBFC</option>
-                <option value="IADES">IADES</option>
-                <option value="AOCP">AOCP</option>
-                <option value="Quadrix">Quadrix</option>
-                <option value="IDECAN">IDECAN</option>
-                <option value="Instituto Consulplan">
-                  Instituto Consulplan
-                </option>
-                <option value="outra">Outra...</option>
-              </select>
-              <input
-                type="text"
-                id="questoes-banca-outra"
-                placeholder="Nome da banca"
-                style="display: none; margin-top: 6px"
-              />
-
-              <div class="diagnostico-erros-bloco">
-                <label style="margin-top: 10px; margin-bottom: 2px">
-                  🔍 Diagnóstico dos erros (opcional):
-                </label>
-                <p
-                  class="campo-ajuda"
-                  style="margin-top: -2px; margin-bottom: 8px"
+                <label for="questoes-banca"
+                  >Banca examinadora (opcional):</label
                 >
-                  Errou alguma questão? Classifica o motivo — alimenta o Caderno
-                  de Erros lá em Desempenho.
-                </p>
-                <div class="diagnostico-erros-grade">
-                  <div>
-                    <label for="questoes-erro-nao-sabia"
-                      >📕 Não sabia o conteúdo</label
-                    >
-                    <input
-                      type="number"
-                      id="questoes-erro-nao-sabia"
-                      min="0"
-                      placeholder="0"
-                    />
+                <select
+                  id="questoes-banca"
+                  onchange="alternarBancaOutra('questoes')"
+                >
+                  <option value="">Não especificar</option>
+                  <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
+                  <option value="FGV">FGV</option>
+                  <option value="FCC">FCC</option>
+                  <option value="Vunesp">Vunesp</option>
+                  <option value="IBFC">IBFC</option>
+                  <option value="IADES">IADES</option>
+                  <option value="AOCP">AOCP</option>
+                  <option value="Quadrix">Quadrix</option>
+                  <option value="IDECAN">IDECAN</option>
+                  <option value="Instituto Consulplan">
+                    Instituto Consulplan
+                  </option>
+                  <option value="outra">Outra...</option>
+                </select>
+                <input
+                  type="text"
+                  id="questoes-banca-outra"
+                  placeholder="Nome da banca"
+                  style="display: none; margin-top: 6px"
+                />
+
+                <div class="diagnostico-erros-bloco">
+                  <label style="margin-top: 10px; margin-bottom: 2px">
+                    🔍 Diagnóstico dos erros (opcional):
+                  </label>
+                  <p
+                    class="campo-ajuda"
+                    style="margin-top: -2px; margin-bottom: 8px"
+                  >
+                    Errou alguma questão? Classifica o motivo — alimenta o
+                    Caderno de Erros lá em Desempenho.
+                  </p>
+                  <div class="diagnostico-erros-grade">
+                    <div>
+                      <label for="questoes-erro-nao-sabia"
+                        >📕 Não sabia o conteúdo</label
+                      >
+                      <input
+                        type="number"
+                        id="questoes-erro-nao-sabia"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label for="questoes-erro-confundiu"
+                        >🔀 Confundi conceitos</label
+                      >
+                      <input
+                        type="number"
+                        id="questoes-erro-confundiu"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label for="questoes-erro-leitura"
+                        >👁️ Erro de leitura</label
+                      >
+                      <input
+                        type="number"
+                        id="questoes-erro-leitura"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label for="questoes-erro-atencao"
+                        >💭 Falta de atenção</label
+                      >
+                      <input
+                        type="number"
+                        id="questoes-erro-atencao"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label for="questoes-erro-confundiu"
-                      >🔀 Confundi conceitos</label
-                    >
-                    <input
-                      type="number"
-                      id="questoes-erro-confundiu"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label for="questoes-erro-leitura"
-                      >👁️ Erro de leitura</label
-                    >
-                    <input
-                      type="number"
-                      id="questoes-erro-leitura"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label for="questoes-erro-atencao"
-                      >💭 Falta de atenção</label
-                    >
-                    <input
-                      type="number"
-                      id="questoes-erro-atencao"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  style="
+                    width: 100%;
+                    padding: 10px;
+                    background: var(--primary);
+                    color: white;
+                    margin-top: 12px;
+                  "
+                >
+                  Registrar
+                </button>
+              </form>
+
+              <div class="questoes-stats-resumo">
+                <div>
+                  <span class="questoes-stats-label">Hoje</span>
+                  <span id="questoes-stat-hoje">Nenhuma hoje ainda</span>
+                </div>
+                <div>
+                  <span class="questoes-stats-label">No total</span>
+                  <span id="questoes-stat-geral">Nenhuma registrada ainda</span>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--primary);
-                  color: white;
-                  margin-top: 12px;
-                "
-              >
-                Registrar
-              </button>
-            </form>
-
-            <div class="questoes-stats-resumo">
-              <div>
-                <span class="questoes-stats-label">Hoje</span>
-                <span id="questoes-stat-hoje">Nenhuma hoje ainda</span>
-              </div>
-              <div>
-                <span class="questoes-stats-label">No total</span>
-                <span id="questoes-stat-geral">Nenhuma registrada ainda</span>
-              </div>
+              <div
+                id="questoes-lista-recente"
+                class="questoes-lista-recente"
+              ></div>
             </div>
-
-            <div
-              id="questoes-lista-recente"
-              class="questoes-lista-recente"
-            ></div>
-          </div>
-          <div class="card" id="card-simulados">
-            <h2>🎓 Simulados e Provas</h2>
-            <p
-              class="campo-ajuda"
-              style="margin-top: -4px; margin-bottom: 14px"
-            >
-              Separado das questões do dia a dia — cada simulado completo fica
-              registrado aqui, com a nota, pra você acompanhar sua evolução
-              prova a prova.
-            </p>
-            <form id="form-simulado" onsubmit="registrarSimulado(event)">
-              <label for="simulado-nome">Nome do simulado:</label>
-              <input
-                type="text"
-                id="simulado-nome"
-                maxlength="80"
-                placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
-                required
-              />
-
-              <label for="simulado-meta"
-                >Vincular a uma prova (opcional):</label
+            <div class="card" id="card-simulados">
+              <h2>🎓 Simulados e Provas</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
               >
-              <select id="simulado-meta">
-                <option value="">Sem prova vinculada</option>
-              </select>
+                Separado das questões do dia a dia — cada simulado completo fica
+                registrado aqui, com a nota, pra você acompanhar sua evolução
+                prova a prova.
+              </p>
+              <form id="form-simulado" onsubmit="registrarSimulado(event)">
+                <label for="simulado-nome">Nome do simulado:</label>
+                <input
+                  type="text"
+                  id="simulado-nome"
+                  maxlength="80"
+                  placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
+                  required
+                />
 
-              <div class="questoes-form-linha">
-                <div>
-                  <label for="simulado-total">Total de questões:</label>
-                  <input type="number" id="simulado-total" min="1" required />
+                <label for="simulado-meta"
+                  >Vincular a uma prova (opcional):</label
+                >
+                <select id="simulado-meta">
+                  <option value="">Sem prova vinculada</option>
+                </select>
+
+                <div class="questoes-form-linha">
+                  <div>
+                    <label for="simulado-total">Total de questões:</label>
+                    <input type="number" id="simulado-total" min="1" required />
+                  </div>
+                  <div>
+                    <label for="simulado-acertos">Acertos:</label>
+                    <input
+                      type="number"
+                      id="simulado-acertos"
+                      min="0"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label for="simulado-acertos">Acertos:</label>
-                  <input type="number" id="simulado-acertos" min="0" required />
-                </div>
-              </div>
 
-              <button
-                type="submit"
-                style="
-                  width: 100%;
-                  padding: 10px;
-                  background: var(--primary);
-                  color: white;
-                  margin-top: 12px;
-                "
-              >
-                Registrar Simulado
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  style="
+                    width: 100%;
+                    padding: 10px;
+                    background: var(--primary);
+                    color: white;
+                    margin-top: 12px;
+                  "
+                >
+                  Registrar Simulado
+                </button>
+              </form>
 
-            <div
-              id="simulados-lista-recente"
-              class="questoes-lista-recente"
-            ></div>
+              <div
+                id="simulados-lista-recente"
+                class="questoes-lista-recente"
+              ></div>
+            </div>
           </div>
+          <!-- Coluna direita começa vazia — o JS (montarColunasRegistros)
+               redistribui os cards acima entre as duas colunas por altura
+               real, pra não deixar vãos quando um card é bem mais curto
+               que o vizinho. -->
+          <div class="registros-col" id="registros-col-direita"></div>
         </div>
 
         <!-- 🎯 DESEMPENHO: tudo que responde "onde estou bem e onde estou mal" em
@@ -5149,7 +5168,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=7"></script>
     <script src="js/salas.js?v=2"></script>
-    <script src="js/script.js?v=57"></script>
+    <script src="js/script.js?v=53"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
