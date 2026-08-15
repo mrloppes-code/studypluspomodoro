@@ -2424,18 +2424,6 @@
               </table>
             </div>
             <h3 style="margin-bottom: 0; font-size: 0.95rem">
-              ⏱️ Tempo de Estudo (horas)
-            </h3>
-            <div class="chart-wrapper">
-              <canvas id="chartComparativoCadastroTempo"></canvas>
-            </div>
-            <h3 style="margin-bottom: 0; font-size: 0.95rem">
-              🎯 Tópicos Concluídos x % de Acerto
-            </h3>
-            <div class="chart-wrapper">
-              <canvas id="chartComparativoCadastroDesempenho"></canvas>
-            </div>
-            <h3 style="margin-bottom: 0; font-size: 0.95rem">
               📝 Sessões de Estudo &amp; Simulados
             </h3>
             <p class="campo-ajuda" style="margin-top: 2px; margin-bottom: 10px">
@@ -2457,8 +2445,26 @@
                 <tbody id="comparativo-provas-cadastro-sessoes-corpo"></tbody>
               </table>
             </div>
-            <div class="chart-wrapper">
-              <canvas id="chartComparativoCadastroSimulados"></canvas>
+
+            <div class="comparativo-provas-graficos-grid">
+              <div class="comparativo-provas-grafico-bloco">
+                <h3>⏱️ Tempo de Estudo (horas)</h3>
+                <div class="chart-wrapper">
+                  <canvas id="chartComparativoCadastroTempo"></canvas>
+                </div>
+              </div>
+              <div class="comparativo-provas-grafico-bloco">
+                <h3>🎯 Tópicos x % de Acerto</h3>
+                <div class="chart-wrapper">
+                  <canvas id="chartComparativoCadastroDesempenho"></canvas>
+                </div>
+              </div>
+              <div class="comparativo-provas-grafico-bloco">
+                <h3>📊 Simulados x % de Acerto</h3>
+                <div class="chart-wrapper">
+                  <canvas id="chartComparativoCadastroSimulados"></canvas>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -5143,7 +5149,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=7"></script>
     <script src="js/salas.js?v=2"></script>
-    <script src="js/script.js?v=51"></script>
+    <script src="js/script.js?v=52"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
