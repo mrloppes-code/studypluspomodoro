@@ -8128,6 +8128,185 @@ function renderizarComparativoProvas() {
   });
 }
 
+// --- COMPARATIVO ENTRE PROVAS, ACESSÍVEL DIRETO DA ABA "PROVAS CADASTRADAS" ---
+// Mesma fonte de dados do card de comparativo da aba Análises
+// (calcularEstatisticasPorProva), só que aberto direto de um botão na aba
+// de Cadastro — por isso o modal fica fora dos containers de aba (senão
+// ficaria escondido junto com a aba de Cadastro quando a de Análises não
+// estiver ativa) e independe do filtro de "prova em foco" no topo.
+let graficoComparativoCadastroTempo = null;
+let graficoComparativoCadastroDesempenho = null;
+
+async function abrirComparativoProvasCadastradas() {
+  if (metas.length < 2) {
+    await mostrarAlerta(
+      "Cadastre pelo menos 2 provas pra poder comparar o desempenho entre elas.",
+      { icone: "📊" },
+    );
+    return;
+  }
+
+  renderizarComparativoProvasCadastro();
+  abrirModalDetalheCard("modal-comparativo-provas-cadastro");
+}
+
+function renderizarComparativoProvasCadastro() {
+  const corpoTabela = document.getElementById(
+    "comparativo-provas-cadastro-corpo",
+  );
+  const canvasTempo = document.getElementById("chartComparativoCadastroTempo");
+  const canvasDesempenho = document.getElementById(
+    "chartComparativoCadastroDesempenho",
+  );
+  if (!corpoTabela) return;
+
+  const stats = calcularEstatisticasPorProva();
+
+  corpoTabela.innerHTML = stats
+    .map((s) => {
+      const questoesTexto = s.questoesTotal > 0 ? `${s.questoesTotal}` : "—";
+      const acertoTexto = s.questoesTotal > 0 ? `${s.percentualAcerto}%` : "—";
+      const topicosTexto =
+        s.topicosTotais > 0
+          ? `${s.topicosConcluidos}/${s.topicosTotais} (${s.percentualTopicos}%)`
+          : "Sem tópicos cadastrados";
+      const diasTexto =
+        s.diasRestantes > 0
+          ? `${s.diasRestantes} dias`
+          : s.diasRestantes === 0
+            ? "É hoje!"
+            : "Prazo encerrado";
+
+      return `
+        <tr>
+          <td><strong>🎯 ${escapeHtml(s.objetivoNome)}</strong></td>
+          <td>${formatarHorasMinutos(s.tempoMinutos)}</td>
+          <td>${questoesTexto}</td>
+          <td>${acertoTexto}</td>
+          <td>${topicosTexto}</td>
+          <td>${diasTexto}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  if (canvasTempo) {
+    if (graficoComparativoCadastroTempo) {
+      graficoComparativoCadastroTempo.destroy();
+    }
+    graficoComparativoCadastroTempo = new Chart(canvasTempo.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: stats.map((s) => s.objetivoNome),
+        datasets: [
+          {
+            label: "Tempo estudado (horas)",
+            data: stats.map((s) => Math.round((s.tempoMinutos / 60) * 10) / 10),
+            backgroundColor: "#3b82f6",
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: corTextoMuted, font: { family: fonteApp } },
+            grid: { color: "rgba(148,163,184,0.15)" },
+          },
+          x: {
+            ticks: { color: corTextoMuted, font: { family: fonteApp } },
+            grid: { display: false },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            bodyFont: { family: fonteApp },
+            titleFont: { family: fonteApp },
+            callbacks: {
+              label: (contexto) => ` ${contexto.parsed.y}h estudadas`,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  if (canvasDesempenho) {
+    if (graficoComparativoCadastroDesempenho) {
+      graficoComparativoCadastroDesempenho.destroy();
+    }
+    graficoComparativoCadastroDesempenho = new Chart(
+      canvasDesempenho.getContext("2d"),
+      {
+        type: "bar",
+        data: {
+          labels: stats.map((s) => s.objetivoNome),
+          datasets: [
+            {
+              label: "% Tópicos concluídos",
+              data: stats.map((s) => s.percentualTopicos || 0),
+              backgroundColor: "#3b82f6",
+              borderRadius: 6,
+            },
+            {
+              label: "% Acerto em questões",
+              data: stats.map((s) => s.percentualAcerto || 0),
+              backgroundColor: "#10b981",
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              ticks: {
+                color: corTextoMuted,
+                font: { family: fonteApp },
+                callback: (valor) => `${valor}%`,
+              },
+              grid: { color: "rgba(148,163,184,0.15)" },
+            },
+            x: {
+              ticks: { color: corTextoMuted, font: { family: fonteApp } },
+              grid: { display: false },
+            },
+          },
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                color: corTextoMuted,
+                font: { family: fonteApp, size: 12 },
+              },
+            },
+            tooltip: {
+              bodyFont: { family: fonteApp },
+              titleFont: { family: fonteApp },
+              callbacks: {
+                label: (contexto) =>
+                  ` ${contexto.dataset.label}: ${contexto.parsed.y}%`,
+              },
+            },
+          },
+        },
+      },
+    );
+  }
+}
+
 // --- RITMO SUGERIDO POR MATÉRIA (tópicos restantes ÷ dias até a prova) ---
 // Só entram matérias vinculadas a uma meta e que já têm tópicos cadastrados
 // (sem tópicos não dá pra saber "quanto falta"). Respeita o filtro de prova

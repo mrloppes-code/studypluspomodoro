@@ -2378,6 +2378,66 @@
           </button>
         </div>
 
+        <!-- MODAL: COMPARATIVO ENTRE PROVAS CADASTRADAS (acessível direto da aba de Cadastro) -->
+        <div
+          id="modal-comparativo-provas-cadastro"
+          class="modal-distracao modal-detalhe-card"
+          onclick="
+            fecharModalDetalheCardSeClicouFora(
+              event,
+              'modal-comparativo-provas-cadastro',
+            )
+          "
+        >
+          <div class="modal-conteudo modal-detalhe-conteudo">
+            <button
+              type="button"
+              class="tela-login-fechar"
+              onclick="
+                fecharModalDetalheCard('modal-comparativo-provas-cadastro')
+              "
+              title="Fechar"
+            >
+              ✕
+            </button>
+            <h2>📊 Comparativo entre Provas</h2>
+            <p
+              class="campo-ajuda"
+              style="margin-top: -4px; margin-bottom: 14px"
+            >
+              Veja lado a lado o tempo estudado, as questões resolvidas e o
+              desempenho de cada prova cadastrada.
+            </p>
+            <div class="comparativo-provas-tabela-wrapper">
+              <table class="comparativo-provas-tabela">
+                <thead>
+                  <tr>
+                    <th>Prova</th>
+                    <th>Tempo Estudado</th>
+                    <th>Questões Resolvidas</th>
+                    <th>% Acerto</th>
+                    <th>Tópicos Concluídos</th>
+                    <th>Prazo</th>
+                  </tr>
+                </thead>
+                <tbody id="comparativo-provas-cadastro-corpo"></tbody>
+              </table>
+            </div>
+            <h3 style="margin-bottom: 0; font-size: 0.95rem">
+              ⏱️ Tempo de Estudo (horas)
+            </h3>
+            <div class="chart-wrapper">
+              <canvas id="chartComparativoCadastroTempo"></canvas>
+            </div>
+            <h3 style="margin-bottom: 0; font-size: 0.95rem">
+              🎯 Tópicos Concluídos x % de Acerto
+            </h3>
+            <div class="chart-wrapper">
+              <canvas id="chartComparativoCadastroDesempenho"></canvas>
+            </div>
+          </div>
+        </div>
+
         <!-- 📋 CADASTRO: matérias, metas e a lista de metas fixadas -->
         <div class="container" id="estudos-sub-cadastro">
           <div class="card">
@@ -2527,7 +2587,16 @@
             </form>
           </div>
           <div class="card full-width">
-            <h2>📋 Provas Cadastradas</h2>
+            <div class="card-header-com-acao">
+              <h2>📋 Provas Cadastradas</h2>
+              <button
+                type="button"
+                class="btn-registrar-sessao-avulsa"
+                onclick="abrirComparativoProvasCadastradas()"
+              >
+                📊 Comparar Provas
+              </button>
+            </div>
             <p
               class="campo-ajuda"
               style="margin-top: -4px; margin-bottom: 14px"
