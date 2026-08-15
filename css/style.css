@@ -774,6 +774,20 @@ body {
 .full-width {
   grid-column: span 2;
 }
+
+/* A seção "Hoje & Registros" mistura cards bem curtos (ex: Ritmo Sugerido
+   com 1 item só) com cards longos (ex: Questões Resolvidas, com form +
+   lista). Duas colunas (seja grid, seja CSS columns) sempre deixam vão
+   quando um card curto termina antes do vizinho: colunas CSS balanceiam a
+   altura e "pulam" o card pra próxima coluna quando ele não cabe, criando
+   um vazio enorme ao invés de encaixar o conteúdo seguinte. A única forma
+   de garantir zero vãos com cards de altura tão diferente é empilhar tudo
+   numa coluna só — cada card já emenda direto embaixo do anterior. */
+#estudos-sub-registros {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 .card {
   background: var(--card-bg);
   padding: 20px;
