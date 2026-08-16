@@ -775,16 +775,18 @@ body {
   grid-column: span 2;
 }
 
-/* A seção "Hoje & Registros" mistura cards bem curtos (ex: Ritmo Sugerido
-   com 1 item só) com cards longos (ex: Questões Resolvidas, com form +
-   lista). Um grid/coluna CSS comum de 2 colunas deixa vão quando um card
-   curto termina antes do vizinho, e empilhar tudo numa coluna só deixa os
-   cards curtos esticados demais, sem aproveitar a largura.
-   A solução é um "masonry" de verdade: duas colunas reais (divs), e o JS
-   (montarColunasRegistros, em script.js) distribui os cards entre elas
-   pela altura já renderizada de cada uma — cada card sempre entra na
-   coluna mais curta no momento, então nunca sobra vão. */
+/* A seção "Hoje & Registros" tem agrupamento FIXO em 2 colunas (pedido do
+   usuário — sem redistribuição dinâmica): esquerda = Sessões de Hoje +
+   Ritmo Sugerido; direita = Revisão Pendente + Simulados e Provas.
+   Questões Resolvidas fica de fora dessa grade, como um card largo
+   (.card-largo) ocupando a largura toda logo abaixo, com o próprio
+   conteúdo organizado em 2 colunas internas (.questoes-duas-colunas). */
 #estudos-sub-registros {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.registros-linha-colunas {
   display: flex;
   align-items: flex-start;
   gap: 20px;
@@ -797,9 +799,27 @@ body {
   gap: 20px;
 }
 @media (max-width: 768px) {
-  #estudos-sub-registros {
+  .registros-linha-colunas {
     flex-direction: column;
-    align-items: stretch;
+  }
+}
+
+/* Card largo de Questões Resolvidas: form numa coluna, histórico/stats na
+   outra — evita ficar estreito e alongado ocupando só metade da largura. */
+.questoes-duas-colunas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.questoes-coluna-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (max-width: 700px) {
+  .questoes-duas-colunas {
+    grid-template-columns: 1fr;
   }
 }
 .card {
