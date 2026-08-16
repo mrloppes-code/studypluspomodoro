@@ -446,6 +446,95 @@ const paletaCores = [
   { nome: "⬛ Ardósia", hex: "#1e293b", familia: "neutros" }, // novo
 ];
 
+// --- COR AUTOMÁTICA DE MATÉRIA ---
+// Toda matéria nova ganha uma cor sozinha, sem precisar escolher numa
+// lista. A ideia: manter saturação e luminosidade FIXAS (é isso que faz
+// as cores parecerem "de uma mesma família", harmônicas entre si — igual
+// a paletas de design system) e variar só o matiz (hue), escolhendo
+// sempre o matiz mais distante de todas as cores já em uso no momento
+// (estratégia "maximin": entre vários candidatos espalhados na roda de
+// cores, pega o que maximiza a menor distância até qualquer cor
+// existente). Isso funciona tanto pra quem já tem 2 matérias quanto pra
+// quem já tem 30 — a cor nova sempre tenta abrir o maior espaço livre
+// disponível na roda, em vez de repetir ou quase-repetir uma cor vizinha.
+const COR_AUTO_SATURACAO = 68; // %
+const COR_AUTO_LUMINOSIDADE = 56; // % — claro o bastante pra aparecer bem no tema escuro
+const COR_AUTO_NUM_CANDIDATOS = 24; // passos de 15° ao redor da roda de cores
+
+function hexParaHsl(hex) {
+  const limpo = (hex || "").replace("#", "");
+  if (limpo.length !== 6) return null;
+  const r = parseInt(limpo.slice(0, 2), 16) / 255;
+  const g = parseInt(limpo.slice(2, 4), 16) / 255;
+  const b = parseInt(limpo.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l: l * 100 };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  switch (max) {
+    case r:
+      h = (g - b) / d + (g < b ? 6 : 0);
+      break;
+    case g:
+      h = (b - r) / d + 2;
+      break;
+    default:
+      h = (r - g) / d + 4;
+  }
+  return { h: h * 60, s: s * 100, l: l * 100 };
+}
+
+function hslParaHex(h, s, l) {
+  const sN = s / 100;
+  const lN = l / 100;
+  const k = (n) => (n + h / 30) % 12;
+  const a = sN * Math.min(lN, 1 - lN);
+  const f = (n) =>
+    lN - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const paraHex = (n) =>
+    Math.round(f(n) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${paraHex(0)}${paraHex(8)}${paraHex(4)}`;
+}
+
+// Distância circular entre dois matizes (0-360°), sempre pelo caminho
+// mais curto na roda de cores (ex: 350° e 10° estão a 20° de distância,
+// não 340°).
+function distanciaCircular(a, b) {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+// Gera uma cor nova, harmônica com o resto (mesma saturação/luminosidade
+// da paleta automática) e o mais distinta possível de todas as cores já
+// em uso. `nomeParaIgnorar` deixa de fora a própria matéria sendo editada,
+// pra "sugerir outra cor" não ficar competindo com a cor atual dela.
+function gerarCorAutomaticaMateria(nomeParaIgnorar) {
+  const coresEmUso = materias
+    .filter((m) => m.nome !== nomeParaIgnorar)
+    .map((m) => hexParaHsl(m.cor))
+    .filter(Boolean);
+
+  let melhorHue = 0;
+  let melhorDistancia = -1;
+  for (let i = 0; i < COR_AUTO_NUM_CANDIDATOS; i++) {
+    const hue = (i * (360 / COR_AUTO_NUM_CANDIDATOS)) % 360;
+    const distanciaMinima =
+      coresEmUso.length === 0
+        ? 999
+        : Math.min(...coresEmUso.map((c) => distanciaCircular(hue, c.h)));
+    if (distanciaMinima > melhorDistancia) {
+      melhorDistancia = distanciaMinima;
+      melhorHue = hue;
+    }
+  }
+  return hslParaHex(melhorHue, COR_AUTO_SATURACAO, COR_AUTO_LUMINOSIDADE);
+}
+
 // --- FRASES MOTIVACIONAIS E PROVÉRBIOS (exibidas no modo foco) ---
 const FRASES_MOTIVACIONAIS = [
   {
@@ -3725,10 +3814,9 @@ async function adicionarNovaMateria(e) {
   e.preventDefault();
   let nome = document.getElementById("mat-only-nome").value.trim();
   let metaVinculada = document.getElementById("mat-vinc-meta").value;
-  let cor = document.getElementById("mat-only-cor").value;
   let peso = parseInt(document.getElementById("mat-only-peso").value, 10) || 1;
 
-  if (!nome || !cor) return;
+  if (!nome) return;
 
   const duplicada = materias.some(
     (m) => m.nome.trim().toLowerCase() === nome.toLowerCase(),
@@ -3740,25 +3828,22 @@ async function adicionarNovaMateria(e) {
     return;
   }
 
+  // A cor é escolhida sozinha (ver gerarCorAutomaticaMateria) — sem
+  // formulário de cor pra preencher. Dá pra trocar depois clicando em
+  // ✏️ editar na lista de Matérias Cadastradas.
+  const cor = gerarCorAutomaticaMateria();
+
   materias.push({ nome, metaVinculada, cor, peso });
   localStorage.setItem("materias", JSON.stringify(materias));
   if (!tempoPorMateria[nome]) tempoPorMateria[nome] = 0;
   localStorage.setItem("tempoPorMateria", JSON.stringify(tempoPorMateria));
 
   document.getElementById("materia-only-form").reset();
-  const corPadrao = paletaCores[0].hex;
   document.getElementById("mat-only-peso").value = 1;
-  document.getElementById("mat-only-cor").value = corPadrao;
   renderizarEstrelasPeso(
     "peso-estrelas-container",
     "mat-only-peso",
     1,
-    validarFormularioMateria,
-  );
-  renderizarSwatchesCor(
-    "cor-swatches-container",
-    "mat-only-cor",
-    corPadrao,
     validarFormularioMateria,
   );
   atualizarContadorNomeMateria();
@@ -3795,34 +3880,6 @@ function renderizarEstrelasPeso(
   }
 }
 
-// Constrói a grade de swatches de cor, reaproveitado no cadastro e na
-// edição de matéria. Um pequeno respiro extra é inserido sempre que a
-// família de cor muda (vermelhos → laranjas → amarelos...), pra grade dar
-// a impressão de um arco-íris organizado em vez de uma bagunça de bolinhas.
-function renderizarSwatchesCor(containerId, hiddenInputId, hexAtual, aoMudar) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = "";
-  let familiaAnterior = null;
-  paletaCores.forEach((cor) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "cor-swatch" + (cor.hex === hexAtual ? " selecionada" : "");
-    if (familiaAnterior !== null && cor.familia !== familiaAnterior) {
-      btn.classList.add("cor-swatch-nova-familia");
-    }
-    familiaAnterior = cor.familia;
-    btn.style.background = cor.hex;
-    btn.title = cor.nome;
-    btn.addEventListener("click", () => {
-      document.getElementById(hiddenInputId).value = cor.hex;
-      renderizarSwatchesCor(containerId, hiddenInputId, cor.hex, aoMudar);
-      if (aoMudar) aoMudar();
-    });
-    container.appendChild(btn);
-  });
-}
-
 function atualizarContadorNomeMateria() {
   const input = document.getElementById("mat-only-nome");
   const contador = document.getElementById("contador-nome-materia");
@@ -3833,9 +3890,8 @@ function atualizarContadorNomeMateria() {
 
 function validarFormularioMateria() {
   const nome = document.getElementById("mat-only-nome").value.trim();
-  const cor = document.getElementById("mat-only-cor").value;
   const btn = document.getElementById("btn-adicionar-materia");
-  if (btn) btn.disabled = !(nome && cor);
+  if (btn) btn.disabled = !nome;
 }
 
 // Lista de matérias cadastradas, com editar/excluir
@@ -4407,11 +4463,16 @@ function adicionarLinhaVideoRegistroSessao() {
   linha.className = "ra-video-linha";
   linha.dataset.idx = idx;
   linha.innerHTML = `
-    <span class="ra-video-numero"></span>
-    <input type="text" class="ra-video-nome" placeholder="Nome do Vídeo (Opcional)" />
-    <input type="number" class="ra-video-horas" min="0" placeholder="H" title="Horas" />
-    <input type="number" class="ra-video-min" min="0" max="59" placeholder="Min" title="Minutos" />
-    <button type="button" class="ra-video-remover" onclick="removerLinhaVideoRegistroSessao(${idx})">Remover</button>
+    <div class="ra-video-linha-topo">
+      <span class="ra-video-numero"></span>
+      <input type="text" class="ra-video-nome" placeholder="Nome do Vídeo (Opcional)" />
+      <button type="button" class="ra-video-remover" onclick="removerLinhaVideoRegistroSessao(${idx})">Remover</button>
+    </div>
+    <div class="ra-video-linha-baixo">
+      <input type="url" class="ra-video-link" placeholder="🔗 Link do vídeo (opcional)" />
+      <input type="number" class="ra-video-horas" min="0" placeholder="H" title="Horas" />
+      <input type="number" class="ra-video-min" min="0" max="59" placeholder="Min" title="Minutos" />
+    </div>
   `;
   lista.appendChild(linha);
   renumerarVideosRegistroSessao();
@@ -4503,6 +4564,9 @@ async function registrarSessaoAvulsa(event) {
   const paginasRaw = document.getElementById("ra-paginas").value;
   const paginasLidas = paginasRaw ? parseInt(paginasRaw, 10) : null;
   const materialApoio = document.getElementById("ra-material").value.trim();
+  const materialApoioLink = normalizarLinkSessao(
+    document.getElementById("ra-material-link").value,
+  );
   const comentarios = document.getElementById("ra-comentarios").value.trim();
   const estudoTerminado = document.getElementById("ra-concluido").checked;
 
@@ -4511,11 +4575,14 @@ async function registrarSessaoAvulsa(event) {
     .querySelectorAll("#ra-videos-lista .ra-video-linha")
     .forEach((linha) => {
       const nome = linha.querySelector(".ra-video-nome").value.trim();
+      const link = normalizarLinkSessao(
+        linha.querySelector(".ra-video-link").value,
+      );
       const h = parseInt(linha.querySelector(".ra-video-horas").value, 10) || 0;
       const m = parseInt(linha.querySelector(".ra-video-min").value, 10) || 0;
       const duracaoMin = h * 60 + m;
-      if (nome || duracaoMin > 0) {
-        videoaulas.push({ nome: nome || "Vídeo sem nome", duracaoMin });
+      if (nome || link || duracaoMin > 0) {
+        videoaulas.push({ nome: nome || "Vídeo sem nome", link, duracaoMin });
       }
     });
 
@@ -4553,6 +4620,7 @@ async function registrarSessaoAvulsa(event) {
     questoesAcertos: questoesTotal ? questoesAcertos : null,
     paginasLidas,
     materialApoio: materialApoio || null,
+    materialApoioLink,
     videoaulas: videoaulas.length ? videoaulas : null,
   });
   localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
@@ -7437,11 +7505,6 @@ function abrirModalEditarMateria(indice) {
     "edit-mat-peso",
     m.peso || 1,
   );
-  renderizarSwatchesCor(
-    "edit-cor-swatches-container",
-    "edit-mat-cor",
-    m.cor || paletaCores[0].hex,
-  );
 
   const selectMeta = document.getElementById("edit-mat-vinc-meta");
   selectMeta.innerHTML = '<option value="">Matéria Isolada</option>';
@@ -7460,6 +7523,16 @@ function abrirModalEditarMateria(indice) {
 
 function fecharModalEditarMateria() {
   document.getElementById("modal-editar-materia").style.display = "none";
+}
+
+// Sugere uma nova cor automática pro campo de cor do modal de edição —
+// mesma lógica do cadastro (gerarCorAutomaticaMateria), ignorando a
+// própria cor atual da matéria sendo editada pra não competir com ela.
+function sugerirNovaCorMateria() {
+  const indice = parseInt(document.getElementById("edit-mat-indice").value, 10);
+  const m = materias[indice];
+  const corSugerida = gerarCorAutomaticaMateria(m ? m.nome : null);
+  document.getElementById("edit-mat-cor").value = corSugerida;
 }
 
 // --- SUB-TÓPICOS DA MATÉRIA (checklist do edital dentro de cada matéria) ---
@@ -7956,6 +8029,22 @@ function renderizarSeletorProvas() {
 // de matérias cadastradas, revisão pendente, questões e o widget de meta).
 function selecionarProvaAtiva(nomeObjetivo) {
   localStorage.setItem("metaFiltroAtivo", nomeObjetivo);
+  renderizarTodoOPainel();
+}
+
+// Marca/desmarca a prova como aprovado — usado pelo checkbox "Aprovado"
+// no card de "Provas Cadastradas". As conquistas de aprovação (ver
+// CONQUISTAS mais abaixo) contam quantas provas estão marcadas assim.
+function alternarAprovacaoMeta(indice, aprovado) {
+  const meta = metas[indice];
+  if (!meta) return;
+  meta.aprovado = aprovado;
+  localStorage.setItem("metas", JSON.stringify(metas));
+
+  if (aprovado) {
+    mostrarToastGamificacao("🎓", "Aprovação Registrada!", meta.objetivoNome);
+  }
+
   renderizarTodoOPainel();
 }
 
@@ -10125,7 +10214,7 @@ function renderizarMetasEGraficos() {
 
       const status = calcularStatusInscricao(meta);
 
-      return `<div class="prova-card${destacada ? " prova-card-ativa" : ""}">
+      return `<div class="prova-card${destacada ? " prova-card-ativa" : ""}${meta.aprovado ? " prova-card-aprovada" : ""}">
         <button type="button" class="prova-card-excluir" title="Excluir esta prova" onclick="excluirMeta(${i})">✕</button>
         <div class="prova-card-titulo">🎯 ${escapeHtml(meta.objetivoNome)}</div>
         <div class="prova-card-linha"><span>📅 Prova objetiva</span><strong>${dataFormatada}</strong></div>
@@ -10134,6 +10223,14 @@ function renderizarMetasEGraficos() {
         <div class="prova-card-linha"><span>📚 Tópicos do edital</span><strong>${meta.qtdMaterias}</strong></div>
         <div class="prova-card-linha"><span>🔗 Matérias vinculadas</span><strong>${qtdMateriasVinculadas}</strong></div>
         ${status ? `<span class="status-badge ${status.classe} prova-card-status">${status.texto}</span>` : ""}
+        <label class="prova-card-aprovacao">
+          <input
+            type="checkbox"
+            ${meta.aprovado ? "checked" : ""}
+            onchange="alternarAprovacaoMeta(${i}, this.checked)"
+          />
+          <span>${meta.aprovado ? "🎓 Aprovado!" : "Marcar como Aprovado"}</span>
+        </label>
       </div>`;
     })
     .join("");
@@ -10159,6 +10256,41 @@ function renderizarMetasEGraficos() {
 // Lista as sessões de hoje (mais recente primeiro), cada uma com botão de
 // excluir — remove do logsSessoes e reverte o impacto no tempo total e por
 // matéria, pra estatísticas não ficarem incoerentes com um registro errado.
+// Monta o bloco de "anexos" (material de apoio + videoaulas) de uma
+// sessão pra exibir no card de "Sessões de Hoje" — sem isso, o link/nome
+// digitado no formulário de registro ficava salvo mas invisível em
+// qualquer lugar do app. Quando há um link válido (normalizarLinkSessao),
+// o nome vira um <a> clicável que abre em nova aba.
+function montarAnexosSessaoHoje(log) {
+  const linhas = [];
+
+  if (log.materialApoio || log.materialApoioLink) {
+    const nome = log.materialApoio
+      ? escapeHtml(log.materialApoio)
+      : "Material de apoio";
+    const conteudo = log.materialApoioLink
+      ? `<a href="${log.materialApoioLink}" target="_blank" rel="noopener noreferrer">${nome} ↗</a>`
+      : nome;
+    linhas.push(`<span class="sessao-hoje-anexo">📎 ${conteudo}</span>`);
+  }
+
+  (log.videoaulas || []).forEach((v) => {
+    const nome = escapeHtml(v.nome || "Vídeo");
+    const duracao = v.duracaoMin
+      ? ` (${formatarHorasMinutos(v.duracaoMin)})`
+      : "";
+    const conteudo = v.link
+      ? `<a href="${v.link}" target="_blank" rel="noopener noreferrer">${nome} ↗</a>`
+      : nome;
+    linhas.push(
+      `<span class="sessao-hoje-anexo">🎬 ${conteudo}${duracao}</span>`,
+    );
+  });
+
+  if (linhas.length === 0) return "";
+  return `<div class="sessao-hoje-anexos">${linhas.join("")}</div>`;
+}
+
 function renderizarSessoesHoje() {
   const container = document.getElementById("sessoes-hoje-lista");
   if (!container) return;
@@ -10188,6 +10320,7 @@ function renderizarSessoesHoje() {
               <span class="sessao-hoje-meta">${log.duracao} min • 🕒 ${log.hora}</span>
             </div>
             ${log.nota ? `<div class="sessao-hoje-nota">📝 ${escapeHtml(log.nota)}</div>` : ""}
+            ${montarAnexosSessaoHoje(log)}
           </div>
           <button
             type="button"
@@ -10648,7 +10781,8 @@ function renderizarTodoOPainel() {
   atualizarMetaHorasSemanais();
 }
 
-// Inicialização do formulário de cadastro de matéria (estrelas + swatches)
+// Inicialização do formulário de cadastro de matéria (estrelas de peso —
+// a cor agora é 100% automática, sem campo/swatches pra inicializar aqui)
 if (document.getElementById("peso-estrelas-container")) {
   renderizarEstrelasPeso(
     "peso-estrelas-container",
@@ -10656,13 +10790,6 @@ if (document.getElementById("peso-estrelas-container")) {
     1,
     validarFormularioMateria,
   );
-  renderizarSwatchesCor(
-    "cor-swatches-container",
-    "mat-only-cor",
-    paletaCores[0].hex,
-    validarFormularioMateria,
-  );
-  document.getElementById("mat-only-cor").value = paletaCores[0].hex;
   validarFormularioMateria();
 }
 
@@ -10845,6 +10972,24 @@ function escapeHtml(texto) {
   const div = document.createElement("div");
   div.textContent = texto;
   return div.innerHTML;
+}
+
+// Normaliza um link colado pelo usuário (aceita sem "http://" na frente,
+// ex: "youtube.com/xyz") e recusa qualquer esquema que não seja
+// http/https — evita que um valor tipo "javascript:..." vire um link
+// clicável em algum lugar do app.
+function normalizarLinkSessao(url) {
+  const valor = (url || "").trim();
+  if (!valor) return null;
+  const comEsquema = /^https?:\/\//i.test(valor) ? valor : `https://${valor}`;
+  try {
+    const parsed = new URL(comEsquema);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
 }
 
 function adicionarTarefa() {
@@ -11671,6 +11816,8 @@ function obterStatsGamificacao() {
     return parseInt(log.hora.split(":")[0], 10) >= 23;
   });
 
+  const aprovacoesTotais = metas.filter((m) => m.aprovado).length;
+
   return {
     minutosTotais,
     pomodorosTotais,
@@ -11681,6 +11828,7 @@ function obterStatsGamificacao() {
     temSessaoMadrugada,
     temSessaoNoturna,
     flashcardsRevisados: totalRevisoesFlashcards,
+    aprovacoesTotais,
   };
 }
 
@@ -11815,6 +11963,27 @@ const CONQUISTAS = [
     desc: "Estudou depois das 23h",
     icone: "🦉",
     check: (s) => s.temSessaoNoturna,
+  },
+  {
+    id: "aprovacao1",
+    nome: "Aprovado!",
+    desc: "Conquistou 1 aprovação",
+    icone: "🎓",
+    check: (s) => s.aprovacoesTotais >= 1,
+  },
+  {
+    id: "aprovacao2",
+    nome: "Bicampeão",
+    desc: "Conquistou 2 ou mais aprovações",
+    icone: "🏅",
+    check: (s) => s.aprovacoesTotais >= 2,
+  },
+  {
+    id: "aprovacao3",
+    nome: "Tríplice Coroa",
+    desc: "Conquistou 3 ou mais aprovações",
+    icone: "👑",
+    check: (s) => s.aprovacoesTotais >= 3,
   },
 ];
 
@@ -12570,6 +12739,18 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.25",
+    titulo:
+      "Cor automática de matéria, links na sessão registrada e conquistas de aprovação",
+    itens: [
+      "Toda matéria nova agora ganha uma cor sozinha, sempre diferente e harmônica com as das demais matérias já cadastradas — a lista de cores para escolher foi retirada do cadastro por deixar o layout poluído. Pra trocar a cor de uma matéria já cadastrada, use o seletor de cor (ou o botão 🎲 Sugerir outra cor) na edição, em Matérias Cadastradas — nenhuma cor já escolhida antes foi alterada.",
+      "O formulário de Registrar Sessão agora aceita um link (vídeo ou texto/artigo/PDF) tanto no Material de Apoio quanto em cada Videoaula Assistida — antes essa informação ficava salva sem aparecer em lugar nenhum. Agora os links aparecem clicáveis direto no card da sessão, em Hoje & Registros.",
+      "Novo checkbox 'Marcar como Aprovado' em cada prova de Provas Cadastradas — o card ganha uma borda dourada de destaque quando marcado.",
+      "3 novas conquistas de aprovação: 🎓 Aprovado! (1 aprovação), 🏅 Bicampeão (2 ou mais) e 👑 Tríplice Coroa (3 ou mais) — desbloqueiam sozinhas ao marcar uma prova como aprovada.",
+      "Reorganização da seção Hoje & Registros: Sessões de Hoje e Ritmo Sugerido por Matéria ficam agrupados à esquerda, Revisão Pendente e Simulados e Provas à direita, com Questões Resolvidas ocupando a largura toda logo abaixo (form e histórico lado a lado) — corrige os vãos enormes que apareciam entre cards de altura muito diferente.",
+    ],
+  },
+  {
     versao: "1.24",
     titulo:
       "Flashcards estilo Anki, Registro de Sessão Avulsa e cards de análise em modo compacto",
@@ -12792,11 +12973,11 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
   {
     categoria: "📚 Matérias, Metas e Provas",
     itens: [
-      "Matérias com cor (36 tons organizados por família), peso de prioridade e vínculo a uma meta",
+      "Matérias com cor atribuída automaticamente (sempre harmônica e diferente das demais), trocável a qualquer momento na edição, peso de prioridade e vínculo a uma meta",
       "Sub-tópicos do edital por matéria, com progresso — incluindo cadastro rápido de subtópicos direto na tela de registrar questões",
-      "Cadastro de Prova de Concurso: data da prova, remuneração, valor e período de inscrição, com alarme de prazo (banner + notificação)",
+      "Cadastro de Prova de Concurso: data da prova, remuneração, valor e período de inscrição, com alarme de prazo (banner + notificação) e checkbox pra marcar como aprovado",
       "Meta de Horas Semanais: alvo recorrente de horas por semana, independente de prova",
-      "Registro de Sessão Avulsa: lance manualmente uma sessão de estudo já concluída (sem passar pelo pomodoro) — tipo, duração, questões, páginas lidas e videoaulas assistidas",
+      "Registro de Sessão Avulsa: lance manualmente uma sessão de estudo já concluída (sem passar pelo pomodoro) — tipo, duração, questões, páginas lidas e videoaulas assistidas, cada uma com link opcional de vídeo/material de apoio",
       "Revisão espaçada com algoritmo SM-2 (estilo Anki)",
       "Questões resolvidas e simulados/provas completas, com histórico",
       "Modo Reta Final: checklist diário automático que ativa quando uma prova está a 30 dias ou menos, juntando revisões atrasadas, pontos fracos e matérias de maior peso",
@@ -12829,7 +13010,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
   {
     categoria: "🏆 Gamificação",
     itens: [
-      "XP, níveis e conquistas desbloqueáveis",
+      "XP, níveis e conquistas desbloqueáveis, incluindo conquistas de aprovação (1, 2 ou mais e 3 ou mais provas marcadas como aprovadas)",
       "Sequência de dias seguidos de foco, com 1 congelamento por semana pra não quebrar o streak",
       "Tarefas do dia a dia",
       "Sala de Estudos: crie ou entre com um código e veja o ranking de minutos estudados (hoje e na semana) atualizando em tempo real",

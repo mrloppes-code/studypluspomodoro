@@ -2504,9 +2504,11 @@
                 é só pra estudo livre, sem vínculo com nenhuma meta.
               </span>
 
-              <label>Cor da Matéria:</label>
-              <div class="cor-swatches" id="cor-swatches-container"></div>
-              <input type="hidden" id="mat-only-cor" />
+              <span class="campo-ajuda" style="margin-top: -6px">
+                🎨 A cor é escolhida automaticamente (sempre diferente das
+                outras matérias já cadastradas) — dá pra trocar depois em
+                "Matérias Cadastradas", clicando em ✏️ editar.
+              </span>
 
               <button
                 type="submit"
@@ -4213,9 +4215,18 @@
               <option value="">Matéria Isolada</option>
             </select>
 
-            <label>Cor da Matéria:</label>
-            <div class="cor-swatches" id="edit-cor-swatches-container"></div>
-            <input type="hidden" id="edit-mat-cor" />
+            <label for="edit-mat-cor">Cor da Matéria:</label>
+            <div class="editar-cor-linha">
+              <input type="color" id="edit-mat-cor" />
+              <button
+                type="button"
+                class="btn-sugerir-cor"
+                onclick="sugerirNovaCorMateria()"
+                title="Gerar outra cor automática, diferente das demais matérias"
+              >
+                🎲 Sugerir outra cor
+              </button>
+            </div>
             <input type="hidden" id="edit-mat-indice" />
 
             <label style="margin-top: 14px">📋 Tópicos do Edital:</label>
@@ -4413,6 +4424,13 @@ Licitações e Contratos"
                   />
                 </div>
               </div>
+
+              <label for="ra-material-link">Link do Material (Opc.)</label>
+              <input
+                type="url"
+                id="ra-material-link"
+                placeholder="🔗 Link do texto/artigo/PDF — ex: https://..."
+              />
 
               <label for="ra-comentarios"
                 >Comentários / Observações da Sessão</label
@@ -5189,7 +5207,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=7"></script>
     <script src="js/salas.js?v=2"></script>
-    <script src="js/script.js?v=60"></script>
+    <script src="js/script.js?v=53"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

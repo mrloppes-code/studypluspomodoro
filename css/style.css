@@ -1598,46 +1598,40 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   margin: -6px 0 12px;
 }
 
-.cor-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 7px;
-  margin-bottom: 14px;
-  max-width: 480px;
-}
-.cor-swatch {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  position: relative;
-  flex-shrink: 0;
-}
-/* Pequeno respiro visual entre uma família de cor e outra (vermelhos,
-   laranjas, amarelos...), pra grade parecer um arco-íris organizado em
-   vez de bolinhas soltas sem nenhum critério aparente. */
-.cor-swatch-nova-familia {
-  margin-left: 9px;
-}
-.cor-swatch:hover {
-  transform: scale(1.1);
-}
-.cor-swatch.selecionada {
-  border-color: white;
-  box-shadow: 0 0 0 2px var(--primary);
-}
-.cor-swatch.selecionada::after {
-  content: "✓";
-  position: absolute;
-  inset: 0;
+.editar-cor-linha {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: white;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+/* input[type=color] nativo: só um retângulo pequeno com a cor por trás
+   (a UI de escolha é a do próprio navegador/SO — não precisa de swatches
+   customizados aqui). */
+.editar-cor-linha input[type="color"] {
+  width: 42px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-sugerir-cor {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--accent-text);
   font-size: 0.8rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-sugerir-cor:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-style: solid;
 }
 
 .materias-cadastradas-header {
@@ -3330,6 +3324,24 @@ body.modo-isolamento-ativo .btn-voltar-modo-foco {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.sessao-hoje-anexos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+.sessao-hoje-anexo {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.sessao-hoje-anexo a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.sessao-hoje-anexo a:hover {
+  text-decoration: underline;
+}
 .sessao-hoje-excluir {
   background: transparent;
   border: 1px solid var(--border);
@@ -3472,6 +3484,35 @@ textarea {
 .prova-card-cargo-item {
   font-size: 0.78rem;
   color: var(--text-muted);
+}
+/* Prova marcada como aprovada ganha uma borda dourada — igual reforço
+   visual do "prova-card-ativa" (accent), só que numa cor de conquista
+   pra se destacar mesmo entre várias provas cadastradas. */
+.prova-card-aprovada {
+  border-left-color: #eab308;
+}
+.prova-card-aprovacao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.prova-card-aprovacao input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #eab308;
+}
+.prova-card-aprovada .prova-card-aprovacao span {
+  color: #eab308;
+  font-weight: 700;
 }
 
 button {
@@ -5903,12 +5944,27 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 #ra-videos-lista {
   margin-top: 10px;
 }
+/* Cada linha de vídeo agora tem 2 sub-linhas (ver
+   adicionarLinhaVideoRegistroSessao em script.js): nome + remover em
+   cima, link + duração embaixo — evita espremer 5 campos numa linha só
+   agora que o link do vídeo entrou na jogada. */
 .ra-video-linha {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.ra-video-linha-topo {
   display: grid;
-  grid-template-columns: auto 1fr 70px 70px auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+.ra-video-linha-baixo {
+  display: grid;
+  grid-template-columns: 1fr 70px 70px;
+  gap: 8px;
 }
 .ra-video-numero {
   font-size: 0.85rem;
@@ -6000,28 +6056,24 @@ body.modo-isolamento-ativo .btn-editar-perfil {
   .ra-grid-4 {
     grid-template-columns: 1fr;
   }
-  .ra-video-linha {
-    grid-template-columns: 1fr 1fr;
+  .ra-video-linha-topo {
+    grid-template-columns: auto 1fr;
     grid-template-areas:
-      "numero numero"
-      "nome nome"
-      "horas min"
-      "remover remover";
+      "numero remover"
+      "nome nome";
   }
-  .ra-video-numero {
+  .ra-video-linha-topo .ra-video-numero {
     grid-area: numero;
   }
-  .ra-video-nome {
+  .ra-video-linha-topo .ra-video-nome {
     grid-area: nome;
   }
-  .ra-video-horas {
-    grid-area: horas;
-  }
-  .ra-video-min {
-    grid-area: min;
-  }
-  .ra-video-remover {
+  .ra-video-linha-topo .ra-video-remover {
     grid-area: remover;
+    justify-self: end;
+  }
+  .ra-video-linha-baixo {
+    grid-template-columns: 1fr;
   }
 }
 
