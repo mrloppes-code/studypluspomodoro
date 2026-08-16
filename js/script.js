@@ -10628,6 +10628,8 @@ function renderizarGrafico() {
   const canvas = document.getElementById("chartMaterias");
   if (!canvas) return;
 
+  const wrapper = document.getElementById("chart-wrapper-distribuicao-tempo");
+
   const mapaTempo = obterTempoPorMateria();
 
   // Ordena da matéria mais estudada para a menos estudada
@@ -10640,11 +10642,13 @@ function renderizarGrafico() {
       meuGrafico.destroy();
       meuGrafico = null;
     }
+    if (wrapper) wrapper.style.height = "0px";
     return;
   }
 
   const nomesMaterias = entradasOrdenadas.map(([nome]) => nome);
   const valores = entradasOrdenadas.map(([, min]) => min);
+  const totalGeral = valores.reduce((soma, v) => soma + v, 0);
 
   // Respeita a cor cadastrada em "Cadastrar Nova Matéria". Se uma matéria
   // não tiver cor própria (cadastro antigo, por exemplo), usa uma cor
@@ -10659,13 +10663,6 @@ function renderizarGrafico() {
     return corPadrao;
   });
 
-  // Rótulos com o tempo total (h/min) embutido no próprio texto — assim a
-  // legenda herda a cor/fonte padrão do gráfico sem precisar de um
-  // renderizador de legenda customizado.
-  const labelsComTempo = nomesMaterias.map(
-    (nome, i) => `${nome} — ${formatarHorasMinutos(valores[i])}`,
-  );
-
   if (meuGrafico instanceof Chart) {
     meuGrafico.destroy();
   }
@@ -10675,50 +10672,80 @@ function renderizarGrafico() {
   const estiloRaiz = getComputedStyle(document.documentElement);
   const corTextoMuted =
     estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const corTextoMain =
+    estiloRaiz.getPropertyValue("--text-main").trim() || "#e2e8f0";
   const corCardBg =
     estiloRaiz.getPropertyValue("--card-bg").trim() || "#1e293b";
+  const corBorda = estiloRaiz.getPropertyValue("--border").trim() || "#334155";
   const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
 
+  // Gráfico de barras horizontais em vez de pizza: cada matéria vira uma
+  // linha própria, então funciona bem com poucas ou muitas matérias
+  // cadastradas — uma pizza fica ilegível com muitas fatias pequenas, já a
+  // lista de barras só cresce em altura (a altura do canvas é ajustada
+  // abaixo, uma "faixa" por matéria, e o próprio modal rola se precisar).
+  const alturaPorMateria = 34;
+  const alturaMinima = 160;
+  const alturaCalculada = Math.max(
+    alturaMinima,
+    nomesMaterias.length * alturaPorMateria + 40,
+  );
+  canvas.style.height = `${alturaCalculada}px`;
+  if (wrapper) wrapper.style.height = `${alturaCalculada}px`;
+
   meuGrafico = new Chart(canvas.getContext("2d"), {
-    type: "pie",
+    type: "bar",
 
     data: {
-      labels: labelsComTempo,
+      labels: nomesMaterias,
 
       datasets: [
         {
           data: valores,
           backgroundColor: cores,
-          borderWidth: 2,
-          borderColor: corCardBg,
-          hoverOffset: 6,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 22,
         },
       ],
     },
     options: {
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
 
-      plugins: {
-        legend: {
-          position: "bottom",
-          labels: {
+      scales: {
+        x: {
+          beginAtZero: true,
+          grid: { color: corBorda },
+          border: { color: corBorda },
+          ticks: {
             color: corTextoMuted,
-            font: { family: fonteApp, size: 12 },
-            boxWidth: 14,
-            boxHeight: 14,
-            padding: 12,
-            usePointStyle: true,
-            pointStyle: "circle",
+            font: { family: fonteApp, size: 11 },
+            callback: (valor) => formatarHorasMinutos(valor),
           },
         },
+        y: {
+          grid: { display: false },
+          border: { color: corBorda },
+          ticks: {
+            color: corTextoMain,
+            font: { family: fonteApp, size: 12 },
+            autoSkip: false,
+          },
+        },
+      },
+
+      plugins: {
+        legend: { display: false },
         tooltip: {
           bodyFont: { family: fonteApp },
           titleFont: { family: fonteApp },
           callbacks: {
             label: (contexto) => {
-              const nome = nomesMaterias[contexto.dataIndex];
-              return ` ${nome}: ${formatarHorasMinutos(contexto.parsed)}`;
+              const min = contexto.parsed.x;
+              const pct = totalGeral > 0 ? (min / totalGeral) * 100 : 0;
+              return ` ${formatarHorasMinutos(min)} (${pct.toFixed(1)}%)`;
             },
           },
         },

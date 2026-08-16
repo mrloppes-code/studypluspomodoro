@@ -3165,6 +3165,19 @@ body.modo-isolamento-ativo .btn-voltar-modo-foco {
   }
 }
 
+/* Distribuição de Tempo: virou um gráfico de barras horizontais (uma
+   linha por matéria) em vez de pizza, porque pizza não comporta bem
+   muitas fatias pequenas. A largura usa o card inteiro e a altura é
+   definida via JS (uma linha por matéria), então aqui só tiramos os
+   limites fixos de .chart-wrapper — o próprio modal (.modal-detalhe-conteudo)
+   já rola verticalmente quando o conteúdo é mais alto que a tela. */
+.chart-wrapper.chart-wrapper-distribuicao-tempo {
+  max-width: 100% !important;
+  width: 100%;
+  height: auto;
+  margin: 16px 0 4px;
+}
+
 /* Taxa de Conclusão de Pomodoros (iniciados x completos) */
 .taxa-conclusao-linha {
   display: flex;
