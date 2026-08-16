@@ -2379,9 +2379,16 @@
         </div>
 
         <!-- MODAL: COMPARATIVO ENTRE PROVAS CADASTRADAS (acessível direto da aba de Cadastro) -->
+        <!-- Sem a classe modal-detalhe-card de propósito: este modal não faz
+             parte do sistema de card-resumo/Ver-Detalhes do modo Expandido
+             (não tem um "card-comparativo-provas-cadastro" resumo em nenhuma
+             aba) — é aberto sob demanda pelo botão na aba Cadastro. Tendo
+             essa classe, a regra global do modo Expandido
+             (body.modo-cards-expandido .modal-detalhe-card) forçava esse
+             modal a aparecer inline em QUALQUER aba, com tamanho quebrado. -->
         <div
           id="modal-comparativo-provas-cadastro"
-          class="modal-distracao modal-detalhe-card"
+          class="modal-distracao"
           onclick="
             fecharModalDetalheCardSeClicouFora(
               event,
