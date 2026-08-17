@@ -18,11 +18,24 @@ const sb = SUPABASE_CONFIGURADO
   : null;
 
 let usuarioAtual = null;
+let tokenAcessoAtual = null; // access_token da sessão atual — guardado à parte
+// pra poder montar a chamada REST "manual" do beforeunload sem precisar de
+// um await bloqueante em cima de sb.auth.getSession() (ver mais abaixo).
+
+// A foto de perfil é sincronizada à parte (ver "--- FOTO DE PERFIL ---" mais
+// abaixo), numa coluna própria (foto_perfil_base64) em vez de dentro do
+// mesmo JSON "dados" que é reenviado a cada mudança pequena (marcar uma
+// tarefa, adicionar um lembrete...). Sem essa separação, qualquer alteração
+// mínima reenviava a foto inteira de novo — desperdiçando dados móveis e
+// deixando o payload grande o bastante pra arriscar estourar o limite de
+// tamanho do envio "de segurança" no fechamento da aba (ver beforeunload).
+const CHAVE_FOTO_PERFIL = "fotoPerfilBase64";
 
 // --- QUAIS DADOS SÃO SINCRONIZADOS ---
 // Reaproveita a lista de chaves já usada pelo backup manual (CHAVES_BACKUP,
 // definida em script.js) e soma as preferências de dispositivo que também
-// fazem sentido acompanhar o usuário entre aparelhos.
+// fazem sentido acompanhar o usuário entre aparelhos. A foto de perfil fica
+// de fora daqui de propósito — ela tem sua própria sincronização, mais rara.
 function obterChavesSincronizaveis() {
   const extras = [
     "temaApp",
@@ -34,7 +47,11 @@ function obterChavesSincronizaveis() {
     "ordemWidgetsPainel",
   ];
   const base = typeof CHAVES_BACKUP !== "undefined" ? CHAVES_BACKUP : [];
-  return Array.from(new Set([...base, ...extras]));
+  return Array.from(
+    new Set(
+      [...base, ...extras].filter((chave) => chave !== CHAVE_FOTO_PERFIL),
+    ),
+  );
 }
 
 function coletarDadosParaNuvem() {
@@ -66,6 +83,11 @@ function limparDadosLocaisDeConta() {
   obterChavesSincronizaveis().forEach((chave) => {
     localStorage.removeItem(chave);
   });
+  // A foto de perfil não está mais em obterChavesSincronizaveis() (tem
+  // sincronização própria, ver "--- FOTO DE PERFIL ---" mais abaixo), então
+  // precisa ser limpa explicitamente aqui pra não continuar aparecendo pro
+  // próximo usuário/convidado neste aparelho.
+  localStorage.removeItem(CHAVE_FOTO_PERFIL);
   localStorage.removeItem("contaVinculadaId");
 }
 
@@ -113,13 +135,27 @@ function mesclarDadosDaNuvem(dadosNuvem) {
   }
 
   // 1. Listas com "id" único (sessões avulsas de foco, questões,
-  // simulados, tarefas): une os dois lados por id, sem duplicar.
+  // simulados, tarefas): une os dois lados por id, sem duplicar. Quando o
+  // MESMO id existe dos dois lados (só acontece de verdade com tarefas,
+  // que podem ser editadas/marcadas como concluídas em mais de um
+  // aparelho — os outros tipos só são criados, nunca editados depois), usa
+  // o campo "atualizadoEm" pra manter a versão mais recente. Itens sem
+  // esse campo (registros antigos, ou tipos que nunca o usam) continuam
+  // com o comportamento de sempre: o lado local vence.
   function mesclarListaPorId(chave) {
     const local = lerLocal(chave, []);
     const nuvem = lerNuvem(chave, []);
     const porId = new Map();
     [...nuvem, ...local].forEach((item) => {
-      if (item && item.id !== undefined) porId.set(item.id, item);
+      if (!item || item.id === undefined) return;
+      const existente = porId.get(item.id);
+      if (!existente) {
+        porId.set(item.id, item);
+        return;
+      }
+      const tsNovo = item.atualizadoEm || 0;
+      const tsExistente = existente.atualizadoEm || 0;
+      if (tsNovo >= tsExistente) porId.set(item.id, item);
     });
     const mesclada = Array.from(porId.values());
     localStorage.setItem(chave, JSON.stringify(mesclada));
@@ -277,6 +313,60 @@ async function buscarDadosDaNuvem() {
   return data && data.dados ? data.dados : {};
 }
 
+// --- FOTO DE PERFIL (sincronização separada) ---
+// Fica na sua própria coluna (foto_perfil_base64) na mesma tabela
+// dados_usuario, em vez de dentro do JSON "dados" — assim, marcar uma
+// tarefa ou adicionar um lembrete não reenvia a foto inteira de novo.
+// REQUER rodar uma vez no SQL Editor do Supabase:
+//   alter table public.dados_usuario
+//     add column if not exists foto_perfil_base64 text;
+// (não precisa de nenhuma política de RLS nova: a tabela já é protegida
+// por linha via user_id, então isso vale pra qualquer coluna dela.)
+let timeoutSincronizacaoFoto = null;
+
+function agendarSincronizacaoFotoPerfil() {
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual) return;
+  clearTimeout(timeoutSincronizacaoFoto);
+  timeoutSincronizacaoFoto = setTimeout(sincronizarFotoPerfilNaNuvem, 2000);
+}
+
+async function sincronizarFotoPerfilNaNuvem() {
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual) return;
+  try {
+    const foto = localStorage.getItem(CHAVE_FOTO_PERFIL);
+    const { error } = await sb.from("dados_usuario").upsert(
+      {
+        user_id: usuarioAtual.id,
+        foto_perfil_base64: foto,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+    // Coluna ainda não existe (migração do banco não rodada) — avisa uma
+    // vez só no console, sem quebrar o resto da sincronização.
+    if (error && error.code === "42703") {
+      console.warn(
+        "Coluna foto_perfil_base64 não existe em dados_usuario ainda. " +
+          "Rode a migração indicada no comentário acima de sincronizarFotoPerfilNaNuvem() pra sincronizar a foto de perfil entre aparelhos.",
+      );
+      return;
+    }
+    if (error) console.error("Erro ao sincronizar foto de perfil:", error);
+  } catch (err) {
+    console.error("Erro ao sincronizar foto de perfil:", err);
+  }
+}
+
+async function buscarFotoPerfilDaNuvem() {
+  const { data, error } = await sb
+    .from("dados_usuario")
+    .select("foto_perfil_base64")
+    .eq("user_id", usuarioAtual.id)
+    .maybeSingle();
+  if (error) return null;
+  return data ? data.foto_perfil_base64 : null;
+}
+
 // Sempre que uma das chaves sincronizáveis é escrita no localStorage em
 // QUALQUER lugar do app (script.js inteiro, sem precisar mexer em nenhuma
 // função existente), agenda uma sincronização automática com a nuvem.
@@ -284,7 +374,10 @@ if (SUPABASE_CONFIGURADO) {
   const setItemOriginal = Storage.prototype.setItem;
   Storage.prototype.setItem = function (chave, valor) {
     setItemOriginal.call(this, chave, valor);
-    if (this === localStorage && obterChavesSincronizaveis().includes(chave)) {
+    if (this !== localStorage) return;
+    if (chave === CHAVE_FOTO_PERFIL) {
+      agendarSincronizacaoFotoPerfil();
+    } else if (obterChavesSincronizaveis().includes(chave)) {
       agendarSincronizacaoNuvem();
     }
   };
@@ -531,6 +624,7 @@ async function fazerLogout() {
 // em cena a partir daí.
 async function entrarComSessao(session) {
   usuarioAtual = session.user;
+  tokenAcessoAtual = session.access_token;
   definirCarregandoLogin(true);
 
   const dadosNuvem = await buscarDadosDaNuvem();
@@ -578,6 +672,16 @@ async function entrarComSessao(session) {
       await sincronizarParaNuvem();
     }
     localStorage.setItem("contaVinculadaId", session.user.id);
+  }
+
+  // Foto de perfil: busca da coluna própria; se ainda não existir (conta
+  // sincronizada antes dessa mudança), cai pro valor antigo que porventura
+  // ainda esteja dentro de "dados" (dadosNuvem.fotoPerfilBase64), só pra
+  // não "perder" uma foto que já tinha sido enviada do jeito antigo.
+  const fotoDaNuvem =
+    (await buscarFotoPerfilDaNuvem()) || dadosNuvem.fotoPerfilBase64 || null;
+  if (fotoDaNuvem) {
+    localStorage.setItem(CHAVE_FOTO_PERFIL, fotoDaNuvem);
   }
 
   definirCarregandoLogin(false);
@@ -637,10 +741,12 @@ async function iniciarAutenticacao() {
   }
 
   sb.auth.onAuthStateChange((evento, session) => {
+    if (session) tokenAcessoAtual = session.access_token;
     if (evento === "SIGNED_IN" && session && !usuarioAtual) {
       entrarComSessao(session);
     } else if (evento === "SIGNED_OUT") {
       usuarioAtual = null;
+      tokenAcessoAtual = null;
       limparDadosLocaisDeConta();
       location.reload();
     } else if (evento === "PASSWORD_RECOVERY") {
@@ -653,8 +759,45 @@ async function iniciarAutenticacao() {
 
 document.addEventListener("DOMContentLoaded", iniciarAutenticacao);
 
-// Melhor esforço: tenta subir qualquer alteração pendente antes de fechar
-// a aba/navegador (não é garantido pelo navegador, mas ajuda).
+// Envio "de segurança" ao fechar a aba/navegador — pega qualquer alteração
+// que ainda não tenha subido (por causa do debounce de 2s de
+// agendarSincronizacaoNuvem). Uma chamada normal via await/fetch some
+// junto com a página no meio do caminho: o navegador não espera promises
+// pendentes no beforeunload. Em vez disso, montamos a mesma chamada que o
+// SDK do Supabase faria (POST direto na API REST) usando
+// `fetch(..., { keepalive: true })`, que o navegador tem a obrigação de
+// deixar terminar mesmo depois da página fechar — diferente de um fetch
+// comum. Preferimos isso a navigator.sendBeacon() porque o Beacon não
+// permite mandar os headers "apikey"/"Authorization" que o Supabase exige.
+//
+// Limitação conhecida: navegadores limitam o tamanho total de requisições
+// keepalive (tipicamente ~64KB). Como a foto de perfil já não faz parte
+// deste payload (sincroniza à parte, ver "--- FOTO DE PERFIL ---"), o
+// tamanho normal do resto dos dados costuma caber bem dentro desse limite
+// — mas se a pessoa tiver um histórico gigantesco, esse envio de última
+// hora pode falhar silenciosamente. Nesses casos, a sincronização normal
+// (debounce de 2s enquanto o app está aberto) já deve ter dado conta da
+// maior parte antes do fechamento.
 window.addEventListener("beforeunload", () => {
-  if (SUPABASE_CONFIGURADO && usuarioAtual) sincronizarParaNuvem();
+  if (!SUPABASE_CONFIGURADO || !usuarioAtual || !tokenAcessoAtual) return;
+  try {
+    const dados = coletarDadosParaNuvem();
+    fetch(`${SUPABASE_URL}/rest/v1/dados_usuario`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${tokenAcessoAtual}`,
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify({
+        user_id: usuarioAtual.id,
+        dados,
+        atualizado_em: new Date().toISOString(),
+      }),
+    }).catch(() => {}); // melhor esforço — nada a fazer se falhar aqui
+  } catch {
+    // ignora — não há mais nada a fazer nesse ponto do ciclo de vida da página
+  }
 });

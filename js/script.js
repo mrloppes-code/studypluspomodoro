@@ -11845,6 +11845,18 @@ function obterStatsGamificacao() {
 
   const aprovacoesTotais = metas.filter((m) => m.aprovado).length;
 
+  // Total de questões registradas (Hoje & Registros + Modo Prova), somando
+  // o campo "total" de cada registro — usado nas conquistas da página 2.
+  const questoesRegistradasTotais = registrosQuestoes.reduce(
+    (s, r) => s + (r.total || 0),
+    0,
+  );
+
+  // Quantidade de simulados/provas completas registradas (feature
+  // "Simulados") — cada item é uma prova inteira resolvida, não uma questão
+  // avulsa.
+  const provasResolvidasTotais = registrosSimulados.length;
+
   return {
     minutosTotais,
     pomodorosTotais,
@@ -11856,6 +11868,8 @@ function obterStatsGamificacao() {
     temSessaoNoturna,
     flashcardsRevisados: totalRevisoesFlashcards,
     aprovacoesTotais,
+    questoesRegistradasTotais,
+    provasResolvidasTotais,
   };
 }
 
@@ -12014,6 +12028,204 @@ const CONQUISTAS = [
   },
 ];
 
+// Página 2 de conquistas: focada em volume de questões resolvidas (teto de
+// 60 mil, o "chefão final" dessa trilha) e em quantidade de provas/
+// simulados completos registrados.
+const CONQUISTAS_PAGINA2 = [
+  // --- Questões resolvidas (registrosQuestoes) ---
+  {
+    id: "questoes50",
+    nome: "Primeiros Passos",
+    desc: "Resolveu 50 questões",
+    icone: "📝",
+    check: (s) => s.questoesRegistradasTotais >= 50,
+  },
+  {
+    id: "questoes100",
+    nome: "Resolvedor",
+    desc: "Resolveu 100 questões",
+    icone: "📝",
+    check: (s) => s.questoesRegistradasTotais >= 100,
+  },
+  {
+    id: "questoes500",
+    nome: "Caçador de Questões",
+    desc: "Resolveu 500 questões",
+    icone: "🎯",
+    check: (s) => s.questoesRegistradasTotais >= 500,
+  },
+  {
+    id: "questoes1000",
+    nome: "Clube das Mil",
+    desc: "Resolveu 1.000 questões",
+    icone: "💯",
+    check: (s) => s.questoesRegistradasTotais >= 1000,
+  },
+  {
+    id: "questoes2500",
+    nome: "Questionador",
+    desc: "Resolveu 2.500 questões",
+    icone: "🧠",
+    check: (s) => s.questoesRegistradasTotais >= 2500,
+  },
+  {
+    id: "questoes5000",
+    nome: "Veterano das Questões",
+    desc: "Resolveu 5.000 questões",
+    icone: "⚔️",
+    check: (s) => s.questoesRegistradasTotais >= 5000,
+  },
+  {
+    id: "questoes10000",
+    nome: "Décimo Milhar",
+    desc: "Resolveu 10.000 questões",
+    icone: "🔟",
+    check: (s) => s.questoesRegistradasTotais >= 10000,
+  },
+  {
+    id: "questoes20000",
+    nome: "Máquina de Questões",
+    desc: "Resolveu 20.000 questões",
+    icone: "⚙️",
+    check: (s) => s.questoesRegistradasTotais >= 20000,
+  },
+  {
+    id: "questoes35000",
+    nome: "Implacável",
+    desc: "Resolveu 35.000 questões",
+    icone: "🛡️",
+    check: (s) => s.questoesRegistradasTotais >= 35000,
+  },
+  {
+    id: "questoes60000",
+    nome: "Lenda das Questões",
+    desc: "Resolveu 60.000 questões",
+    icone: "👑",
+    check: (s) => s.questoesRegistradasTotais >= 60000,
+  },
+  // --- Provas/simulados completos resolvidos (registrosSimulados) ---
+  {
+    id: "provas1",
+    nome: "Primeira Prova",
+    desc: "Completou 1 simulado",
+    icone: "📄",
+    check: (s) => s.provasResolvidasTotais >= 1,
+  },
+  {
+    id: "provas5",
+    nome: "Simulador",
+    desc: "Completou 5 simulados",
+    icone: "🧪",
+    check: (s) => s.provasResolvidasTotais >= 5,
+  },
+  {
+    id: "provas10",
+    nome: "Bateria de Provas",
+    desc: "Completou 10 simulados",
+    icone: "🔋",
+    check: (s) => s.provasResolvidasTotais >= 10,
+  },
+  {
+    id: "provas20",
+    nome: "Maratonista de Provas",
+    desc: "Completou 20 simulados",
+    icone: "🏃",
+    check: (s) => s.provasResolvidasTotais >= 20,
+  },
+  {
+    id: "provas30",
+    nome: "Veterano de Simulados",
+    desc: "Completou 30 simulados",
+    icone: "🛡️",
+    check: (s) => s.provasResolvidasTotais >= 30,
+  },
+  {
+    id: "provas50",
+    nome: "Mestre dos Simulados",
+    desc: "Completou 50 simulados",
+    icone: "🎓",
+    check: (s) => s.provasResolvidasTotais >= 50,
+  },
+  {
+    id: "provas75",
+    nome: "Implacável nas Provas",
+    desc: "Completou 75 simulados",
+    icone: "⚡",
+    check: (s) => s.provasResolvidasTotais >= 75,
+  },
+  {
+    id: "provas100",
+    nome: "Centurião",
+    desc: "Completou 100 simulados",
+    icone: "🏛️",
+    check: (s) => s.provasResolvidasTotais >= 100,
+  },
+  {
+    id: "provas150",
+    nome: "Elite das Provas",
+    desc: "Completou 150 simulados",
+    icone: "💎",
+    check: (s) => s.provasResolvidasTotais >= 150,
+  },
+  {
+    id: "provas200",
+    nome: "Lenda dos Simulados",
+    desc: "Completou 200 simulados",
+    icone: "👑",
+    check: (s) => s.provasResolvidasTotais >= 200,
+  },
+];
+
+// Todas as conquistas do jogo (as duas páginas juntas) — usado pra
+// desbloqueio/persistência, independente de qual página está visível.
+const TODAS_CONQUISTAS = CONQUISTAS.concat(CONQUISTAS_PAGINA2);
+
+// Página de conquistas visível no momento (1 ou 2) — controlada pelos
+// botões de navegação do card de Conquistas no Perfil.
+let paginaConquistasAtual = 1;
+
+// Cache do último cálculo de desbloqueio (preenchido em renderizarGamificacao)
+// pra trocar de página sem precisar recalcular todas as stats de novo.
+let ultimasConquistasDesbloqueadas = [];
+
+function mostrarPaginaConquistas(pagina) {
+  paginaConquistasAtual = pagina;
+  renderizarGridConquistas();
+
+  const btn1 = document.getElementById("conquistas-pag1-btn");
+  const btn2 = document.getElementById("conquistas-pag2-btn");
+  if (btn1) btn1.classList.toggle("ativa", pagina === 1);
+  if (btn2) btn2.classList.toggle("ativa", pagina === 2);
+
+  const indicador = document.getElementById("conquistas-pag-indicador");
+  if (indicador) indicador.innerText = `Página ${pagina} de 2`;
+}
+
+// Desenha o grid de conquistas da página atualmente selecionada, usando o
+// último cálculo de desbloqueio disponível.
+function renderizarGridConquistas() {
+  const gridConquistas = document.getElementById("grid-conquistas");
+  if (!gridConquistas) return;
+
+  const listaDaPagina =
+    paginaConquistasAtual === 2 ? CONQUISTAS_PAGINA2 : CONQUISTAS;
+
+  gridConquistas.innerHTML = listaDaPagina
+    .map((c) => {
+      const desbloqueada = ultimasConquistasDesbloqueadas.includes(c.id);
+      return `
+        <div class="conquista-card ${desbloqueada ? "desbloqueada" : "bloqueada"}">
+          <div class="conquista-icone">${c.icone}</div>
+          <div>
+            <div class="conquista-nome">${escapeHtml(c.nome)}</div>
+            <div class="conquista-desc">${escapeHtml(c.desc)}</div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function mostrarToastGamificacao(icone, titulo, mensagem) {
   let container = document.getElementById("toast-gamificacao-container");
   if (!container) {
@@ -12109,14 +12321,14 @@ function renderizarGamificacao() {
     }
   }
 
-  // --- Conquistas: verifica quais estão desbloqueadas ---
+  // --- Conquistas: verifica quais estão desbloqueadas (todas as páginas) ---
   const desbloqueadasAntes = JSON.parse(
     localStorage.getItem("conquistasDesbloqueadas") || "[]",
   );
   const desbloqueadasAgora = [];
   const novasDesbloqueadas = [];
 
-  CONQUISTAS.forEach((c) => {
+  TODAS_CONQUISTAS.forEach((c) => {
     if (c.check(stats)) {
       desbloqueadasAgora.push(c.id);
       if (!desbloqueadasAntes.includes(c.id)) {
@@ -12135,21 +12347,8 @@ function renderizarGamificacao() {
     );
   }
 
-  const gridConquistas = document.getElementById("grid-conquistas");
-  if (gridConquistas) {
-    gridConquistas.innerHTML = CONQUISTAS.map((c) => {
-      const desbloqueada = desbloqueadasAgora.includes(c.id);
-      return `
-        <div class="conquista-card ${desbloqueada ? "desbloqueada" : "bloqueada"}">
-          <div class="conquista-icone">${c.icone}</div>
-          <div>
-            <div class="conquista-nome">${escapeHtml(c.nome)}</div>
-            <div class="conquista-desc">${escapeHtml(c.desc)}</div>
-          </div>
-        </div>
-      `;
-    }).join("");
-  }
+  ultimasConquistasDesbloqueadas = desbloqueadasAgora;
+  renderizarGridConquistas();
 
   // --- Toasts: nível novo e conquistas novas ---
   const ultimoNivelVisto = parseInt(
@@ -12766,6 +12965,15 @@ window.addEventListener("appinstalled", () => {
 // "ultimoChangelogVisto" no localStorage).
 const CHANGELOG_ESTUDE_MAIS = [
   {
+    versao: "1.26",
+    titulo: "Sala de Estudos: dono agora pode excluir a sala e remover membros",
+    itens: [
+      "Quem criou a sala agora vê um botão 🗑️ 'Excluir Sala' — remove a sala e todo o ranking pra sempre, e cada participante é avisado automaticamente (em tempo real) que a sala deixou de existir.",
+      "Quem criou a sala também vê um botão ✕ ao lado de cada outro participante no ranking, pra removê-lo da sala quando fizer sentido — a pessoa removida é avisada automaticamente e volta pra tela inicial da Sala.",
+      "Antes só existia 'sair da sala' (voluntário); agora o dono tem controle de verdade sobre quem fica.",
+    ],
+  },
+  {
     versao: "1.25",
     titulo:
       "Cor automática de matéria, links na sessão registrada e conquistas de aprovação",
@@ -13040,7 +13248,7 @@ const FUNCIONALIDADES_ESTUDE_MAIS = [
       "XP, níveis e conquistas desbloqueáveis, incluindo conquistas de aprovação (1, 2 ou mais e 3 ou mais provas marcadas como aprovadas)",
       "Sequência de dias seguidos de foco, com 1 congelamento por semana pra não quebrar o streak",
       "Tarefas do dia a dia",
-      "Sala de Estudos: crie ou entre com um código e veja o ranking de minutos estudados (hoje e na semana) atualizando em tempo real",
+      "Sala de Estudos: crie ou entre com um código e veja o ranking de minutos estudados (hoje e na semana) atualizando em tempo real — quem cria a sala pode excluí-la ou remover outros participantes a qualquer momento",
       "Cartão de Conquista compartilhável: gera uma imagem com streak, XP e horas da semana pra postar no story/WhatsApp",
     ],
   },

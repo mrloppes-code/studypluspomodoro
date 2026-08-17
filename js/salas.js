@@ -19,8 +19,13 @@
 // de handlers de clique/formulário, quando script.js já terminou de
 // carregar, então a ordem exata entre salas.js e script.js não importa.
 
-let salaAtual = null; // { id, codigo, nome } | null
+let salaAtual = null; // { id, codigo, nome, criadoPor } | null
 let canalRealtimeSala = null;
+// Último ranking buscado — usado só pra achar o nome de exibição de um
+// membro na hora de confirmar a remoção, sem precisar embutir o nome
+// (que pode ter aspas/caracteres especiais digitados pela pessoa) dentro
+// de um atributo onclick.
+let ultimoRankingSalaCarregado = [];
 
 function obterDataLocalStringSalas(d) {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
@@ -117,7 +122,7 @@ async function criarSala(nomeDigitado) {
     return;
   }
 
-  await entrarNaSalaPorId(sala.id, sala.codigo, sala.nome);
+  await entrarNaSalaPorId(sala.id, sala.codigo, sala.nome, sala.criado_por);
 }
 
 async function entrarNaSala(codigoDigitado) {
@@ -130,7 +135,7 @@ async function entrarNaSala(codigoDigitado) {
 
   const { data: sala, error } = await sb
     .from("salas_estudo")
-    .select("id, codigo, nome")
+    .select("id, codigo, nome, criado_por")
     .eq("codigo", codigo)
     .maybeSingle();
 
@@ -143,10 +148,10 @@ async function entrarNaSala(codigoDigitado) {
     return;
   }
 
-  await entrarNaSalaPorId(sala.id, sala.codigo, sala.nome);
+  await entrarNaSalaPorId(sala.id, sala.codigo, sala.nome, sala.criado_por);
 }
 
-async function entrarNaSalaPorId(salaId, codigo, nome) {
+async function entrarNaSalaPorId(salaId, codigo, nome, criadoPor) {
   const { minutosHoje, minutosSemana, pomodorosHoje, pomodorosSemana } =
     calcularMinutosParaRanking();
 
@@ -173,11 +178,25 @@ async function entrarNaSalaPorId(salaId, codigo, nome) {
     return;
   }
 
-  salaAtual = { id: salaId, codigo, nome };
+  salaAtual = { id: salaId, codigo, nome, criadoPor };
   localStorage.setItem("salaEstudoAtual", JSON.stringify(salaAtual));
 
   renderizarTelaSala();
   assinarRealtimeSala();
+}
+
+// Sai da sala só localmente (sem tentar apagar nada no banco — usado
+// quando a linha já não existe mais lá: a pessoa foi removida por outra
+// pessoa, ou a sala inteira foi excluída pelo dono, detectado via
+// realtime em assinarRealtimeSala). Também usado internamente depois de
+// uma saída/exclusão bem-sucedida iniciada pelo próprio usuário.
+function sairDaSalaLocalmente(mensagem) {
+  pararRealtimeSala();
+  salaAtual = null;
+  ultimoRankingSalaCarregado = [];
+  localStorage.removeItem("salaEstudoAtual");
+  renderizarTelaSala();
+  if (mensagem) mostrarAlerta(mensagem, { icone: "🚪" });
 }
 
 async function sairDaSala() {
@@ -194,10 +213,84 @@ async function sairDaSala() {
     .eq("sala_id", salaAtual.id)
     .eq("user_id", usuarioAtual.id);
 
-  pararRealtimeSala();
-  salaAtual = null;
-  localStorage.removeItem("salaEstudoAtual");
-  renderizarTelaSala();
+  sairDaSalaLocalmente();
+}
+
+// Exclui a sala inteira — só o dono (criado_por) vê o botão pra isso, mas
+// a checagem abaixo é reforçada aqui também (defesa em profundidade: a
+// garantia de verdade tem que vir da política RLS no Supabase, ver
+// salas-schema.sql, já que uma checagem só no JS pode ser contornada
+// direto no console do navegador).
+async function excluirSalaAtual() {
+  if (!salaAtual || !usuarioAtual) return;
+  if (salaAtual.criadoPor !== usuarioAtual.id) {
+    await mostrarAlerta("Só quem criou a sala pode excluí-la.");
+    return;
+  }
+
+  const confirmado = await mostrarConfirmacao(
+    `Excluir a sala "${salaAtual.nome}" pra sempre? Todo mundo é removido e o ranking se perde — essa ação não pode ser desfeita.`,
+    { icone: "🗑️", textoConfirmar: "Excluir Sala", perigo: true },
+  );
+  if (!confirmado) return;
+
+  const nomeSala = salaAtual.nome;
+
+  // Apaga os membros primeiro (não depende de ON DELETE CASCADE estar
+  // configurado no banco) e só depois a sala em si.
+  await sb.from("salas_membros").delete().eq("sala_id", salaAtual.id);
+  const { error } = await sb
+    .from("salas_estudo")
+    .delete()
+    .eq("id", salaAtual.id);
+
+  if (error) {
+    console.error("Erro ao excluir sala:", error);
+    await mostrarAlerta(
+      `Não foi possível excluir a sala agora.\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})`,
+    );
+    return;
+  }
+
+  sairDaSalaLocalmente();
+  await mostrarAlerta(`Sala "${nomeSala}" excluída.`, { icone: "🗑️" });
+}
+
+// Remove um membro específico — só o dono vê o botão. Mesma observação de
+// segurança do excluirSalaAtual: a garantia real precisa vir da política
+// RLS, isso aqui é só pra não deixar a UI tentar sem necessidade.
+async function removerMembroDaSala(userId) {
+  if (!salaAtual || !usuarioAtual) return;
+  if (salaAtual.criadoPor !== usuarioAtual.id) {
+    await mostrarAlerta("Só quem criou a sala pode remover outras pessoas.");
+    return;
+  }
+  if (userId === usuarioAtual.id) return; // usa "Sair da sala" pra si mesmo
+
+  const membro = ultimoRankingSalaCarregado.find((m) => m.user_id === userId);
+  const nome = (membro && membro.nome_exibicao) || "essa pessoa";
+
+  const confirmado = await mostrarConfirmacao(
+    `Remover ${nome} da sala "${salaAtual.nome}"? A pessoa pode entrar de novo depois, se você compartilhar o código com ela.`,
+    { icone: "🚷", textoConfirmar: "Remover" },
+  );
+  if (!confirmado) return;
+
+  const { error } = await sb
+    .from("salas_membros")
+    .delete()
+    .eq("sala_id", salaAtual.id)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Erro ao remover membro da sala:", error);
+    await mostrarAlerta(
+      `Não foi possível remover essa pessoa agora.\n\n(detalhe técnico: ${error.message || error.code || "sem detalhes"})`,
+    );
+    return;
+  }
+
+  renderizarRankingSala();
 }
 
 // --- SINCRONIZAÇÃO DE MINUTOS (chamada sempre que o histórico de foco muda) ---
@@ -295,6 +388,7 @@ async function renderizarRankingSala() {
   if (!lista || !salaAtual) return;
 
   const ranking = await buscarRankingSalaAtual();
+  ultimoRankingSalaCarregado = ranking;
   if (ranking.length === 0) {
     lista.innerHTML =
       '<p class="sala-ranking-vazio">Ainda ninguém estudou por aqui.</p>';
@@ -311,6 +405,8 @@ async function renderizarRankingSala() {
     campoMeta.value =
       meu && meu.meta_pomodoros_semana ? meu.meta_pomodoros_semana : "";
   }
+
+  const souDonoDaSala = usuarioAtual && salaAtual.criadoPor === usuarioAtual.id;
 
   const medalhas = ["🥇", "🥈", "🥉"];
   lista.innerHTML = ranking
@@ -340,6 +436,18 @@ async function renderizarRankingSala() {
         metaHtml = `<div class="sala-meta-linha"><span class="sala-meta-texto sala-meta-texto-sem-meta">${pomodorosSemana} pomodoro${pomodorosSemana === 1 ? "" : "s"} essa semana</span></div>`;
       }
 
+      // Só o dono da sala vê o botão de remover, e nunca na própria linha
+      // (pra sair, é o botão "Sair da sala" lá em cima).
+      const botaoRemover =
+        souDonoDaSala && !souEu
+          ? `<button
+              type="button"
+              class="sala-btn-remover-membro"
+              onclick="removerMembroDaSala('${m.user_id}')"
+              title="Remover ${nome} da sala"
+            >✕</button>`
+          : "";
+
       return `
         <div class="sala-ranking-item${souEu ? " sala-ranking-item-eu" : ""}">
           <span class="sala-ranking-posicao">${posicao}</span>
@@ -347,6 +455,7 @@ async function renderizarRankingSala() {
           <span class="sala-ranking-minutos">
             ${m.minutos_semana} min <small>semana</small>
           </span>
+          ${botaoRemover}
           <span class="sala-ranking-minutos-hoje">${m.minutos_hoje} min hoje</span>
           ${metaHtml}
         </div>`;
@@ -357,17 +466,59 @@ async function renderizarRankingSala() {
 function assinarRealtimeSala() {
   pararRealtimeSala();
   if (!salaAtual || !SUPABASE_CONFIGURADO) return;
+  const idDaSala = salaAtual.id;
+
   canalRealtimeSala = sb
-    .channel(`sala-${salaAtual.id}`)
+    .channel(`sala-${idDaSala}`)
     .on(
       "postgres_changes",
       {
         event: "*",
         schema: "public",
         table: "salas_membros",
-        filter: `sala_id=eq.${salaAtual.id}`,
+        filter: `sala_id=eq.${idDaSala}`,
       },
-      () => renderizarRankingSala(),
+      (payload) => {
+        // A própria linha da pessoa sumiu (removida pelo dono, ou pela
+        // exclusão da sala inteira — nesse segundo caso TODAS as linhas
+        // somem, incluindo a de quem está vendo). Sai da sala aqui
+        // também, sem isso o app ficava "preso" mostrando uma sala da
+        // qual a pessoa não faz mais parte.
+        if (
+          payload.eventType === "DELETE" &&
+          payload.old &&
+          usuarioAtual &&
+          payload.old.user_id === usuarioAtual.id &&
+          salaAtual &&
+          salaAtual.id === idDaSala
+        ) {
+          sairDaSalaLocalmente(
+            `Você foi removido da sala "${salaAtual.nome}".`,
+          );
+          return;
+        }
+        renderizarRankingSala();
+      },
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "DELETE",
+        schema: "public",
+        table: "salas_estudo",
+        filter: `id=eq.${idDaSala}`,
+      },
+      () => {
+        // Chega geralmente junto com o evento acima (linhas de membros
+        // são apagadas antes da sala em si, ver excluirSalaAtual) — a
+        // checagem salaAtual.id === idDaSala evita duplicar o aviso caso
+        // os dois disparem quase ao mesmo tempo.
+        if (salaAtual && salaAtual.id === idDaSala) {
+          sairDaSalaLocalmente(
+            `A sala "${salaAtual.nome}" foi excluída pelo dono.`,
+          );
+        }
+      },
     )
     .subscribe();
 }
@@ -393,6 +544,14 @@ function renderizarTelaSala() {
     const codigoEl = document.getElementById("sala-codigo-atual");
     if (nomeEl) nomeEl.textContent = salaAtual.nome;
     if (codigoEl) codigoEl.textContent = salaAtual.codigo;
+
+    const souDonoDaSala =
+      usuarioAtual && salaAtual.criadoPor === usuarioAtual.id;
+    const btnExcluir = document.getElementById("sala-btn-excluir");
+    if (btnExcluir) {
+      btnExcluir.style.display = souDonoDaSala ? "inline-flex" : "none";
+    }
+
     renderizarRankingSala();
   } else {
     semSala.style.display = "block";
@@ -463,12 +622,53 @@ async function restaurarSalaSalva() {
   if (!SUPABASE_CONFIGURADO || !usuarioAtual) return;
   try {
     const salva = JSON.parse(localStorage.getItem("salaEstudoAtual"));
-    if (salva && salva.id) {
-      salaAtual = salva;
-      assinarRealtimeSala();
-      await sincronizarMinutosNaSalaAtual();
-      renderizarTelaSala();
+    if (!salva || !salva.id) return;
+
+    // Busca a sala de novo em vez de confiar 100% no cache local — cobre
+    // dois casos: (1) o cache é de antes desse recurso existir e não tem
+    // "criadoPor" salvo, então o botão "Excluir Sala" nunca apareceria
+    // pro dono; (2) a sala foi excluída por quem criou enquanto esse
+    // aparelho estava offline.
+    const { data: sala, error: erroSala } = await sb
+      .from("salas_estudo")
+      .select("id, codigo, nome, criado_por")
+      .eq("id", salva.id)
+      .maybeSingle();
+
+    if (erroSala || !sala) {
+      localStorage.removeItem("salaEstudoAtual");
+      salaAtual = null;
+      return;
     }
+
+    // A sala existe, mas será que a pessoa ainda é membro dela? Cobre o
+    // caso de ter sido removida pelo dono enquanto estava offline — sem
+    // essa checagem, ela voltaria a aparecer "dentro" de uma sala que já
+    // não faz mais parte (sincronizarMinutosNaSalaAtual simplesmente não
+    // afetaria nenhuma linha, sem erro nenhum pra avisar disso).
+    const { data: minhaLinha, error: erroMembro } = await sb
+      .from("salas_membros")
+      .select("user_id")
+      .eq("sala_id", sala.id)
+      .eq("user_id", usuarioAtual.id)
+      .maybeSingle();
+
+    if (erroMembro || !minhaLinha) {
+      localStorage.removeItem("salaEstudoAtual");
+      salaAtual = null;
+      return;
+    }
+
+    salaAtual = {
+      id: sala.id,
+      codigo: sala.codigo,
+      nome: sala.nome,
+      criadoPor: sala.criado_por,
+    };
+    localStorage.setItem("salaEstudoAtual", JSON.stringify(salaAtual));
+    assinarRealtimeSala();
+    await sincronizarMinutosNaSalaAtual();
+    renderizarTelaSala();
   } catch {
     // Cache local corrompido — ignora, o app segue como se não tivesse sala.
   }

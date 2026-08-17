@@ -4,7 +4,7 @@
 // Sobe esse número sempre que quiser forçar os usuários a
 // baixarem a versão nova dos arquivos (ele muda o nome do cache,
 // então o antigo é descartado no "activate").
-const VERSAO_CACHE = "v22";
+const VERSAO_CACHE = "v23";
 const CACHE_NAME = `estudemais-cache-${VERSAO_CACHE}`;
 
 // Arquivos essenciais pro app abrir e funcionar mesmo sem internet.
@@ -15,9 +15,10 @@ const ARQUIVOS_PARA_CACHE = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./css/style.css?v=52",
-  "./js/script.js?v=41",
-  "./js/auth-sync.js?v=4",
+  "./css/style.css?v=56",
+  "./js/script.js?v=53",
+  "./js/auth-sync.js?v=7",
+  "./js/salas.js?v=2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-192.png",

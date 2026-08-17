@@ -590,9 +590,25 @@
                 </button>
               </div>
             </div>
-            <button type="button" class="sala-btn-sair" onclick="sairDaSala()">
-              Sair da sala
-            </button>
+            <div class="sala-botoes-dono">
+              <button
+                type="button"
+                id="sala-btn-excluir"
+                class="sala-btn-excluir"
+                onclick="excluirSalaAtual()"
+                style="display: none"
+                title="Excluir esta sala pra sempre (só quem criou pode)"
+              >
+                🗑️ Excluir Sala
+              </button>
+              <button
+                type="button"
+                class="sala-btn-sair"
+                onclick="sairDaSala()"
+              >
+                Sair da sala
+              </button>
+            </div>
           </div>
 
           <form
@@ -4874,8 +4890,33 @@ Licitações e Contratos"
           </div>
 
           <div class="card card-conquistas">
-            <h2>🏆 Conquistas</h2>
+            <div class="conquistas-header">
+              <h2>🏆 Conquistas</h2>
+              <span
+                id="conquistas-pag-indicador"
+                class="conquistas-pag-indicador"
+                >Página 1 de 2</span
+              >
+            </div>
             <div id="grid-conquistas" class="grid-conquistas"></div>
+            <div class="conquistas-nav">
+              <button
+                type="button"
+                id="conquistas-pag1-btn"
+                class="conquistas-pag-btn ativa"
+                onclick="mostrarPaginaConquistas(1)"
+              >
+                ◀ Sequência &amp; Estudo
+              </button>
+              <button
+                type="button"
+                id="conquistas-pag2-btn"
+                class="conquistas-pag-btn"
+                onclick="mostrarPaginaConquistas(2)"
+              >
+                Questões &amp; Provas ▶
+              </button>
+            </div>
           </div>
 
           <div class="card card-analise-estudos">

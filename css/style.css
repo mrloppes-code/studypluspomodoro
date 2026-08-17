@@ -1755,6 +1755,51 @@ button:disabled {
   background: linear-gradient(135deg, var(--primary), #a855f7);
 }
 
+.conquistas-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.conquistas-pag-indicador {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.conquistas-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.conquistas-pag-btn {
+  flex: 1;
+  min-width: 160px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.conquistas-pag-btn:hover {
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+.conquistas-pag-btn.ativa {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
 /* ===== Toast de gamificação (nível/conquista) ===== */
 .toast-gamificacao-container {
   position: fixed;
@@ -5694,6 +5739,30 @@ body.modo-isolamento-ativo .btn-editar-perfil {
   border-color: var(--danger);
   color: var(--danger);
 }
+/* Agrupa "Excluir Sala" (só o dono, ver JS) + "Sair da sala" no canto
+   superior direito do cabeçalho, um embaixo do outro pra não brigar por
+   espaço horizontal com o nome/código da sala ao lado. */
+.sala-botoes-dono {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sala-btn-excluir {
+  background: none;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sala-btn-excluir:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
 
 .sala-ranking-lista {
   display: flex;
@@ -5704,11 +5773,11 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 }
 .sala-ranking-item {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 28px 1fr auto auto;
   grid-template-areas:
-    "posicao nome minutos"
-    ".       nome hoje"
-    "meta    meta meta";
+    "posicao nome minutos remover"
+    ".       nome hoje    hoje"
+    "meta    meta meta    meta";
   align-items: center;
   gap: 4px 10px;
   background: var(--surface-inset);
@@ -5750,6 +5819,24 @@ body.modo-isolamento-ativo .btn-editar-perfil {
   font-size: 0.76rem;
   color: var(--text-muted);
   text-align: right;
+}
+.sala-btn-remover-membro {
+  grid-area: remover;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.sala-btn-remover-membro:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 .sala-ranking-vazio {
   color: var(--text-muted);
