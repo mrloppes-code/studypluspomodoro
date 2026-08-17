@@ -11794,6 +11794,19 @@ function obterTituloPorNivel(nivel) {
   return "Aprendiz";
 }
 
+// Medalha visual da faixa de nível — mesmos degraus de obterTituloPorNivel,
+// só que devolvendo o ícone e a classe de cor (CSS) usados no emblema do
+// Perfil, pra dar mais peso visual ao título por trás do "Nível N".
+function obterMedalhaPorNivel(nivel) {
+  if (nivel >= 75) return { icone: "👑", classe: "medalha-lendaria" };
+  if (nivel >= 50) return { icone: "💎", classe: "medalha-diamante" };
+  if (nivel >= 35) return { icone: "🥇", classe: "medalha-ouro" };
+  if (nivel >= 20) return { icone: "🥈", classe: "medalha-prata" };
+  if (nivel >= 10) return { icone: "🥉", classe: "medalha-bronze" };
+  if (nivel >= 5) return { icone: "🔰", classe: "medalha-iniciado" };
+  return { icone: "🌱", classe: "medalha-aprendiz" };
+}
+
 // Reúne as métricas cruas usadas tanto para calcular XP quanto para
 // verificar as condições das conquistas.
 function obterStatsGamificacao() {
@@ -11885,12 +11898,19 @@ function calcularXPTotal(stats) {
   );
 }
 
+// Cada conquista numérica agora expõe `metrica` (função que lê o valor
+// atual a partir das stats) e `alvo` (o número necessário) além do
+// `check` de sempre — os dois novos campos alimentam a barra de progresso
+// do widget "Próxima Conquista" no Perfil, sem duplicar a lógica de
+// desbloqueio. Conquistas binárias (madrugador/coruja) usam metrica 0/1.
 const CONQUISTAS = [
   {
     id: "streak3",
     nome: "3 Dias Seguidos",
     desc: "Estudou 3 dias seguidos",
     icone: "🔥",
+    metrica: (s) => s.streakAtual,
+    alvo: 3,
     check: (s) => s.streakAtual >= 3,
   },
   {
@@ -11898,6 +11918,8 @@ const CONQUISTAS = [
     nome: "7 Dias Seguidos",
     desc: "Estudou 7 dias seguidos",
     icone: "🔥",
+    metrica: (s) => s.streakAtual,
+    alvo: 7,
     check: (s) => s.streakAtual >= 7,
   },
   {
@@ -11905,6 +11927,8 @@ const CONQUISTAS = [
     nome: "30 Dias Seguidos",
     desc: "Estudou 30 dias seguidos",
     icone: "🔥",
+    metrica: (s) => s.streakAtual,
+    alvo: 30,
     check: (s) => s.streakAtual >= 30,
   },
   {
@@ -11912,6 +11936,8 @@ const CONQUISTAS = [
     nome: "Repetidor",
     desc: "Revisou 20 flashcards",
     icone: "🗂️",
+    metrica: (s) => s.flashcardsRevisados,
+    alvo: 20,
     check: (s) => s.flashcardsRevisados >= 20,
   },
   {
@@ -11919,6 +11945,8 @@ const CONQUISTAS = [
     nome: "Mestre dos Flashcards",
     desc: "Revisou 100 flashcards",
     icone: "🗂️",
+    metrica: (s) => s.flashcardsRevisados,
+    alvo: 100,
     check: (s) => s.flashcardsRevisados >= 100,
   },
   {
@@ -11926,6 +11954,8 @@ const CONQUISTAS = [
     nome: "10 Horas Totais",
     desc: "Acumulou 10h de estudo",
     icone: "⏱️",
+    metrica: (s) => s.minutosTotais,
+    alvo: 600,
     check: (s) => s.minutosTotais >= 600,
   },
   {
@@ -11933,6 +11963,8 @@ const CONQUISTAS = [
     nome: "50 Horas Totais",
     desc: "Acumulou 50h de estudo",
     icone: "⏱️",
+    metrica: (s) => s.minutosTotais,
+    alvo: 3000,
     check: (s) => s.minutosTotais >= 3000,
   },
   {
@@ -11940,6 +11972,8 @@ const CONQUISTAS = [
     nome: "100 Horas Totais",
     desc: "Acumulou 100h de estudo",
     icone: "⏱️",
+    metrica: (s) => s.minutosTotais,
+    alvo: 6000,
     check: (s) => s.minutosTotais >= 6000,
   },
   {
@@ -11947,6 +11981,8 @@ const CONQUISTAS = [
     nome: "10 Pomodoros",
     desc: "Completou 10 pomodoros",
     icone: "🍅",
+    metrica: (s) => s.pomodorosTotais,
+    alvo: 10,
     check: (s) => s.pomodorosTotais >= 10,
   },
   {
@@ -11954,6 +11990,8 @@ const CONQUISTAS = [
     nome: "50 Pomodoros",
     desc: "Completou 50 pomodoros",
     icone: "🍅",
+    metrica: (s) => s.pomodorosTotais,
+    alvo: 50,
     check: (s) => s.pomodorosTotais >= 50,
   },
   {
@@ -11961,6 +11999,8 @@ const CONQUISTAS = [
     nome: "100 Pomodoros",
     desc: "Completou 100 pomodoros",
     icone: "🍅",
+    metrica: (s) => s.pomodorosTotais,
+    alvo: 100,
     check: (s) => s.pomodorosTotais >= 100,
   },
   {
@@ -11968,6 +12008,8 @@ const CONQUISTAS = [
     nome: "Disciplinado",
     desc: "Bateu a meta do dia 5 vezes",
     icone: "🎯",
+    metrica: (s) => s.diasComMetaBatida,
+    alvo: 5,
     check: (s) => s.diasComMetaBatida >= 5,
   },
   {
@@ -11975,6 +12017,8 @@ const CONQUISTAS = [
     nome: "Semana Perfeita",
     desc: "Bateu a meta 7 dias seguidos",
     icone: "🏆",
+    metrica: (s) => s.diasComMetaBatidaSeguidos,
+    alvo: 7,
     check: (s) => s.diasComMetaBatidaSeguidos >= 7,
   },
   {
@@ -11982,6 +12026,8 @@ const CONQUISTAS = [
     nome: "Multidisciplinar",
     desc: "Estudou 3 matérias diferentes",
     icone: "📚",
+    metrica: (s) => s.materiasEstudadas,
+    alvo: 3,
     check: (s) => s.materiasEstudadas >= 3,
   },
   {
@@ -11989,6 +12035,8 @@ const CONQUISTAS = [
     nome: "Renascentista",
     desc: "Estudou 5 matérias diferentes",
     icone: "📚",
+    metrica: (s) => s.materiasEstudadas,
+    alvo: 5,
     check: (s) => s.materiasEstudadas >= 5,
   },
   {
@@ -11996,6 +12044,8 @@ const CONQUISTAS = [
     nome: "Madrugador",
     desc: "Estudou antes das 7h",
     icone: "🌅",
+    metrica: (s) => (s.temSessaoMadrugada ? 1 : 0),
+    alvo: 1,
     check: (s) => s.temSessaoMadrugada,
   },
   {
@@ -12003,6 +12053,8 @@ const CONQUISTAS = [
     nome: "Coruja",
     desc: "Estudou depois das 23h",
     icone: "🦉",
+    metrica: (s) => (s.temSessaoNoturna ? 1 : 0),
+    alvo: 1,
     check: (s) => s.temSessaoNoturna,
   },
   {
@@ -12010,6 +12062,8 @@ const CONQUISTAS = [
     nome: "Aprovado!",
     desc: "Conquistou 1 aprovação",
     icone: "🎓",
+    metrica: (s) => s.aprovacoesTotais,
+    alvo: 1,
     check: (s) => s.aprovacoesTotais >= 1,
   },
   {
@@ -12017,6 +12071,8 @@ const CONQUISTAS = [
     nome: "Bicampeão",
     desc: "Conquistou 2 ou mais aprovações",
     icone: "🏅",
+    metrica: (s) => s.aprovacoesTotais,
+    alvo: 2,
     check: (s) => s.aprovacoesTotais >= 2,
   },
   {
@@ -12024,6 +12080,8 @@ const CONQUISTAS = [
     nome: "Tríplice Coroa",
     desc: "Conquistou 3 ou mais aprovações",
     icone: "👑",
+    metrica: (s) => s.aprovacoesTotais,
+    alvo: 3,
     check: (s) => s.aprovacoesTotais >= 3,
   },
 ];
@@ -12038,6 +12096,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Primeiros Passos",
     desc: "Resolveu 50 questões",
     icone: "📝",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 50,
     check: (s) => s.questoesRegistradasTotais >= 50,
   },
   {
@@ -12045,6 +12105,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Resolvedor",
     desc: "Resolveu 100 questões",
     icone: "📝",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 100,
     check: (s) => s.questoesRegistradasTotais >= 100,
   },
   {
@@ -12052,6 +12114,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Caçador de Questões",
     desc: "Resolveu 500 questões",
     icone: "🎯",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 500,
     check: (s) => s.questoesRegistradasTotais >= 500,
   },
   {
@@ -12059,6 +12123,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Clube das Mil",
     desc: "Resolveu 1.000 questões",
     icone: "💯",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 1000,
     check: (s) => s.questoesRegistradasTotais >= 1000,
   },
   {
@@ -12066,6 +12132,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Questionador",
     desc: "Resolveu 2.500 questões",
     icone: "🧠",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 2500,
     check: (s) => s.questoesRegistradasTotais >= 2500,
   },
   {
@@ -12073,6 +12141,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Veterano das Questões",
     desc: "Resolveu 5.000 questões",
     icone: "⚔️",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 5000,
     check: (s) => s.questoesRegistradasTotais >= 5000,
   },
   {
@@ -12080,6 +12150,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Décimo Milhar",
     desc: "Resolveu 10.000 questões",
     icone: "🔟",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 10000,
     check: (s) => s.questoesRegistradasTotais >= 10000,
   },
   {
@@ -12087,6 +12159,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Máquina de Questões",
     desc: "Resolveu 20.000 questões",
     icone: "⚙️",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 20000,
     check: (s) => s.questoesRegistradasTotais >= 20000,
   },
   {
@@ -12094,6 +12168,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Implacável",
     desc: "Resolveu 35.000 questões",
     icone: "🛡️",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 35000,
     check: (s) => s.questoesRegistradasTotais >= 35000,
   },
   {
@@ -12101,6 +12177,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Lenda das Questões",
     desc: "Resolveu 60.000 questões",
     icone: "👑",
+    metrica: (s) => s.questoesRegistradasTotais,
+    alvo: 60000,
     check: (s) => s.questoesRegistradasTotais >= 60000,
   },
   // --- Provas/simulados completos resolvidos (registrosSimulados) ---
@@ -12109,6 +12187,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Primeira Prova",
     desc: "Completou 1 simulado",
     icone: "📄",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 1,
     check: (s) => s.provasResolvidasTotais >= 1,
   },
   {
@@ -12116,6 +12196,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Simulador",
     desc: "Completou 5 simulados",
     icone: "🧪",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 5,
     check: (s) => s.provasResolvidasTotais >= 5,
   },
   {
@@ -12123,6 +12205,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Bateria de Provas",
     desc: "Completou 10 simulados",
     icone: "🔋",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 10,
     check: (s) => s.provasResolvidasTotais >= 10,
   },
   {
@@ -12130,6 +12214,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Maratonista de Provas",
     desc: "Completou 20 simulados",
     icone: "🏃",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 20,
     check: (s) => s.provasResolvidasTotais >= 20,
   },
   {
@@ -12137,6 +12223,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Veterano de Simulados",
     desc: "Completou 30 simulados",
     icone: "🛡️",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 30,
     check: (s) => s.provasResolvidasTotais >= 30,
   },
   {
@@ -12144,6 +12232,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Mestre dos Simulados",
     desc: "Completou 50 simulados",
     icone: "🎓",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 50,
     check: (s) => s.provasResolvidasTotais >= 50,
   },
   {
@@ -12151,6 +12241,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Implacável nas Provas",
     desc: "Completou 75 simulados",
     icone: "⚡",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 75,
     check: (s) => s.provasResolvidasTotais >= 75,
   },
   {
@@ -12158,6 +12250,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Centurião",
     desc: "Completou 100 simulados",
     icone: "🏛️",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 100,
     check: (s) => s.provasResolvidasTotais >= 100,
   },
   {
@@ -12165,6 +12259,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Elite das Provas",
     desc: "Completou 150 simulados",
     icone: "💎",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 150,
     check: (s) => s.provasResolvidasTotais >= 150,
   },
   {
@@ -12172,6 +12268,8 @@ const CONQUISTAS_PAGINA2 = [
     nome: "Lenda dos Simulados",
     desc: "Completou 200 simulados",
     icone: "👑",
+    metrica: (s) => s.provasResolvidasTotais,
+    alvo: 200,
     check: (s) => s.provasResolvidasTotais >= 200,
   },
 ];
@@ -12179,6 +12277,41 @@ const CONQUISTAS_PAGINA2 = [
 // Todas as conquistas do jogo (as duas páginas juntas) — usado pra
 // desbloqueio/persistência, independente de qual página está visível.
 const TODAS_CONQUISTAS = CONQUISTAS.concat(CONQUISTAS_PAGINA2);
+
+// Escolhe, entre as conquistas ainda bloqueadas, a que está mais perto de
+// ser desbloqueada (maior % de progresso metrica/alvo). Empate é
+// desempatado pelo menor alvo, pra priorizar a "mais fácil" de bater.
+// Devolve null se não houver nenhuma bloqueada (todas as 40 já feitas) ou
+// se a lista de bloqueadas ainda não puder ser calculada.
+function obterProximaConquista(stats, idsDesbloqueadas) {
+  let melhor = null;
+  let melhorProgresso = -1;
+
+  TODAS_CONQUISTAS.forEach((c) => {
+    if (idsDesbloqueadas.includes(c.id)) return;
+    if (typeof c.metrica !== "function" || !c.alvo) return;
+
+    const atual = c.metrica(stats) || 0;
+    const progresso = Math.max(0, Math.min(1, atual / c.alvo));
+
+    const ehMelhor =
+      progresso > melhorProgresso ||
+      (progresso === melhorProgresso && melhor && c.alvo < melhor.alvo);
+
+    if (ehMelhor) {
+      melhorProgresso = progresso;
+      melhor = c;
+    }
+  });
+
+  if (!melhor) return null;
+
+  return {
+    conquista: melhor,
+    atual: Math.min(melhor.metrica(stats) || 0, melhor.alvo),
+    progresso: melhorProgresso,
+  };
+}
 
 // Página de conquistas visível no momento (1 ou 2) — controlada pelos
 // botões de navegação do card de Conquistas no Perfil.
@@ -12278,6 +12411,17 @@ function renderizarGamificacao() {
   const tituloEl = document.getElementById("perfil-titulo-rpg");
   if (tituloEl) tituloEl.innerText = titulo;
 
+  // --- Emblema visual da faixa de nível ---
+  const medalha = obterMedalhaPorNivel(nivel);
+  const medalhaBloco = document.getElementById("perfil-medalha");
+  const medalhaIcone = document.getElementById("perfil-medalha-icone");
+  const medalhaTitulo = document.getElementById("perfil-medalha-titulo");
+  if (medalhaBloco) {
+    medalhaBloco.className = `perfil-medalha ${medalha.classe}`;
+  }
+  if (medalhaIcone) medalhaIcone.innerText = medalha.icone;
+  if (medalhaTitulo) medalhaTitulo.innerText = titulo;
+
   const xpFill = document.getElementById("perfil-xp-barra-fill");
   if (xpFill) xpFill.style.width = `${percentual}%`;
 
@@ -12349,6 +12493,37 @@ function renderizarGamificacao() {
 
   ultimasConquistasDesbloqueadas = desbloqueadasAgora;
   renderizarGridConquistas();
+
+  // --- Widget "Próxima Conquista" (a mais perto de ser desbloqueada) ---
+  const proximaBloco = document.getElementById("perfil-proxima-conquista");
+  if (proximaBloco) {
+    const proxima = obterProximaConquista(stats, desbloqueadasAgora);
+
+    if (!proxima) {
+      // Já desbloqueou as 40 — esconde o widget em vez de mostrar vazio.
+      proximaBloco.style.display = "none";
+    } else {
+      proximaBloco.style.display = "flex";
+
+      const icone = document.getElementById("proxima-conquista-icone");
+      const nome = document.getElementById("proxima-conquista-nome");
+      const fill = document.getElementById("proxima-conquista-barra-fill");
+      const progressoTexto = document.getElementById(
+        "proxima-conquista-progresso",
+      );
+
+      if (icone) icone.innerText = proxima.conquista.icone;
+      if (nome) nome.innerText = proxima.conquista.nome;
+      if (fill) {
+        fill.style.width = `${Math.round(proxima.progresso * 100)}%`;
+      }
+      if (progressoTexto) {
+        const atualFmt = Math.floor(proxima.atual).toLocaleString("pt-BR");
+        const alvoFmt = proxima.conquista.alvo.toLocaleString("pt-BR");
+        progressoTexto.innerText = `${atualFmt} / ${alvoFmt}`;
+      }
+    }
+  }
 
   // --- Toasts: nível novo e conquistas novas ---
   const ultimoNivelVisto = parseInt(

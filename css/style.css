@@ -1307,6 +1307,10 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   align-items: center;
   gap: 25px;
 }
+.perfil-detalhes {
+  flex: 1;
+  min-width: 0;
+}
 .perfil-avatar-bloco {
   display: flex;
   flex-direction: column;
@@ -1466,6 +1470,170 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   color: var(--accent-text);
   border-color: var(--accent-text);
   transform: scale(1.08);
+}
+
+/* ===== Bloco lateral do cabeçalho do Perfil: medalha + próxima conquista ===== */
+.perfil-lateral-bloco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+@media (max-width: 720px) {
+  .perfil-lateral-bloco {
+    border-left: none;
+    padding-left: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    width: 100%;
+  }
+}
+
+/* Emblema (medalha) da faixa de nível */
+.perfil-medalha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+}
+.perfil-medalha-icone {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+  background: var(--surface-inset);
+  border: 2px solid var(--border);
+  box-shadow: 0 0 0 4px var(--card-bg);
+}
+.perfil-medalha-titulo {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+/* Cores por faixa — mesma escala de obterMedalhaPorNivel() em script.js */
+.medalha-aprendiz .perfil-medalha-icone {
+  border-color: #6b7280;
+  background: rgba(107, 114, 128, 0.15);
+}
+.medalha-iniciado .perfil-medalha-icone {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+}
+.medalha-bronze .perfil-medalha-icone {
+  border-color: #b45309;
+  background: rgba(180, 83, 9, 0.18);
+}
+.medalha-prata .perfil-medalha-icone {
+  border-color: #9ca3af;
+  background: rgba(156, 163, 175, 0.18);
+}
+.medalha-ouro .perfil-medalha-icone {
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.18);
+  box-shadow:
+    0 0 0 4px var(--card-bg),
+    0 0 14px rgba(234, 179, 8, 0.35);
+}
+.medalha-diamante .perfil-medalha-icone {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.18);
+  box-shadow:
+    0 0 0 4px var(--card-bg),
+    0 0 14px rgba(56, 189, 248, 0.35);
+}
+.medalha-lendaria .perfil-medalha-icone {
+  border-color: #a855f7;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.25),
+    rgba(168, 85, 247, 0.25)
+  );
+  box-shadow:
+    0 0 0 4px var(--card-bg),
+    0 0 18px rgba(168, 85, 247, 0.45);
+}
+.medalha-lendaria .perfil-medalha-titulo {
+  color: var(--pastel-purple);
+}
+
+/* Widget "Próxima Conquista" */
+.perfil-proxima-conquista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 190px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.proxima-conquista-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.proxima-conquista-corpo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.proxima-conquista-icone {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: var(--card-bg);
+  filter: grayscale(0.6);
+  opacity: 0.85;
+}
+.proxima-conquista-info {
+  flex: 1;
+  min-width: 0;
+}
+.proxima-conquista-nome {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.proxima-conquista-barra-fundo {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.proxima-conquista-barra-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), #a855f7);
+  transition: width 0.4s ease;
+}
+.proxima-conquista-progresso {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
 }
 
 /* Faixa de resumo rápido (streak, horas, pomodoros, matérias) — dá mais

@@ -4849,6 +4849,57 @@ Licitações e Contratos"
                   📤 Compartilhar Conquista
                 </button>
               </div>
+
+              <!-- Emblema da faixa de nível + widget da conquista bloqueada
+                   mais próxima. Preenchidos por renderizarGamificacao() em
+                   script.js (obterMedalhaPorNivel / obterProximaConquista). -->
+              <div class="perfil-lateral-bloco">
+                <div
+                  class="perfil-medalha medalha-aprendiz"
+                  id="perfil-medalha"
+                >
+                  <span class="perfil-medalha-icone" id="perfil-medalha-icone"
+                    >🌱</span
+                  >
+                  <span class="perfil-medalha-titulo" id="perfil-medalha-titulo"
+                    >Aprendiz</span
+                  >
+                </div>
+
+                <div
+                  class="perfil-proxima-conquista"
+                  id="perfil-proxima-conquista"
+                  style="display: none"
+                >
+                  <span class="proxima-conquista-label">Próxima conquista</span>
+                  <div class="proxima-conquista-corpo">
+                    <span
+                      class="proxima-conquista-icone"
+                      id="proxima-conquista-icone"
+                      >🔥</span
+                    >
+                    <div class="proxima-conquista-info">
+                      <span
+                        class="proxima-conquista-nome"
+                        id="proxima-conquista-nome"
+                        >—</span
+                      >
+                      <div class="proxima-conquista-barra-fundo">
+                        <div
+                          class="proxima-conquista-barra-fill"
+                          id="proxima-conquista-barra-fill"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+                      <span
+                        class="proxima-conquista-progresso"
+                        id="proxima-conquista-progresso"
+                        >0 / 0</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <p class="perfil-bio-exibicao" id="perfil-bio-exibicao"></p>
