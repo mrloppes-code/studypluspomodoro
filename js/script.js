@@ -10843,6 +10843,7 @@ function renderizarTodoOPainel() {
   renderizarMateriasCadastradas();
   renderizarRevisaoPendente();
   renderizarQuestoesResolvidas();
+  renderizarEvolucaoQuestoes();
   renderizarSimulados();
   renderizarComparativoProvas();
   renderizarRitmoSugerido();
@@ -11189,6 +11190,190 @@ function corMateria(nome, indiceFallback) {
   const materia = materias.find((m) => m.nome === nome);
   if (materia && materia.cor) return materia.cor;
   return paletaCores[indiceFallback % paletaCores.length].hex;
+}
+
+// --- EVOLUÇÃO DE QUESTÕES (aba Desempenho): total respondido + erros no
+// histórico inteiro, e um gráfico de barras empilhadas (acertos x erros)
+// por período — 7 dias, 30 dias, 6 meses ou o ano corrente. Períodos são
+// janelas fixas terminando hoje, sem navegação anterior/próximo (ao
+// contrário da Análise de Estudos), pra manter simples como foi pedido.
+let questoesEvolucaoPeriodoAtual = "7dias";
+let graficoQuestoesEvolucao = null;
+
+function mudarPeriodoQuestoesEvolucao(periodo) {
+  questoesEvolucaoPeriodoAtual = periodo;
+  document
+    .querySelectorAll("#questoes-evolucao-periodo-toggle button")
+    .forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.periodo === periodo);
+    });
+  renderizarEvolucaoQuestoes();
+}
+
+// Gera os "baldes" (buckets) de datas do período selecionado, cada um já
+// com o total de questões e acertos somados a partir de registrosQuestoes.
+function gerarBucketsQuestoesEvolucao(periodo) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const buckets = [];
+
+  const somarNoIntervalo = (inicio, fim) => {
+    const inicioStr = obterDataLocalString(inicio);
+    const fimStr = obterDataLocalString(fim);
+    const doIntervalo = registrosQuestoes.filter(
+      (r) => r.data >= inicioStr && r.data <= fimStr,
+    );
+    return {
+      total: doIntervalo.reduce((s, r) => s + (r.total || 0), 0),
+      acertos: doIntervalo.reduce((s, r) => s + (r.acertos || 0), 0),
+    };
+  };
+
+  if (periodo === "7dias" || periodo === "30dias") {
+    const dias = periodo === "7dias" ? 7 : 30;
+    for (let i = dias - 1; i >= 0; i--) {
+      const d = somarDias(hoje, -i);
+      const { total, acertos } = somarNoIntervalo(d, d);
+      const label =
+        dias === 7
+          ? DIAS_SEMANA_ABREV[d.getDay()]
+          : `${d.getDate()}/${d.getMonth() + 1}`;
+      buckets.push({ label, total, acertos, erros: total - acertos });
+    }
+  } else if (periodo === "6meses") {
+    for (let i = 5; i >= 0; i--) {
+      const mesRef = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      const inicio = new Date(mesRef.getFullYear(), mesRef.getMonth(), 1);
+      const fim = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 0);
+      const { total, acertos } = somarNoIntervalo(inicio, fim);
+      buckets.push({
+        label: MESES_ABREV[mesRef.getMonth()],
+        total,
+        acertos,
+        erros: total - acertos,
+      });
+    }
+  } else if (periodo === "ano") {
+    const ano = hoje.getFullYear();
+    for (let m = 0; m < 12; m++) {
+      const inicio = new Date(ano, m, 1);
+      const fim = new Date(ano, m + 1, 0);
+      const { total, acertos } = somarNoIntervalo(inicio, fim);
+      buckets.push({
+        label: MESES_ABREV[m],
+        total,
+        acertos,
+        erros: total - acertos,
+      });
+    }
+  }
+
+  return buckets;
+}
+
+function renderizarEvolucaoQuestoes() {
+  const card = document.getElementById("card-questoes-evolucao");
+  const canvas = document.getElementById("chartQuestoesEvolucao");
+  if (!card || !canvas) return;
+
+  if (registrosQuestoes.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  // --- Stats do histórico inteiro (não filtradas por período) ---
+  const totalGeral = registrosQuestoes.reduce((s, r) => s + (r.total || 0), 0);
+  const acertosGeral = registrosQuestoes.reduce(
+    (s, r) => s + (r.acertos || 0),
+    0,
+  );
+  const errosGeral = totalGeral - acertosGeral;
+  const pctAcertoGeral =
+    totalGeral > 0 ? Math.round((acertosGeral / totalGeral) * 100) : 0;
+
+  const statTotal = document.getElementById("questoes-evolucao-stat-total");
+  const statErros = document.getElementById("questoes-evolucao-stat-erros");
+  const statPct = document.getElementById("questoes-evolucao-stat-pct");
+  if (statTotal) statTotal.innerText = totalGeral.toLocaleString("pt-BR");
+  if (statErros) statErros.innerText = errosGeral.toLocaleString("pt-BR");
+  if (statPct) statPct.innerText = `${pctAcertoGeral}%`;
+
+  // --- Gráfico de barras empilhadas do período selecionado ---
+  const buckets = gerarBucketsQuestoesEvolucao(questoesEvolucaoPeriodoAtual);
+
+  if (graficoQuestoesEvolucao) {
+    graficoQuestoesEvolucao.destroy();
+    graficoQuestoesEvolucao = null;
+  }
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMuted =
+    estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  graficoQuestoesEvolucao = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: buckets.map((b) => b.label),
+      datasets: [
+        {
+          label: "Acertos",
+          data: buckets.map((b) => b.acertos),
+          backgroundColor: "#10b981",
+          borderRadius: 3,
+          stack: "questoes",
+        },
+        {
+          label: "Erros",
+          data: buckets.map((b) => b.erros),
+          backgroundColor: "#ef4444",
+          borderRadius: 3,
+          stack: "questoes",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp, size: 11 },
+            maxRotation: 0,
+            autoSkip: true,
+          },
+          grid: { display: false },
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            color: corTextoMuted,
+            font: { family: fonteApp },
+            precision: 0,
+          },
+          grid: { color: "rgba(148,163,184,0.15)" },
+        },
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMuted,
+            font: { family: fonteApp, size: 12 },
+            boxWidth: 12,
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+        },
+      },
+    },
+  });
 }
 
 function mudarPeriodoAnalise(periodo) {

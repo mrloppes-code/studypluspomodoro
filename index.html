@@ -3112,6 +3112,93 @@
             </div>
           </div>
 
+          <!-- EVOLUÇÃO DE QUESTÕES: total respondido/errado no histórico
+               inteiro + gráfico de barras empilhadas (acertos x erros) por
+               período, no mesmo espírito da Análise de Estudos. -->
+          <div
+            class="card card-questoes-evolucao"
+            id="card-questoes-evolucao"
+            style="display: none"
+          >
+            <div class="analise-header">
+              <div class="analise-titulo-bloco">
+                <span class="analise-icone">📝</span>
+                <div>
+                  <h2 style="margin: 0">Evolução de Questões</h2>
+                  <p class="analise-subtitulo">
+                    Total respondido e evolução de acertos/erros
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="analise-periodo-toggle"
+                id="questoes-evolucao-periodo-toggle"
+              >
+                <button
+                  type="button"
+                  class="active"
+                  data-periodo="7dias"
+                  onclick="mudarPeriodoQuestoesEvolucao('7dias')"
+                >
+                  7 dias
+                </button>
+                <button
+                  type="button"
+                  data-periodo="30dias"
+                  onclick="mudarPeriodoQuestoesEvolucao('30dias')"
+                >
+                  30 dias
+                </button>
+                <button
+                  type="button"
+                  data-periodo="6meses"
+                  onclick="mudarPeriodoQuestoesEvolucao('6meses')"
+                >
+                  6 meses
+                </button>
+                <button
+                  type="button"
+                  data-periodo="ano"
+                  onclick="mudarPeriodoQuestoesEvolucao('ano')"
+                >
+                  Ano
+                </button>
+              </div>
+            </div>
+
+            <div class="analise-stats-row">
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">Questões Respondidas</span>
+                <span
+                  class="analise-stat-valor"
+                  id="questoes-evolucao-stat-total"
+                  >0</span
+                >
+              </div>
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">Erros</span>
+                <span
+                  class="analise-stat-valor questoes-evolucao-stat-erro"
+                  id="questoes-evolucao-stat-erros"
+                  >0</span
+                >
+              </div>
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">% de Acerto</span>
+                <span
+                  class="analise-stat-valor questoes-evolucao-stat-acerto"
+                  id="questoes-evolucao-stat-pct"
+                  >0%</span
+                >
+              </div>
+            </div>
+
+            <div class="analise-barras-wrapper">
+              <canvas id="chartQuestoesEvolucao"></canvas>
+            </div>
+          </div>
+
           <!-- RADAR DE COMPETÊNCIAS: visão geral do formato do desempenho
                (equilibrado x picos e vales), matéria por matéria. -->
           <div

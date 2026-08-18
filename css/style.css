@@ -2229,6 +2229,12 @@ button:disabled {
   font-weight: 800;
   color: var(--text-main);
 }
+.questoes-evolucao-stat-erro {
+  color: #ef4444;
+}
+.questoes-evolucao-stat-acerto {
+  color: #10b981;
+}
 .analise-barras-wrapper {
   position: relative;
   width: 100%;
