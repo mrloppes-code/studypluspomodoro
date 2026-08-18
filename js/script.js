@@ -145,6 +145,7 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-comparativo-provas",
   "card-evolucao-temporal",
   "card-heatmap-horario",
+  "card-questoes-evolucao",
 ];
 
 function obterModoVisualizacaoCards() {
