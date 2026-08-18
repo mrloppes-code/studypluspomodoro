@@ -1477,16 +1477,16 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
   flex-shrink: 0;
-  padding-left: 20px;
+  padding-left: 34px;
   border-left: 1px solid var(--border);
 }
 @media (max-width: 720px) {
   .perfil-lateral-bloco {
     border-left: none;
     padding-left: 0;
-    padding-top: 16px;
+    padding-top: 20px;
     border-top: 1px solid var(--border);
     width: 100%;
   }
@@ -1497,27 +1497,27 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 96px;
+  gap: 8px;
+  width: 160px;
 }
 .perfil-medalha-icone {
-  width: 62px;
-  height: 62px;
+  width: 116px;
+  height: 116px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.9rem;
+  font-size: 3.4rem;
   background: var(--surface-inset);
-  border: 2px solid var(--border);
-  box-shadow: 0 0 0 4px var(--card-bg);
+  border: 4px solid var(--border);
+  box-shadow: 0 0 0 6px var(--card-bg);
 }
 .perfil-medalha-titulo {
-  font-size: 0.68rem;
+  font-size: 1rem;
   font-weight: 700;
   text-align: center;
   color: var(--text-muted);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 /* Cores por faixa — mesma escala de obterMedalhaPorNivel() em script.js */
 .medalha-aprendiz .perfil-medalha-icone {
@@ -1569,15 +1569,15 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 .perfil-proxima-conquista {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 190px;
+  gap: 10px;
+  width: 320px;
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 20px 22px;
 }
 .proxima-conquista-label {
-  font-size: 0.66rem;
+  font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 700;
@@ -1586,17 +1586,17 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 .proxima-conquista-corpo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 .proxima-conquista-icone {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.9rem;
   background: var(--card-bg);
   filter: grayscale(0.6);
   opacity: 0.85;
@@ -1607,7 +1607,7 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 }
 .proxima-conquista-nome {
   display: block;
-  font-size: 0.78rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-main);
   white-space: nowrap;
@@ -1616,12 +1616,12 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 }
 .proxima-conquista-barra-fundo {
   width: 100%;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .proxima-conquista-barra-fill {
   height: 100%;
@@ -1631,8 +1631,8 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 }
 .proxima-conquista-progresso {
   display: block;
-  margin-top: 3px;
-  font-size: 0.68rem;
+  margin-top: 5px;
+  font-size: 0.88rem;
   color: var(--text-muted);
 }
 
