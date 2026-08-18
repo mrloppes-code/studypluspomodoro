@@ -2235,6 +2235,28 @@ button:disabled {
 .questoes-evolucao-stat-acerto {
   color: #10b981;
 }
+
+/* Card "Evolução de Questões" (aba Desempenho): ao contrário da Análise
+   de Estudos (card independente, largura total), este vive como item de
+   uma grade de 2 colunas (.container). Sem min-width:0, o <canvas> do
+   Chart.js (e o restante do conteúdo herdado da Análise de Estudos) não
+   encolhe abaixo do próprio tamanho de conteúdo — o item de grid estoura
+   a coluna, empurra o card vizinho e quebra o layout responsivo. */
+.card-questoes-evolucao {
+  min-width: 0;
+  overflow: hidden;
+}
+.card-questoes-evolucao .analise-barras-wrapper {
+  min-width: 0;
+}
+.card-questoes-evolucao .analise-periodo-toggle {
+  flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+  .card-questoes-evolucao .analise-stats-row {
+    grid-template-columns: 1fr;
+  }
+}
 .analise-barras-wrapper {
   position: relative;
   width: 100%;
