@@ -288,6 +288,13 @@ let checkoutCumpridoSelecionado = null;
 let checkoutHumorDepoisSelecionado = null;
 let checkoutEstrelasSelecionadas = null;
 
+// Controla o lembrete de "esqueceu de marcar o humor" nos modais de
+// check-in/check-out: fica false ao abrir o modal e vira true assim que o
+// lembrete é mostrado uma vez, pra não bloquear pra sempre quem realmente
+// quer confirmar sem marcar humor (é opcional, não obrigatório).
+let checkinLembreteHumorMostrado = false;
+let checkoutLembreteHumorMostrado = false;
+
 let dadosPerfil = JSON.parse(localStorage.getItem("dadosPerfil")) || {
   nome: "Estudante",
   cargo: "Foco em Aprovação",
@@ -1893,6 +1900,7 @@ function abrirModalCheckinHumor() {
   checkinHumorSelecionado = null;
   checkinEnergiaSelecionada = null;
   checkinSonoSelecionado = null;
+  checkinLembreteHumorMostrado = false;
 
   const modal = document.getElementById("modal-checkin-humor");
   if (!modal) {
@@ -1905,6 +1913,9 @@ function abrirModalCheckinHumor() {
   modal
     .querySelectorAll(".checkin-chip-emoji, .checkin-chip-texto")
     .forEach((btn) => btn.classList.remove("chip-ativa"));
+
+  const lembreteCheckin = document.getElementById("checkin-lembrete-humor");
+  if (lembreteCheckin) lembreteCheckin.style.display = "none";
 
   document.getElementById("checkin-ansiedade").value = 5;
   document.getElementById("checkin-motivacao").value = 5;
@@ -1948,7 +1959,34 @@ function pularCheckinHumor() {
   iniciarFocoComPreparacaoSeConfigurada(startTimer);
 }
 
+// Acende um lembrete sutil (pulso na borda + texto) no grupo de carinhas
+// de humor, sem travar o fluxo — só um "ei, esqueceu?" antes de confirmar
+// sem humor marcado. Reaproveitado pelo check-in e pelo check-out (cada
+// um passa seu próprio prefixo de id: "checkin" ou "checkout").
+function destacarLembreteHumor(prefixo) {
+  const grupo = document.getElementById(`${prefixo}-grupo-humor`);
+  const texto = document.getElementById(`${prefixo}-lembrete-humor`);
+  if (texto) texto.style.display = "block";
+  if (grupo) {
+    grupo.classList.remove("checkin-grupo-pulso");
+    // Força reflow pra poder re-disparar a animação, mesmo se ela já
+    // tiver rodado antes (troca de classe sem isso não reinicia o CSS).
+    void grupo.offsetWidth;
+    grupo.classList.add("checkin-grupo-pulso");
+  }
+}
+
 function confirmarCheckinHumor() {
+  // Primeira tentativa de confirmar sem nenhuma carinha marcada: mostra
+  // o lembrete e não fecha o modal ainda. Na tentativa seguinte, respeita
+  // a escolha da pessoa e segue salvando normalmente — o check-in é
+  // opcional, isso é só um empurrãozinho, não uma trava.
+  if (!checkinHumorSelecionado && !checkinLembreteHumorMostrado) {
+    checkinLembreteHumorMostrado = true;
+    destacarLembreteHumor("checkin");
+    return;
+  }
+
   const ansiedade = parseInt(
     document.getElementById("checkin-ansiedade").value,
     10,
@@ -3021,6 +3059,7 @@ function abrirModalDistracao() {
   checkoutCumpridoSelecionado = null;
   checkoutHumorDepoisSelecionado = null;
   checkoutEstrelasSelecionadas = null;
+  checkoutLembreteHumorMostrado = false;
   const modalDistracao = document.getElementById("modal-distracao-container");
   modalDistracao
     .querySelectorAll(".checkin-chip-texto, .checkin-chip-emoji")
@@ -3028,6 +3067,9 @@ function abrirModalDistracao() {
   modalDistracao
     .querySelectorAll(".checkout-estrela")
     .forEach((btn) => btn.classList.remove("estrela-ativa"));
+
+  const lembreteCheckout = document.getElementById("checkout-lembrete-humor");
+  if (lembreteCheckout) lembreteCheckout.style.display = "none";
 
   modalDistracao.style.display = "flex";
 }
@@ -3128,6 +3170,16 @@ async function pularRegistroDistracao() {
 }
 
 async function confirmarRegistroDistracao() {
+  // Primeira tentativa de confirmar sem nenhuma carinha de humor marcada:
+  // mostra o lembrete e não fecha o modal ainda. Na tentativa seguinte,
+  // segue salvando normalmente — é um lembrete, não uma trava (quem quer
+  // pular o humor de propósito ainda pode, sem ficar preso no modal).
+  if (!checkoutHumorDepoisSelecionado && !checkoutLembreteHumorMostrado) {
+    checkoutLembreteHumorMostrado = true;
+    destacarLembreteHumor("checkout");
+    return;
+  }
+
   // 1. Capturar distrações selecionadas
   const checkboxes = document.querySelectorAll(
     ".grade-checkbox-distracao input:checked",
