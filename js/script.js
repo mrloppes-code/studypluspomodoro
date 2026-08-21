@@ -145,6 +145,7 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-comparativo-provas",
   "card-evolucao-temporal",
   "card-heatmap-horario",
+  "card-questoes-evolucao",
 ];
 
 function obterModoVisualizacaoCards() {
@@ -4370,6 +4371,197 @@ function lerBancaDoFormulario(prefixo) {
   return select.value;
 }
 
+// --- REGISTRO DE QUESTÕES: distribuição por banca (multi-linha) ---
+// O formulário de "Questões Resolvidas" pede o total da sessão uma vez só
+// e deixa a pessoa quebrar esse total em uma linha por banca (banca +
+// questões + acertos). Cada linha vira um registro próprio em
+// registrosQuestoes, todas com a mesma matéria/tópico/data — é isso que
+// faz o Desempenho por Banca Examinadora ficar correto mesmo quando a
+// sessão de estudo misturou bancas diferentes, sem precisar preencher o
+// formulário inteiro de novo pra cada uma.
+let contadorLinhaDistribuicaoQuestoes = 1;
+
+const OPCOES_BANCA_HTML = `
+  <option value="">Não especificar</option>
+  <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
+  <option value="FGV">FGV</option>
+  <option value="FCC">FCC</option>
+  <option value="Vunesp">Vunesp</option>
+  <option value="IBFC">IBFC</option>
+  <option value="IADES">IADES</option>
+  <option value="AOCP">AOCP</option>
+  <option value="Quadrix">Quadrix</option>
+  <option value="IDECAN">IDECAN</option>
+  <option value="Instituto Consulplan">Instituto Consulplan</option>
+  <option value="outra">Outra...</option>
+`;
+
+function criarLinhaDistribuicaoQuestoesHtml(id) {
+  return `
+    <div class="questoes-distribuicao-linha" data-linha-id="${id}">
+      <select
+        id="questoes-linha-banca-${id}"
+        onchange="alternarBancaOutraLinha(${id})"
+      >
+        ${OPCOES_BANCA_HTML}
+      </select>
+      <input
+        type="text"
+        id="questoes-linha-banca-outra-${id}"
+        class="questoes-linha-banca-outra"
+        placeholder="Nome da banca"
+        style="display: none"
+        oninput="atualizarResumoDistribuicaoQuestoes()"
+      />
+      <input
+        type="number"
+        id="questoes-linha-total-${id}"
+        class="questoes-linha-total"
+        min="0"
+        placeholder="0"
+        oninput="atualizarResumoDistribuicaoQuestoes()"
+      />
+      <input
+        type="number"
+        id="questoes-linha-acertos-${id}"
+        class="questoes-linha-acertos"
+        min="0"
+        placeholder="0"
+        oninput="atualizarResumoDistribuicaoQuestoes()"
+      />
+      <button
+        type="button"
+        class="questoes-linha-remover"
+        onclick="removerLinhaDistribuicaoQuestoes(${id})"
+        title="Remover banca"
+      >
+        ✕
+      </button>
+    </div>
+  `;
+}
+
+function adicionarLinhaDistribuicaoQuestoes() {
+  const container = document.getElementById("questoes-distribuicao-linhas");
+  if (!container) return;
+  contadorLinhaDistribuicaoQuestoes += 1;
+  container.insertAdjacentHTML(
+    "beforeend",
+    criarLinhaDistribuicaoQuestoesHtml(contadorLinhaDistribuicaoQuestoes),
+  );
+  atualizarResumoDistribuicaoQuestoes();
+}
+
+// Sempre mantém pelo menos 1 linha — não faz sentido "Registrar" sem
+// nenhuma linha de distribuição.
+function removerLinhaDistribuicaoQuestoes(id) {
+  const container = document.getElementById("questoes-distribuicao-linhas");
+  if (!container) return;
+  if (container.children.length <= 1) return;
+  const linha = container.querySelector(`[data-linha-id="${id}"]`);
+  if (linha) linha.remove();
+  atualizarResumoDistribuicaoQuestoes();
+}
+
+function alternarBancaOutraLinha(id) {
+  const select = document.getElementById(`questoes-linha-banca-${id}`);
+  const outraInput = document.getElementById(
+    `questoes-linha-banca-outra-${id}`,
+  );
+  if (!select || !outraInput) return;
+  outraInput.style.display = select.value === "outra" ? "block" : "none";
+  if (select.value !== "outra") outraInput.value = "";
+  atualizarResumoDistribuicaoQuestoes();
+}
+
+// Volta a distribuição pra 1 única linha vazia — chamado depois de
+// registrar. A matéria/tópico ficam selecionados (ver registrarQuestoes),
+// mas a distribuição de bancas é específica de cada sessão, então essa
+// parte reinicia do zero.
+function reiniciarLinhasDistribuicaoQuestoes() {
+  const container = document.getElementById("questoes-distribuicao-linhas");
+  if (!container) return;
+  container.innerHTML = "";
+  contadorLinhaDistribuicaoQuestoes = 0;
+  adicionarLinhaDistribuicaoQuestoes();
+}
+
+// Lê todas as linhas com questões > 0 (linhas em branco são ignoradas
+// silenciosamente — deixa sobrar uma linha vazia no fim sem dar erro), já
+// com o valor final da banca resolvido (trata "Outra...").
+function lerLinhasDistribuicaoQuestoes() {
+  const container = document.getElementById("questoes-distribuicao-linhas");
+  if (!container) return [];
+  return [...container.querySelectorAll(".questoes-distribuicao-linha")]
+    .map((linha) => {
+      const id = linha.dataset.linhaId;
+      const selectBanca = document.getElementById(`questoes-linha-banca-${id}`);
+      const outraInput = document.getElementById(
+        `questoes-linha-banca-outra-${id}`,
+      );
+      const total = parseInt(
+        document.getElementById(`questoes-linha-total-${id}`).value,
+        10,
+      );
+      const acertos = parseInt(
+        document.getElementById(`questoes-linha-acertos-${id}`).value,
+        10,
+      );
+
+      let banca = null;
+      if (selectBanca && selectBanca.value) {
+        banca =
+          selectBanca.value === "outra"
+            ? (outraInput ? outraInput.value.trim() : "") || null
+            : selectBanca.value;
+      }
+
+      return {
+        banca,
+        total: !isNaN(total) && total > 0 ? total : 0,
+        acertos: !isNaN(acertos) && acertos > 0 ? acertos : 0,
+      };
+    })
+    .filter((linha) => linha.total > 0);
+}
+
+// Atualiza em tempo real o resumo "Questões distribuídas: X / Y" (com ✓
+// quando bate com o total declarado) e o "Aproveitamento geral" — feedback
+// visual pra pessoa conferir a distribuição antes de tentar registrar.
+function atualizarResumoDistribuicaoQuestoes() {
+  const totalDeclarado =
+    parseInt(document.getElementById("questoes-total").value, 10) || 0;
+  const linhas = lerLinhasDistribuicaoQuestoes();
+  const totalDistribuido = linhas.reduce((s, l) => s + l.total, 0);
+  const acertosDistribuidos = linhas.reduce((s, l) => s + l.acertos, 0);
+
+  const elStatus = document.getElementById("questoes-distribuicao-status");
+  if (elStatus) {
+    const bate = totalDeclarado > 0 && totalDistribuido === totalDeclarado;
+    elStatus.textContent = `Questões distribuídas: ${totalDistribuido} / ${totalDeclarado}${bate ? " ✓" : ""}`;
+    elStatus.classList.toggle("questoes-distribuicao-status-ok", bate);
+    elStatus.classList.toggle(
+      "questoes-distribuicao-status-pendente",
+      !bate && totalDistribuido > 0,
+    );
+  }
+
+  const elAproveitamento = document.getElementById(
+    "questoes-distribuicao-aproveitamento",
+  );
+  if (elAproveitamento) {
+    elAproveitamento.textContent =
+      totalDistribuido > 0
+        ? `Aproveitamento geral: ${acertosDistribuidos}/${totalDistribuido} → ${(
+            (acertosDistribuidos / totalDistribuido) *
+            100
+          )
+            .toFixed(1)
+            .replace(".", ",")}%`
+        : "";
+  }
+}
+
 async function registrarQuestoes(event) {
   event.preventDefault();
 
@@ -4377,70 +4569,110 @@ async function registrarQuestoes(event) {
     document.getElementById("questoes-materia").value || "Estudo Geral";
   const topicoEl = document.getElementById("questoes-topico");
   const topico = topicoEl && topicoEl.value ? topicoEl.value : null;
-  const total = parseInt(document.getElementById("questoes-total").value, 10);
-  const acertos = parseInt(
-    document.getElementById("questoes-acertos").value,
+  const totalDeclarado = parseInt(
+    document.getElementById("questoes-total").value,
     10,
   );
 
-  if (!total || total <= 0) {
+  if (!totalDeclarado || totalDeclarado <= 0) {
     await mostrarAlerta(
       "Informe a quantidade total de questões (maior que zero).",
     );
     return;
   }
-  if (isNaN(acertos) || acertos < 0) {
-    await mostrarAlerta("Informe quantas você acertou (0 ou mais).");
-    return;
-  }
-  if (acertos > total) {
-    await mostrarAlerta("Acertos não pode ser maior que o total de questões.");
-    return;
-  }
 
-  const erros = total - acertos;
-  const { causas, soma, algumPreenchido } =
-    lerCausasErroDoFormulario("questoes");
-  if (algumPreenchido && soma > erros) {
+  const linhas = lerLinhasDistribuicaoQuestoes();
+  if (linhas.length === 0) {
     await mostrarAlerta(
-      `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa questão (${erros}).`,
+      "Preencha ao menos uma linha da distribuição, com a quantidade de questões dessa banca.",
     );
     return;
   }
 
-  registrosQuestoes.push({
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    data: obterDataLocalString(new Date()),
-    materia,
-    topico,
-    total,
-    acertos,
-    banca: lerBancaDoFormulario("questoes"),
-    causasErro: algumPreenchido ? causas : null,
+  const totalDistribuido = linhas.reduce((s, l) => s + l.total, 0);
+  if (totalDistribuido !== totalDeclarado) {
+    await mostrarAlerta(
+      `A soma das linhas de distribuição (${totalDistribuido}) precisa bater exatamente com o total de questões informado (${totalDeclarado}).`,
+    );
+    return;
+  }
+
+  const linhaComAcertoInvalido = linhas.find((l) => l.acertos > l.total);
+  if (linhaComAcertoInvalido) {
+    await mostrarAlerta(
+      "Os acertos de uma linha não podem ser maiores que as questões dessa mesma linha.",
+    );
+    return;
+  }
+
+  const acertosTotais = linhas.reduce((s, l) => s + l.acertos, 0);
+  const errosTotais = totalDeclarado - acertosTotais;
+  const { causas, soma, algumPreenchido } =
+    lerCausasErroDoFormulario("questoes");
+  if (algumPreenchido && soma > errosTotais) {
+    await mostrarAlerta(
+      `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa sessão (${errosTotais}).`,
+    );
+    return;
+  }
+
+  const dataRegistro = obterDataLocalString(new Date());
+
+  // Uma linha de distribuição = um registro próprio (mesma matéria/tópico/
+  // data), cada um com sua banca e seu total/acertos — é o que faz o
+  // Desempenho por Banca Examinadora ficar correto mesmo numa sessão com
+  // várias bancas misturadas.
+  linhas.forEach((linha) => {
+    registrosQuestoes.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      data: dataRegistro,
+      materia,
+      topico,
+      total: linha.total,
+      acertos: linha.acertos,
+      banca: linha.banca,
+      causasErro: null,
+    });
   });
+
+  // O diagnóstico de erros vale pra sessão inteira, não pra uma banca
+  // específica (é um só campo no formulário — ver wireframe). Por isso vai
+  // num registro à parte com total=0/banca=null: não conta em nenhuma
+  // estatística de questões nem aparece no Desempenho por Banca, mas entra
+  // normalmente no Caderno de Erros (que agrupa por matéria, não por banca
+  // nem pelo total do registro).
+  if (algumPreenchido) {
+    registrosQuestoes.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      data: dataRegistro,
+      materia,
+      topico,
+      total: 0,
+      acertos: 0,
+      banca: null,
+      causasErro: causas,
+    });
+  }
+
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
-  // Só limpa total/acertos/banca/diagnóstico — matéria e tópico ficam
-  // como estavam. É o que faz registrar várias bancas na mesma sessão de
-  // estudo ser rápido (2-3 campos por banca, não o formulário inteiro de
-  // novo), incentivando o hábito que deixa o gráfico de Desempenho por
-  // Banca Examinadora confiável.
+  // Reset: total e distribuição (volta a 1 linha vazia) e diagnóstico.
+  // Matéria/tópico ficam selecionados — a próxima sessão da mesma matéria
+  // é rápida de registrar de novo.
   document.getElementById("questoes-total").value = "";
-  document.getElementById("questoes-acertos").value = "";
-  document.getElementById("questoes-banca").value = "";
-  document.getElementById("questoes-banca-outra").value = "";
-  alternarBancaOutra("questoes");
+  reiniciarLinhasDistribuicaoQuestoes();
   ["nao-sabia", "confundiu", "leitura", "atencao"].forEach((sufixo) => {
     const campo = document.getElementById(`questoes-erro-${sufixo}`);
     if (campo) campo.value = "";
   });
+  atualizarResumoDistribuicaoQuestoes();
 
   mostrarToastGamificacao(
     "📝",
     "Questões registradas",
     topico
-      ? `${acertos}/${total} acertos em ${materia} › ${topico}`
-      : `${acertos}/${total} acertos em ${materia}`,
+      ? `${acertosTotais}/${totalDeclarado} acertos em ${materia} › ${topico}`
+      : `${acertosTotais}/${totalDeclarado} acertos em ${materia}`,
   );
   renderizarQuestoesResolvidas();
   renderizarMatrizPrioridade();
@@ -6108,7 +6340,10 @@ function renderizarQuestoesResolvidas() {
   const lista = document.getElementById("questoes-lista-recente");
   if (!lista) return;
 
-  const recentes = [...registrosDoFiltro].reverse().slice(0, 8);
+  const recentes = [...registrosDoFiltro]
+    .filter((r) => r.total > 0)
+    .reverse()
+    .slice(0, 8);
   if (recentes.length === 0) {
     lista.innerHTML = filtroProva
       ? '<p class="sessoes-hoje-vazio">Nenhuma questão registrada para essa prova ainda.</p>'

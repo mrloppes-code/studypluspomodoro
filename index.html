@@ -2868,57 +2868,106 @@
                   </div>
                 </div>
 
-                <div class="questoes-form-linha">
-                  <div>
-                    <label for="questoes-total">Total de questões:</label>
-                    <input type="number" id="questoes-total" min="1" required />
+                <label for="questoes-total">Total de questões:</label>
+                <input
+                  type="number"
+                  id="questoes-total"
+                  min="1"
+                  required
+                  oninput="atualizarResumoDistribuicaoQuestoes()"
+                />
+
+                <div class="questoes-distribuicao-bloco">
+                  <label style="margin-top: 10px; margin-bottom: 2px">
+                    📊 Distribuição das questões
+                  </label>
+                  <p
+                    class="campo-ajuda"
+                    style="margin-top: -2px; margin-bottom: 8px"
+                  >
+                    Resolveu questões de bancas diferentes nessa sessão? Separe
+                    por linha — cada linha vira um lançamento próprio, então o
+                    Desempenho por Banca Examinadora fica confiável. Deixe a
+                    banca em "Não especificar" se não quiser detalhar.
+                  </p>
+
+                  <div class="questoes-distribuicao-cabecalho">
+                    <span>Banca</span>
+                    <span>Questões</span>
+                    <span>Acertos</span>
+                    <span></span>
                   </div>
-                  <div>
-                    <label for="questoes-acertos">Acertos:</label>
-                    <input
-                      type="number"
-                      id="questoes-acertos"
-                      min="0"
-                      required
-                    />
+                  <div id="questoes-distribuicao-linhas">
+                    <div class="questoes-distribuicao-linha" data-linha-id="1">
+                      <select
+                        id="questoes-linha-banca-1"
+                        onchange="alternarBancaOutraLinha(1)"
+                      >
+                        <option value="">Não especificar</option>
+                        <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
+                        <option value="FGV">FGV</option>
+                        <option value="FCC">FCC</option>
+                        <option value="Vunesp">Vunesp</option>
+                        <option value="IBFC">IBFC</option>
+                        <option value="IADES">IADES</option>
+                        <option value="AOCP">AOCP</option>
+                        <option value="Quadrix">Quadrix</option>
+                        <option value="IDECAN">IDECAN</option>
+                        <option value="Instituto Consulplan">
+                          Instituto Consulplan
+                        </option>
+                        <option value="outra">Outra...</option>
+                      </select>
+                      <input
+                        type="text"
+                        id="questoes-linha-banca-outra-1"
+                        class="questoes-linha-banca-outra"
+                        placeholder="Nome da banca"
+                        style="display: none"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
+                      />
+                      <input
+                        type="number"
+                        id="questoes-linha-total-1"
+                        class="questoes-linha-total"
+                        min="0"
+                        placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
+                      />
+                      <input
+                        type="number"
+                        id="questoes-linha-acertos-1"
+                        class="questoes-linha-acertos"
+                        min="0"
+                        placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
+                      />
+                      <button
+                        type="button"
+                        class="questoes-linha-remover"
+                        onclick="removerLinhaDistribuicaoQuestoes(1)"
+                        title="Remover banca"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="questoes-add-banca-btn"
+                    onclick="adicionarLinhaDistribuicaoQuestoes()"
+                  >
+                    + Adicionar banca
+                  </button>
+
+                  <div class="questoes-distribuicao-resumo">
+                    <span id="questoes-distribuicao-status"
+                      >Questões distribuídas: 0 / 0</span
+                    >
+                    <span id="questoes-distribuicao-aproveitamento"></span>
                   </div>
                 </div>
-
-                <label for="questoes-banca"
-                  >Banca examinadora (opcional):</label
-                >
-                <select
-                  id="questoes-banca"
-                  onchange="alternarBancaOutra('questoes')"
-                >
-                  <option value="">Não especificar</option>
-                  <option value="CESPE/Cebraspe">CESPE/Cebraspe</option>
-                  <option value="FGV">FGV</option>
-                  <option value="FCC">FCC</option>
-                  <option value="Vunesp">Vunesp</option>
-                  <option value="IBFC">IBFC</option>
-                  <option value="IADES">IADES</option>
-                  <option value="AOCP">AOCP</option>
-                  <option value="Quadrix">Quadrix</option>
-                  <option value="IDECAN">IDECAN</option>
-                  <option value="Instituto Consulplan">
-                    Instituto Consulplan
-                  </option>
-                  <option value="outra">Outra...</option>
-                </select>
-                <input
-                  type="text"
-                  id="questoes-banca-outra"
-                  placeholder="Nome da banca"
-                  style="display: none; margin-top: 6px"
-                />
-                <p class="campo-ajuda" style="margin-top: 4px">
-                  Resolveu questões de bancas diferentes nessa sessão? Registre
-                  um lançamento por banca — depois de "Registrar", a matéria
-                  continua selecionada, então leva só alguns segundos por banca.
-                  É o que faz o gráfico de Desempenho por Banca Examinadora
-                  ficar confiável.
-                </p>
 
                 <div class="diagnostico-erros-bloco">
                   <label style="margin-top: 10px; margin-bottom: 2px">
@@ -2929,7 +2978,8 @@
                     style="margin-top: -2px; margin-bottom: 8px"
                   >
                     Errou alguma questão? Classifica o motivo — alimenta o
-                    Caderno de Erros lá em Desempenho.
+                    Caderno de Erros lá em Desempenho. Vale pra sessão toda, não
+                    precisa separar por banca.
                   </p>
                   <div class="diagnostico-erros-grade">
                     <div>
@@ -3121,22 +3171,54 @@
 
           <!-- EVOLUÇÃO DE QUESTÕES: total respondido/errado no histórico
                inteiro + gráfico de barras empilhadas (acertos x erros) por
-               período, no mesmo espírito da Análise de Estudos. -->
+               período, no mesmo espírito da Análise de Estudos. Segue o
+               mesmo padrão resumo-card + modal-detalhe-card dos demais
+               cards desta aba, pra ter o mesmo tamanho no modo compacto
+               (resumo pequeno) e no modo expandido (bloco span 2). -->
           <div
-            class="card card-questoes-evolucao"
+            class="card resumo-card"
             id="card-questoes-evolucao"
             style="display: none"
           >
-            <div class="analise-header">
-              <div class="analise-titulo-bloco">
-                <span class="analise-icone">📝</span>
-                <div>
-                  <h2 style="margin: 0">Evolução de Questões</h2>
-                  <p class="analise-subtitulo">
-                    Total respondido e evolução de acertos/erros
-                  </p>
-                </div>
-              </div>
+            <h2>📝 Evolução de Questões</h2>
+            <p class="campo-ajuda">
+              Total respondido e evolução de acertos/erros.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-questoes-evolucao')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-questoes-evolucao"
+            class="modal-distracao modal-detalhe-card"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-questoes-evolucao',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-questoes-evolucao')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>📝 Evolução de Questões</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Total respondido e evolução de acertos/erros.
+              </p>
 
               <div
                 class="analise-periodo-toggle"
@@ -3172,37 +3254,37 @@
                   Ano
                 </button>
               </div>
-            </div>
 
-            <div class="analise-stats-row">
-              <div class="analise-stat-card">
-                <span class="analise-stat-label">Questões Respondidas</span>
-                <span
-                  class="analise-stat-valor"
-                  id="questoes-evolucao-stat-total"
-                  >0</span
-                >
+              <div class="analise-stats-row">
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Questões Respondidas</span>
+                  <span
+                    class="analise-stat-valor"
+                    id="questoes-evolucao-stat-total"
+                    >0</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Erros</span>
+                  <span
+                    class="analise-stat-valor questoes-evolucao-stat-erro"
+                    id="questoes-evolucao-stat-erros"
+                    >0</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">% de Acerto</span>
+                  <span
+                    class="analise-stat-valor questoes-evolucao-stat-acerto"
+                    id="questoes-evolucao-stat-pct"
+                    >0%</span
+                  >
+                </div>
               </div>
-              <div class="analise-stat-card">
-                <span class="analise-stat-label">Erros</span>
-                <span
-                  class="analise-stat-valor questoes-evolucao-stat-erro"
-                  id="questoes-evolucao-stat-erros"
-                  >0</span
-                >
-              </div>
-              <div class="analise-stat-card">
-                <span class="analise-stat-label">% de Acerto</span>
-                <span
-                  class="analise-stat-valor questoes-evolucao-stat-acerto"
-                  id="questoes-evolucao-stat-pct"
-                  >0%</span
-                >
-              </div>
-            </div>
 
-            <div class="analise-barras-wrapper">
-              <canvas id="chartQuestoesEvolucao"></canvas>
+              <div class="analise-barras-wrapper">
+                <canvas id="chartQuestoesEvolucao"></canvas>
+              </div>
             </div>
           </div>
 
