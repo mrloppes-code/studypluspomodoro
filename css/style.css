@@ -2236,18 +2236,24 @@ button:disabled {
   color: #10b981;
 }
 
-/* Card "Evolução de Questões" (aba Desempenho): agora segue o mesmo
-   padrão resumo-card + modal-detalhe-card dos demais cards da aba, então
-   o conteúdo completo (toggle, stats, gráfico) só existe dentro do modal
-   — mesmo tamanho dos outros no compacto (resumo pequeno) e no expandido
-   (bloco span 2 via .modal-detalhe-card). O toggle de período quebra
-   linha e as stats viram 1 coluna em telas estreitas, igual ao card de
-   Análise de Estudos. */
-#modal-questoes-evolucao .analise-periodo-toggle {
+/* Card "Evolução de Questões" (aba Desempenho): ao contrário da Análise
+   de Estudos (card independente, largura total), este vive como item de
+   uma grade de 2 colunas (.container). Sem min-width:0, o <canvas> do
+   Chart.js (e o restante do conteúdo herdado da Análise de Estudos) não
+   encolhe abaixo do próprio tamanho de conteúdo — o item de grid estoura
+   a coluna, empurra o card vizinho e quebra o layout responsivo. */
+.card-questoes-evolucao {
+  min-width: 0;
+  overflow: hidden;
+}
+.card-questoes-evolucao .analise-barras-wrapper {
+  min-width: 0;
+}
+.card-questoes-evolucao .analise-periodo-toggle {
   flex-wrap: wrap;
 }
 @media (max-width: 480px) {
-  #modal-questoes-evolucao .analise-stats-row {
+  .card-questoes-evolucao .analise-stats-row {
     grid-template-columns: 1fr;
   }
 }
@@ -4873,6 +4879,18 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   font-weight: 600;
   color: var(--text-main);
   font-size: 0.87rem;
+}
+.questoes-item-banca {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  vertical-align: middle;
 }
 .questoes-item-detalhe {
   font-size: 0.76rem;

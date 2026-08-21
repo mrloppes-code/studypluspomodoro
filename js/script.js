@@ -145,7 +145,6 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-comparativo-provas",
   "card-evolucao-temporal",
   "card-heatmap-horario",
-  "card-questoes-evolucao",
 ];
 
 function obterModoVisualizacaoCards() {
@@ -4421,9 +4420,21 @@ async function registrarQuestoes(event) {
   });
   localStorage.setItem("registrosQuestoes", JSON.stringify(registrosQuestoes));
 
-  document.getElementById("form-questoes").reset();
+  // Só limpa total/acertos/banca/diagnóstico — matéria e tópico ficam
+  // como estavam. É o que faz registrar várias bancas na mesma sessão de
+  // estudo ser rápido (2-3 campos por banca, não o formulário inteiro de
+  // novo), incentivando o hábito que deixa o gráfico de Desempenho por
+  // Banca Examinadora confiável.
+  document.getElementById("questoes-total").value = "";
+  document.getElementById("questoes-acertos").value = "";
+  document.getElementById("questoes-banca").value = "";
+  document.getElementById("questoes-banca-outra").value = "";
   alternarBancaOutra("questoes");
-  atualizarOpcoesTopicoQuestoes();
+  ["nao-sabia", "confundiu", "leitura", "atencao"].forEach((sufixo) => {
+    const campo = document.getElementById(`questoes-erro-${sufixo}`);
+    if (campo) campo.value = "";
+  });
+
   mostrarToastGamificacao(
     "📝",
     "Questões registradas",
@@ -4437,6 +4448,7 @@ async function registrarQuestoes(event) {
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
   renderizarDesempenhoPorBanca();
+  document.getElementById("questoes-total").focus();
 }
 
 // --- REGISTRO DE SESSÃO AVULSA ---
@@ -6110,10 +6122,13 @@ function renderizarQuestoesResolvidas() {
       const materiaLabel = r.topico
         ? `${escapeHtml(r.materia)} › ${escapeHtml(r.topico)}`
         : escapeHtml(r.materia);
+      const bancaTag = r.banca
+        ? `<span class="questoes-item-banca">${escapeHtml(r.banca)}</span>`
+        : "";
       return `
         <div class="questoes-item">
           <div class="questoes-item-info">
-            <span class="questoes-item-materia">${materiaLabel}</span>
+            <span class="questoes-item-materia">${materiaLabel}${bancaTag}</span>
             <span class="questoes-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${r.data.split("-").reverse().join("/")}</span>
           </div>
           <button type="button" onclick="excluirRegistroQuestoes('${r.id}')" title="Excluir registro">✕</button>

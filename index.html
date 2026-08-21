@@ -2912,6 +2912,13 @@
                   placeholder="Nome da banca"
                   style="display: none; margin-top: 6px"
                 />
+                <p class="campo-ajuda" style="margin-top: 4px">
+                  Resolveu questões de bancas diferentes nessa sessão? Registre
+                  um lançamento por banca — depois de "Registrar", a matéria
+                  continua selecionada, então leva só alguns segundos por banca.
+                  É o que faz o gráfico de Desempenho por Banca Examinadora
+                  ficar confiável.
+                </p>
 
                 <div class="diagnostico-erros-bloco">
                   <label style="margin-top: 10px; margin-bottom: 2px">
@@ -3114,54 +3121,22 @@
 
           <!-- EVOLUÇÃO DE QUESTÕES: total respondido/errado no histórico
                inteiro + gráfico de barras empilhadas (acertos x erros) por
-               período, no mesmo espírito da Análise de Estudos. Segue o
-               mesmo padrão resumo-card + modal-detalhe-card dos demais
-               cards desta aba, pra ter o mesmo tamanho no modo compacto
-               (resumo pequeno) e no modo expandido (bloco span 2). -->
+               período, no mesmo espírito da Análise de Estudos. -->
           <div
-            class="card resumo-card"
+            class="card card-questoes-evolucao"
             id="card-questoes-evolucao"
             style="display: none"
           >
-            <h2>📝 Evolução de Questões</h2>
-            <p class="campo-ajuda">
-              Total respondido e evolução de acertos/erros.
-            </p>
-            <button
-              type="button"
-              class="btn-ver-detalhes"
-              onclick="abrirModalDetalheCard('modal-questoes-evolucao')"
-            >
-              Ver Detalhes
-            </button>
-          </div>
-
-          <div
-            id="modal-questoes-evolucao"
-            class="modal-distracao modal-detalhe-card"
-            onclick="
-              fecharModalDetalheCardSeClicouFora(
-                event,
-                'modal-questoes-evolucao',
-              )
-            "
-          >
-            <div class="modal-conteudo modal-detalhe-conteudo">
-              <button
-                type="button"
-                class="tela-login-fechar"
-                onclick="fecharModalDetalheCard('modal-questoes-evolucao')"
-                title="Fechar"
-              >
-                ✕
-              </button>
-              <h2>📝 Evolução de Questões</h2>
-              <p
-                class="campo-ajuda"
-                style="margin-top: -4px; margin-bottom: 14px"
-              >
-                Total respondido e evolução de acertos/erros.
-              </p>
+            <div class="analise-header">
+              <div class="analise-titulo-bloco">
+                <span class="analise-icone">📝</span>
+                <div>
+                  <h2 style="margin: 0">Evolução de Questões</h2>
+                  <p class="analise-subtitulo">
+                    Total respondido e evolução de acertos/erros
+                  </p>
+                </div>
+              </div>
 
               <div
                 class="analise-periodo-toggle"
@@ -3197,37 +3172,37 @@
                   Ano
                 </button>
               </div>
+            </div>
 
-              <div class="analise-stats-row">
-                <div class="analise-stat-card">
-                  <span class="analise-stat-label">Questões Respondidas</span>
-                  <span
-                    class="analise-stat-valor"
-                    id="questoes-evolucao-stat-total"
-                    >0</span
-                  >
-                </div>
-                <div class="analise-stat-card">
-                  <span class="analise-stat-label">Erros</span>
-                  <span
-                    class="analise-stat-valor questoes-evolucao-stat-erro"
-                    id="questoes-evolucao-stat-erros"
-                    >0</span
-                  >
-                </div>
-                <div class="analise-stat-card">
-                  <span class="analise-stat-label">% de Acerto</span>
-                  <span
-                    class="analise-stat-valor questoes-evolucao-stat-acerto"
-                    id="questoes-evolucao-stat-pct"
-                    >0%</span
-                  >
-                </div>
+            <div class="analise-stats-row">
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">Questões Respondidas</span>
+                <span
+                  class="analise-stat-valor"
+                  id="questoes-evolucao-stat-total"
+                  >0</span
+                >
               </div>
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">Erros</span>
+                <span
+                  class="analise-stat-valor questoes-evolucao-stat-erro"
+                  id="questoes-evolucao-stat-erros"
+                  >0</span
+                >
+              </div>
+              <div class="analise-stat-card">
+                <span class="analise-stat-label">% de Acerto</span>
+                <span
+                  class="analise-stat-valor questoes-evolucao-stat-acerto"
+                  id="questoes-evolucao-stat-pct"
+                  >0%</span
+                >
+              </div>
+            </div>
 
-              <div class="analise-barras-wrapper">
-                <canvas id="chartQuestoesEvolucao"></canvas>
-              </div>
+            <div class="analise-barras-wrapper">
+              <canvas id="chartQuestoesEvolucao"></canvas>
             </div>
           </div>
 

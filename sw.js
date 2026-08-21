@@ -4,7 +4,7 @@
 // Sobe esse número sempre que quiser forçar os usuários a
 // baixarem a versão nova dos arquivos (ele muda o nome do cache,
 // então o antigo é descartado no "activate").
-const VERSAO_CACHE = "v23";
+const VERSAO_CACHE = "v25";
 const CACHE_NAME = `estudemais-cache-${VERSAO_CACHE}`;
 
 // Arquivos essenciais pro app abrir e funcionar mesmo sem internet.
@@ -75,10 +75,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Demais arquivos estáticos (css, js, ícones, libs de CDN como
-  // chart.js e supabase-js): serve do cache na hora (rápido e funciona
-  // offline) e, em paralelo, busca na rede pra atualizar o cache pra
-  // próxima vez ("stale-while-revalidate").
+  // Arquivos do PRÓPRIO APP (css/js/manifest/ícones, mesma origem):
+  // "network first" — tenta a rede primeiro e atualiza o cache com o
+  // resultado; só cai pro cache se a rede falhar (offline). Diferente de
+  // stale-while-revalidate, isso nunca mostra uma versão antiga quando
+  // tem internet — é o que evita precisar de vários F5 depois de um
+  // deploy (o 1º F5 já mostrava o de antes, só o 2º pegava o novo).
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(req)
+        .then((respostaRede) => {
+          if (respostaRede && respostaRede.status === 200) {
+            const copia = respostaRede.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copia));
+          }
+          return respostaRede;
+        })
+        .catch(() => caches.match(req)),
+    );
+    return;
+  }
+
+  // Bibliotecas de terceiros via CDN (chart.js, supabase-js etc.): aqui
+  // sim vale a pena servir do cache na hora (rápido e funciona offline) e
+  // atualizar em paralelo — essas URLs praticamente não mudam de conteúdo
+  // sem também mudar de versão/URL, então servir "uma versão atrás" não
+  // é um risco real como é com os arquivos do próprio app.
   event.respondWith(
     caches.match(req).then((respostaCache) => {
       const buscaNaRede = fetch(req)
