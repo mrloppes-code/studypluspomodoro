@@ -993,13 +993,14 @@ h2 {
 }
 .checkin-chips-linha.checkin-grupo-pulso {
   border-radius: 999px;
+  margin-bottom: 10px;
   animation: pulso-lembrete-humor 0.7s ease-out 2;
 }
 .checkin-chips-linha.checkin-grupo-pulso .checkin-chip-emoji {
   border-color: var(--warning);
 }
 .checkin-lembrete-humor {
-  margin: -6px 0 12px;
+  margin: 12px 0 12px;
   font-size: 0.78rem;
   color: var(--warning);
   line-height: 1.4;
