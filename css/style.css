@@ -2247,8 +2247,23 @@ button:disabled {
 #modal-questoes-evolucao .analise-periodo-toggle {
   flex-wrap: wrap;
 }
+/* Análise de Simulados tem 4 stat-cards (Feitos/Média/Melhor/Última) em
+   vez dos 3 padrão do resto da aba — grid própria de 4 colunas, caindo
+   pra 2 em telas médias e 1 em telas bem estreitas (ver media query
+   genérica de .analise-stats-row logo abaixo, que já cobre <480px). */
+#modal-simulados-evolucao .analise-stats-row {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 620px) {
+  #modal-simulados-evolucao .analise-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 @media (max-width: 480px) {
   #modal-questoes-evolucao .analise-stats-row {
+    grid-template-columns: 1fr;
+  }
+  #modal-simulados-evolucao .analise-stats-row {
     grid-template-columns: 1fr;
   }
 }
@@ -2256,6 +2271,17 @@ button:disabled {
   position: relative;
   width: 100%;
   height: 220px;
+}
+/* Gráfico "Questões Avulsas vs. Simulados": diferente dos donuts que usam
+   .chart-wrapper (propositalmente pequenos, max-width:300px), esse é um
+   gráfico de barras com legenda e várias categorias — precisa ocupar a
+   largura toda do card pra não ficar uma faixa estreita e as barras
+   esticadas/apertadas no meio, com espaço vazio sobrando dos dois lados. */
+.chart-wrapper-largo {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  margin-top: 8px;
 }
 .analise-legenda-barras {
   display: flex;
@@ -4909,6 +4935,26 @@ body.modo-isolamento-ativo .conta-usuario-badge {
   gap: 8px;
   max-height: 260px;
   overflow-y: auto;
+}
+
+/* Card "Simulados e Provas" (Hoje & Registros): forma um par com Revisão
+   Pendente na coluna direita, mas o formulário sozinho (5 campos + botão)
+   deixava esse card bem mais alto que o resto da coluna vizinha. Aperta
+   só o espaçamento vertical interno dele — sem tocar no espaçamento
+   padrão de input/label usado no resto do app — mantendo os campos
+   legíveis mas sem o excesso de respiro entre eles. */
+#card-simulados input,
+#card-simulados select {
+  margin: 4px 0 10px 0;
+}
+#card-simulados .questoes-form-linha {
+  margin-bottom: 0;
+}
+#card-simulados button[type="submit"] {
+  margin-top: 6px !important;
+}
+#card-simulados .questoes-lista-recente {
+  margin-top: 10px;
 }
 .matriz-prioridade-chart-wrapper {
   position: relative;

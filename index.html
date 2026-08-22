@@ -3288,6 +3288,116 @@
             </div>
           </div>
 
+          <!-- ANÁLISE DE SIMULADOS: evolução da nota (% de acerto) prova a
+               prova, na ordem em que foram feitos — diferente da Evolução
+               de Questões (que soma por dia/período), aqui cada ponto do
+               gráfico é UM simulado, já que simulados são eventos
+               discretos, não algo que acontece todo dia. Mesmo padrão
+               resumo-card + modal-detalhe-card dos demais cards da aba. -->
+          <div
+            class="card resumo-card"
+            id="card-simulados-evolucao"
+            style="display: none"
+          >
+            <h2>🎓 Análise de Simulados</h2>
+            <p class="campo-ajuda">
+              Evolução da nota prova a prova, simulado por simulado.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-simulados-evolucao')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-simulados-evolucao"
+            class="modal-distracao modal-detalhe-card"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-simulados-evolucao',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-simulados-evolucao')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🎓 Análise de Simulados</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Evolução da nota prova a prova, simulado por simulado — cada
+                ponto do gráfico é um simulado completo, na ordem em que foi
+                registrado.
+              </p>
+
+              <div class="analise-stats-row">
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Simulados Feitos</span>
+                  <span
+                    class="analise-stat-valor"
+                    id="simulados-evolucao-stat-total"
+                    >0</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Média Geral</span>
+                  <span
+                    class="analise-stat-valor questoes-evolucao-stat-acerto"
+                    id="simulados-evolucao-stat-media"
+                    >0%</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Melhor Nota</span>
+                  <span
+                    class="analise-stat-valor questoes-evolucao-stat-acerto"
+                    id="simulados-evolucao-stat-melhor"
+                    >0%</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Última Nota</span>
+                  <span
+                    class="analise-stat-valor"
+                    id="simulados-evolucao-stat-ultima"
+                    >0%</span
+                  >
+                </div>
+              </div>
+
+              <div
+                class="analise-barras-wrapper"
+                id="simulados-evolucao-grafico-wrapper"
+              >
+                <canvas id="chartSimuladosEvolucao"></canvas>
+              </div>
+              <p
+                class="campo-ajuda"
+                id="simulados-evolucao-sem-dados"
+                style="display: none; text-align: center; margin: 24px 0"
+              >
+                Registre pelo menos 2 simulados pra ver a evolução em gráfico.
+              </p>
+
+              <div
+                class="questoes-lista-recente"
+                id="simulados-evolucao-lista"
+                style="margin-top: 18px"
+              ></div>
+            </div>
+          </div>
+
           <!-- RADAR DE COMPETÊNCIAS: visão geral do formato do desempenho
                (equilibrado x picos e vales), matéria por matéria. -->
           <div
@@ -3603,7 +3713,7 @@
                 class="questoes-desempenho-alerta"
                 style="display: none"
               ></p>
-              <div class="chart-wrapper">
+              <div class="chart-wrapper-largo">
                 <canvas id="chartAvulsasVsSimulados"></canvas>
               </div>
             </div>

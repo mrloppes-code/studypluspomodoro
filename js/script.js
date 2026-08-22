@@ -146,6 +146,7 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-evolucao-temporal",
   "card-heatmap-horario",
   "card-questoes-evolucao",
+  "card-simulados-evolucao",
 ];
 
 function obterModoVisualizacaoCards() {
@@ -7433,7 +7434,7 @@ function renderizarComparativoAvulsasSimulados() {
           data: pctsSimulados,
           backgroundColor: coresBarras,
           borderRadius: 6,
-          maxBarThickness: 34,
+          maxBarThickness: 70,
           order: 2,
         },
         {
@@ -7544,6 +7545,7 @@ async function registrarSimulado(event) {
   );
   renderizarSimulados();
   renderizarComparativoAvulsasSimulados();
+  renderizarEvolucaoSimulados();
 }
 
 function excluirRegistroSimulado(id) {
@@ -7554,6 +7556,7 @@ function excluirRegistroSimulado(id) {
   );
   renderizarSimulados();
   renderizarComparativoAvulsasSimulados();
+  renderizarEvolucaoSimulados();
 }
 
 // --- SIMULADO CRONOMETRADO ---
@@ -11096,6 +11099,7 @@ function renderizarTodoOPainel() {
   renderizarQuestoesResolvidas();
   renderizarEvolucaoQuestoes();
   renderizarSimulados();
+  renderizarEvolucaoSimulados();
   renderizarComparativoProvas();
   renderizarRitmoSugerido();
   renderizarEvolucaoTemporal();
@@ -11625,6 +11629,160 @@ function renderizarEvolucaoQuestoes() {
       },
     },
   });
+}
+
+// --- ANÁLISE DE SIMULADOS (aba Desempenho): evolução da nota prova a
+// prova. Diferente da Evolução de Questões (que soma por período/data),
+// aqui cada ponto do gráfico é UM simulado — não faz sentido "bucketizar"
+// por dia algo que só acontece de vez em quando. A ordem é cronológica
+// pela data de registro (e, empatando na mesma data, pela ordem em que
+// foram registrados nesse dia).
+let graficoSimuladosEvolucao = null;
+
+function renderizarEvolucaoSimulados() {
+  const card = document.getElementById("card-simulados-evolucao");
+  const canvas = document.getElementById("chartSimuladosEvolucao");
+  if (!card || !canvas) return;
+
+  if (registrosSimulados.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  // Ordem cronológica: por data e, dentro do mesmo dia, pela ordem de
+  // registro (o id começa com o timestamp em base36 — Date.now().toString(36)
+  // — então também é cronológico como critério de desempate).
+  const ordenados = [...registrosSimulados].sort((a, b) => {
+    if (a.data !== b.data) return a.data < b.data ? -1 : 1;
+    return a.id < b.id ? -1 : 1;
+  });
+
+  const notas = ordenados.map((r) =>
+    r.total > 0 ? Math.round((r.acertos / r.total) * 100) : 0,
+  );
+  const mediaGeral = Math.round(
+    notas.reduce((s, n) => s + n, 0) / notas.length,
+  );
+  const melhorNota = Math.max(...notas);
+  const ultimaNota = notas[notas.length - 1];
+
+  const statTotal = document.getElementById("simulados-evolucao-stat-total");
+  const statMedia = document.getElementById("simulados-evolucao-stat-media");
+  const statMelhor = document.getElementById("simulados-evolucao-stat-melhor");
+  const statUltima = document.getElementById("simulados-evolucao-stat-ultima");
+  if (statTotal) statTotal.innerText = ordenados.length.toLocaleString("pt-BR");
+  if (statMedia) statMedia.innerText = `${mediaGeral}%`;
+  if (statMelhor) statMelhor.innerText = `${melhorNota}%`;
+  if (statUltima) statUltima.innerText = `${ultimaNota}%`;
+
+  // --- Gráfico de linha: precisa de pelo menos 2 pontos pra fazer
+  // sentido como "evolução" — com 1 só, mostra a lista e esconde o
+  // gráfico em vez de exibir uma linha sem nenhuma inclinação.
+  const wrapperGrafico = document.getElementById(
+    "simulados-evolucao-grafico-wrapper",
+  );
+  const avisoSemDados = document.getElementById("simulados-evolucao-sem-dados");
+
+  if (graficoSimuladosEvolucao) {
+    graficoSimuladosEvolucao.destroy();
+    graficoSimuladosEvolucao = null;
+  }
+
+  if (ordenados.length < 2) {
+    if (wrapperGrafico) wrapperGrafico.style.display = "none";
+    if (avisoSemDados) avisoSemDados.style.display = "block";
+  } else {
+    if (wrapperGrafico) wrapperGrafico.style.display = "block";
+    if (avisoSemDados) avisoSemDados.style.display = "none";
+
+    const estiloRaiz = getComputedStyle(document.documentElement);
+    const corTextoMuted =
+      estiloRaiz.getPropertyValue("--text-muted").trim() || "#94a3b8";
+    const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+    graficoSimuladosEvolucao = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels: ordenados.map((r) =>
+          r.nome.length > 18 ? `${r.nome.slice(0, 18)}…` : r.nome,
+        ),
+        datasets: [
+          {
+            label: "% de acerto",
+            data: notas,
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59,130,246,0.15)",
+            pointBackgroundColor: "#3b82f6",
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.25,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: {
+              color: corTextoMuted,
+              font: { family: fonteApp, size: 11 },
+              maxRotation: 30,
+              minRotation: 0,
+              autoSkip: true,
+            },
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              color: corTextoMuted,
+              font: { family: fonteApp },
+              callback: (valor) => `${valor}%`,
+            },
+            grid: { color: "rgba(148,163,184,0.15)" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            bodyFont: { family: fonteApp },
+            titleFont: { family: fonteApp },
+            callbacks: {
+              title: (itens) => ordenados[itens[0].dataIndex].nome,
+              label: (item) => {
+                const r = ordenados[item.dataIndex];
+                return `${r.acertos}/${r.total} acertos (${notas[item.dataIndex]}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  // --- Lista dos simulados mais recentes, mesmo padrão visual da lista
+  // de Questões Resolvidas (mais novo primeiro).
+  const lista = document.getElementById("simulados-evolucao-lista");
+  if (lista) {
+    const recentes = [...ordenados].reverse().slice(0, 8);
+    lista.innerHTML = recentes
+      .map((r) => {
+        const pct = r.total > 0 ? Math.round((r.acertos / r.total) * 100) : 0;
+        return `
+          <div class="questoes-item">
+            <div class="questoes-item-info">
+              <span class="questoes-item-materia">${escapeHtml(r.nome)}</span>
+              <span class="questoes-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${r.data.split("-").reverse().join("/")}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
 }
 
 function mudarPeriodoAnalise(periodo) {
@@ -13562,14 +13720,27 @@ document.addEventListener("keydown", (event) => {
 // ============================================================
 // PWA: SERVICE WORKER + INSTALAÇÃO COMO APP
 // ============================================================
-// Registra o service worker (cache do app shell pra abrir offline).
-// Roda em qualquer navegador que suporte; nos que não suportam, o app
-// continua funcionando 100% normal, só sem o modo offline.
+// Registra o service worker (cache do app shell pra abrir offline) e
+// garante atualização automática: quando o sw.js novo assume o
+// controle da página (troca de versão em VERSAO_CACHE dentro dele), a
+// página recarrega sozinha — sem o usuário precisar dar vários F5.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("sw.js")
       .catch((err) => console.error("Falha ao registrar service worker:", err));
+
+    // Dispara quando o Service Worker que está no controle da página
+    // muda (ex: um SW novo, instalado em segundo plano, acabou de ativar
+    // via skipWaiting()+clients.claim() no sw.js). Recarrega a página pra
+    // garantir que o HTML/CSS/JS na tela sejam sempre os mais recentes.
+    // A flag evita um loop caso o evento dispare mais de uma vez.
+    let jaRecarregando = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (jaRecarregando) return;
+      jaRecarregando = true;
+      window.location.reload();
+    });
   });
 }
 
