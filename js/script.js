@@ -3624,6 +3624,24 @@ function calcularEMostrarEstatisticas() {
     minUltimos7 > 0 ? Math.min(100, Math.round((minUltimos7 / 210) * 100)) : 0;
   document.getElementById("stat-eficiencia-semanal").innerText =
     eficiencia + "%";
+
+  // 8. Sessões Totais: quantidade de sessões de estudo registradas
+  // (logsSessoes já é a fonte usada pelo resto dessas estatísticas, ver
+  // itens 2 e 5 acima) + duração média por sessão, como complemento de
+  // "Horas Focadas" (total de tempo) com a contagem de quantas vezes esse
+  // tempo foi construído.
+  const elSessoesTotais = document.getElementById("stat-sessoes-totais");
+  const elSessoesTotaisSub = document.getElementById("stat-sessoes-totais-sub");
+  if (elSessoesTotais && elSessoesTotaisSub) {
+    const qtdSessoes = logsSessoes.length;
+    elSessoesTotais.innerText = qtdSessoes.toLocaleString("pt-BR");
+    if (qtdSessoes > 0) {
+      const mediaMin = Math.round(minTot / qtdSessoes);
+      elSessoesTotaisSub.innerText = `Média de ${mediaMin} min/sessão`;
+    } else {
+      elSessoesTotaisSub.innerText = "Nenhuma sessão registrada";
+    }
+  }
 }
 
 // --- CONGELAMENTO DE SEQUÊNCIA (streak freeze) ---
