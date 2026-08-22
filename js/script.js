@@ -147,6 +147,7 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-heatmap-horario",
   "card-questoes-evolucao",
   "card-simulados-evolucao",
+  "card-sessoes-por-tipo",
 ];
 
 function obterModoVisualizacaoCards() {
@@ -289,6 +290,15 @@ let checkinSonoSelecionado = null;
 let checkoutCumpridoSelecionado = null;
 let checkoutHumorDepoisSelecionado = null;
 let checkoutEstrelasSelecionadas = null;
+
+// Tipo de Sessão (opcional, escolhido ANTES de iniciar o foco): formato do
+// material estudado (leitura em PDF, videoaula, audioaula ou questões).
+// Diferente de "ra-tipo" no formulário de Registrar Sessão avulsa (que é
+// Teoria/Revisão/Questão — fase do estudo, não o formato do material) —
+// são dimensões diferentes de propósito. Vai junto no registro da sessão
+// em logsSessoes[].tipoSessao (ver salvarProgressoGeral) e alimenta o
+// card de análise "Sessões por Tipo" na aba Desempenho.
+let tipoSessaoSelecionado = null;
 
 // Controla o lembrete de "esqueceu de marcar o humor" nos modais de
 // check-in/check-out: fica false ao abrir o modal e vira true assim que o
@@ -1948,6 +1958,26 @@ function selecionarChipCheckin(grupo, valor, elemento) {
   if (grupo === "humor-depois") checkoutHumorDepoisSelecionado = valor;
 }
 
+// Tipo de Sessão: chip opcional escolhido antes de "Iniciar Foco" — clicar
+// de novo no mesmo chip já ativo desmarca (volta a "nenhum"), já que o
+// campo é opcional e não obrigatório como os outros grupos de chip.
+function selecionarTipoSessao(tipo, elemento) {
+  const grid = document.getElementById("pomo-tipo-sessao-grid");
+  if (!grid) return;
+  const jaAtiva = elemento.classList.contains("chip-ativa");
+
+  grid
+    .querySelectorAll(".checkin-chip-texto")
+    .forEach((b) => b.classList.remove("chip-ativa"));
+
+  if (jaAtiva) {
+    tipoSessaoSelecionado = null;
+  } else {
+    elemento.classList.add("chip-ativa");
+    tipoSessaoSelecionado = tipo;
+  }
+}
+
 function atualizarLabelSliderCheckin(idSlider, idLabel) {
   const slider = document.getElementById(idSlider);
   const label = document.getElementById(idLabel);
@@ -3118,6 +3148,7 @@ function persistirSessaoFinalizada(distracoes) {
     cacheMinutosSessaoAtual,
     nota,
     mood,
+    tipoSessaoSelecionado,
   );
 
   if (campoNota) campoNota.value = "";
@@ -3126,6 +3157,16 @@ function persistirSessaoFinalizada(distracoes) {
   checkoutEstrelasSelecionadas = null;
   checkoutCumpridoSelecionado = null;
   checkoutHumorDepoisSelecionado = null;
+
+  // Reseta o chip de Tipo de Sessão (opcional) pra próxima sessão não
+  // herdar a escolha da anterior sem querer.
+  tipoSessaoSelecionado = null;
+  const gridTipoSessao = document.getElementById("pomo-tipo-sessao-grid");
+  if (gridTipoSessao) {
+    gridTipoSessao
+      .querySelectorAll(".checkin-chip-texto")
+      .forEach((b) => b.classList.remove("chip-ativa"));
+  }
 
   if (emOvertime) {
     registrarPomodoroConcluido();
@@ -3872,7 +3913,7 @@ async function salvarMetaHorasSemanais(event) {
   atualizarMetaHorasSemanais();
 }
 
-function salvarProgressoGeral(materia, minutos, nota, mood) {
+function salvarProgressoGeral(materia, minutos, nota, mood, tipoSessao) {
   if (minutos <= 0) return;
   let agora = new Date();
   let hojeStr = obterDataLocalString(agora);
@@ -3898,6 +3939,7 @@ function salvarProgressoGeral(materia, minutos, nota, mood) {
     duracao: minutos,
     nota: (nota || "").trim(),
     mood: mood || null,
+    tipoSessao: tipoSessao || null,
   });
   localStorage.setItem("logsSessoes", JSON.stringify(logsSessoes));
 
@@ -11286,6 +11328,7 @@ function renderizarTodoOPainel() {
   renderizarEvolucaoQuestoes();
   renderizarSimulados();
   renderizarEvolucaoSimulados();
+  renderizarSessoesPorTipo();
   renderizarComparativoProvas();
   renderizarRitmoSugerido();
   renderizarEvolucaoTemporal();
@@ -11969,6 +12012,140 @@ function renderizarEvolucaoSimulados() {
       })
       .join("");
   }
+}
+
+// --- SESSÕES POR TIPO DE MATERIAL (aba Desempenho) ---
+// Distribui o tempo de foco das sessões que tiveram o chip opcional "Tipo
+// de Sessão" marcado antes de iniciar o Pomodoro (ver
+// #pomo-tipo-sessao-grid / selecionarTipoSessao). Sessões sem esse campo
+// marcado (a maioria, pra quem nunca usa) simplesmente não entram na
+// conta — não há "Não especificado" forçado no gráfico.
+const LABELS_TIPO_SESSAO = {
+  leitura: { label: "Leitura (PDF)", cor: "#3b82f6", icone: "📄" },
+  videoaula: { label: "Videoaula", cor: "#f97316", icone: "🎥" },
+  audioaula: { label: "Audioaula", cor: "#a855f7", icone: "🎧" },
+  questoes: { label: "Questões", cor: "#10b981", icone: "📝" },
+};
+
+let graficoSessoesPorTipo = null;
+
+function renderizarSessoesPorTipo() {
+  const card = document.getElementById("card-sessoes-por-tipo");
+  const canvas = document.getElementById("chartSessoesPorTipo");
+  const vazio = document.getElementById("sessoes-por-tipo-vazio");
+  const corpo = document.getElementById("sessoes-por-tipo-corpo");
+  if (!card || !canvas) return;
+
+  const minutosPorTipo = {
+    leitura: 0,
+    videoaula: 0,
+    audioaula: 0,
+    questoes: 0,
+  };
+  const sessoesPorTipo = {
+    leitura: 0,
+    videoaula: 0,
+    audioaula: 0,
+    questoes: 0,
+  };
+  logsSessoes.forEach((log) => {
+    if (log.tipoSessao && minutosPorTipo.hasOwnProperty(log.tipoSessao)) {
+      minutosPorTipo[log.tipoSessao] += log.duracao || 0;
+      sessoesPorTipo[log.tipoSessao] += 1;
+    }
+  });
+
+  const totalSessoesClassificadas = Object.values(sessoesPorTipo).reduce(
+    (s, n) => s + n,
+    0,
+  );
+
+  card.style.display = "block";
+
+  if (totalSessoesClassificadas === 0) {
+    if (vazio) vazio.style.display = "block";
+    if (corpo) corpo.style.display = "none";
+    if (graficoSessoesPorTipo) {
+      graficoSessoesPorTipo.destroy();
+      graficoSessoesPorTipo = null;
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+  if (corpo) corpo.style.display = "block";
+
+  let tipoLider = null;
+  let maxMinutos = 0;
+  Object.keys(minutosPorTipo).forEach((k) => {
+    if (minutosPorTipo[k] > maxMinutos) {
+      maxMinutos = minutosPorTipo[k];
+      tipoLider = k;
+    }
+  });
+
+  document.getElementById("sessoes-por-tipo-stat-total").innerText =
+    totalSessoesClassificadas.toLocaleString("pt-BR");
+  document.getElementById("sessoes-por-tipo-stat-lider").innerText = tipoLider
+    ? `${LABELS_TIPO_SESSAO[tipoLider].icone} ${LABELS_TIPO_SESSAO[tipoLider].label}`
+    : "—";
+  document.getElementById("sessoes-por-tipo-stat-lider-tempo").innerText =
+    `${maxMinutos}min`;
+
+  const entradas = Object.entries(LABELS_TIPO_SESSAO)
+    .map(([chave, meta]) => ({ chave, valor: minutosPorTipo[chave], ...meta }))
+    .filter((e) => e.valor > 0);
+
+  const estiloRaiz = getComputedStyle(document.documentElement);
+  const corTextoMain =
+    estiloRaiz.getPropertyValue("--text-main").trim() || "#f1f5f9";
+  const fonteApp = getComputedStyle(document.body).fontFamily || "sans-serif";
+
+  if (graficoSessoesPorTipo) {
+    graficoSessoesPorTipo.destroy();
+  }
+
+  const totalMinutosClassificados = entradas.reduce((s, e) => s + e.valor, 0);
+
+  graficoSessoesPorTipo = new Chart(canvas.getContext("2d"), {
+    type: "doughnut",
+    data: {
+      labels: entradas.map((e) => `${e.icone} ${e.label}`),
+      datasets: [
+        {
+          data: entradas.map((e) => e.valor),
+          backgroundColor: entradas.map((e) => e.cor),
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: corTextoMain,
+            font: { family: fonteApp, size: 11 },
+            padding: 10,
+          },
+        },
+        tooltip: {
+          bodyFont: { family: fonteApp },
+          titleFont: { family: fonteApp },
+          callbacks: {
+            label: (ctx) => {
+              const pct = Math.round(
+                (ctx.parsed / totalMinutosClassificados) * 100,
+              );
+              return ` ${ctx.parsed} min (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 function mudarPeriodoAnalise(periodo) {

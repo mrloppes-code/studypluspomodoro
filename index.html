@@ -2069,6 +2069,43 @@
                       placeholder="Ex: Capítulo 3, questões de fixação..."
                       maxlength="120"
                     />
+
+                    <label class="checkin-rotulo" style="margin-top: 10px"
+                      >Tipo de Sessão (opcional):</label
+                    >
+                    <div
+                      class="checkin-chips-linha checkin-chips-texto"
+                      id="pomo-tipo-sessao-grid"
+                    >
+                      <button
+                        type="button"
+                        class="checkin-chip-texto"
+                        onclick="selecionarTipoSessao('leitura', this)"
+                      >
+                        📄 Leitura (PDF)
+                      </button>
+                      <button
+                        type="button"
+                        class="checkin-chip-texto"
+                        onclick="selecionarTipoSessao('videoaula', this)"
+                      >
+                        🎥 Videoaula
+                      </button>
+                      <button
+                        type="button"
+                        class="checkin-chip-texto"
+                        onclick="selecionarTipoSessao('audioaula', this)"
+                      >
+                        🎧 Audioaula
+                      </button>
+                      <button
+                        type="button"
+                        class="checkin-chip-texto"
+                        onclick="selecionarTipoSessao('questoes', this)"
+                      >
+                        📝 Questões
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3395,6 +3432,108 @@
                 id="simulados-evolucao-lista"
                 style="margin-top: 18px"
               ></div>
+            </div>
+          </div>
+
+          <!-- SESSÕES POR TIPO DE MATERIAL: distribuição do tempo de foco
+               entre Leitura (PDF), Videoaula, Audioaula e Questões — campo
+               opcional escolhido antes de "Iniciar Foco" no Pomodoro (ver
+               #pomo-tipo-sessao-grid). Mesmo padrão resumo-card +
+               modal-detalhe-card dos demais cards da aba. -->
+          <div
+            class="card resumo-card"
+            id="card-sessoes-por-tipo"
+            style="display: none"
+          >
+            <h2>🗂️ Sessões por Tipo de Material</h2>
+            <p class="campo-ajuda">
+              Quanto do seu tempo de foco vai pra leitura, vídeo, áudio ou
+              questões.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-sessoes-por-tipo')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-sessoes-por-tipo"
+            class="modal-distracao modal-detalhe-card"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(
+                event,
+                'modal-sessoes-por-tipo',
+              )
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-sessoes-por-tipo')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🗂️ Sessões por Tipo de Material</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Quanto do seu tempo de foco vai pra cada formato de material —
+                leitura em PDF, videoaula, audioaula ou questões. Marque o "Tipo
+                de Sessão" (opcional) antes de iniciar um Pomodoro pra essa
+                sessão entrar na conta.
+              </p>
+
+              <p id="sessoes-por-tipo-vazio" class="sessoes-hoje-vazio">
+                Ainda nenhuma sessão com o "Tipo de Sessão" marcado. No Pomodoro
+                Avançado, antes de clicar em "Iniciar Foco", escolha um dos
+                chips opcionais (📄 Leitura, 🎥 Videoaula, 🎧 Audioaula, 📝
+                Questões) — as próximas sessões classificadas aparecem aqui.
+              </p>
+
+              <div id="sessoes-por-tipo-corpo" style="display: none">
+                <div
+                  class="analise-stats-row"
+                  style="grid-template-columns: repeat(3, 1fr)"
+                >
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label"
+                      >Sessões Classificadas</span
+                    >
+                    <span
+                      class="analise-stat-valor"
+                      id="sessoes-por-tipo-stat-total"
+                      >0</span
+                    >
+                  </div>
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Mais Frequente</span>
+                    <span
+                      class="analise-stat-valor"
+                      id="sessoes-por-tipo-stat-lider"
+                      style="font-size: 1.2rem"
+                      >—</span
+                    >
+                  </div>
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Tempo Nesse Tipo</span>
+                    <span
+                      class="analise-stat-valor"
+                      id="sessoes-por-tipo-stat-lider-tempo"
+                      >0min</span
+                    >
+                  </div>
+                </div>
+
+                <div class="caderno-erros-chart-wrapper">
+                  <canvas id="chartSessoesPorTipo"></canvas>
+                </div>
+              </div>
             </div>
           </div>
 
