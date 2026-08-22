@@ -3757,7 +3757,7 @@ textarea {
 .prova-card-titulo {
   font-size: 1.02rem;
   font-weight: bold;
-  margin: 0 26px 10px 0;
+  margin: 0 48px 10px 0;
   line-height: 1.3;
 }
 .prova-card-linha {
@@ -3772,16 +3772,33 @@ textarea {
   color: var(--text-main);
   text-align: right;
 }
-.prova-card-excluir {
+.prova-card-acoes {
   position: absolute;
   top: 14px;
   right: 12px;
+  display: flex;
+  gap: 10px;
+}
+.prova-card-editar {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+.prova-card-editar:hover {
+  color: var(--accent-text);
+}
+.prova-card-excluir {
   background: none;
   border: none;
   color: var(--danger);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
+  padding: 0;
 }
 .prova-card-status {
   display: inline-block;

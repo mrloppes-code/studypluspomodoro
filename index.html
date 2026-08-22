@@ -4639,6 +4639,120 @@ Licitações e Contratos"
           </div>
         </div>
 
+        <!-- MODAL: EDITAR PROVA DE CONCURSO (nome, data, tópicos do edital,
+             remuneração, valor e período de inscrição) -->
+        <div id="modal-editar-prova" class="modal-distracao">
+          <div class="modal-conteudo modal-pausa-conteudo">
+            <h2
+              style="
+                color: var(--accent-text);
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 10px;
+              "
+            >
+              ✏️ Editar Prova
+            </h2>
+
+            <label for="edit-prova-nome" style="margin-top: 10px"
+              >Nome da Prova / Concurso:</label
+            >
+            <input type="text" id="edit-prova-nome" required />
+
+            <div class="flex-inputs">
+              <div>
+                <label for="edit-prova-data">Data da Prova Objetiva:</label>
+                <input type="date" id="edit-prova-data" required />
+              </div>
+              <div>
+                <label for="edit-prova-qtd-topicos"
+                  >Qtd. Tópicos do Edital:</label
+                >
+                <input
+                  type="number"
+                  id="edit-prova-qtd-topicos"
+                  min="1"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="flex-inputs">
+              <div>
+                <label for="edit-prova-remuneracao"
+                  >Remuneração (opcional):</label
+                >
+                <input
+                  type="number"
+                  id="edit-prova-remuneracao"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex: 8000.00"
+                />
+              </div>
+              <div>
+                <label for="edit-prova-valor-inscricao"
+                  >Valor da Inscrição (opcional):</label
+                >
+                <input
+                  type="number"
+                  id="edit-prova-valor-inscricao"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex: 120.00"
+                />
+              </div>
+            </div>
+
+            <div class="flex-inputs">
+              <div>
+                <label for="edit-prova-inscricao-inicio"
+                  >Início das Inscrições (opcional):</label
+                >
+                <input type="date" id="edit-prova-inscricao-inicio" />
+              </div>
+              <div>
+                <label for="edit-prova-inscricao-fim"
+                  >Fim das Inscrições (opcional):</label
+                >
+                <input type="date" id="edit-prova-inscricao-fim" />
+              </div>
+            </div>
+            <p
+              class="campo-ajuda"
+              id="edit-prova-aviso-vinculo"
+              style="display: none"
+            ></p>
+            <input type="hidden" id="edit-prova-indice" />
+
+            <div style="display: flex; gap: 10px; margin-top: 16px">
+              <button
+                type="button"
+                onclick="fecharModalEditarProva()"
+                style="
+                  flex: 1;
+                  background: #334155;
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onclick="salvarEdicaoProva()"
+                style="
+                  flex: 1;
+                  background: var(--primary);
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                Salvar Alterações
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- MODAL: REGISTRAR SESSÃO DE ESTUDO (registro avulso, sem passar pelo pomodoro) -->
         <div
           id="modal-registrar-sessao"

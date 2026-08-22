@@ -3188,9 +3188,11 @@ async function confirmarRegistroDistracao() {
   );
   const distracoes = Array.from(checkboxes).map((cb) => cb.value);
 
-  // 2. Persistir os dados (ajuste conforme a chave que você usa no seu app)
-  // Exemplo: Salvar tempo de foco na meta do dia
-  console.log("Distrações registradas:", distracoes);
+  // 2. Persistir os dados: vai dentro de logsSessoes via
+  // persistirSessaoFinalizada → salvarProgressoGeral (campo
+  // mood.checkout.atrapalhou). É de lá que o card "Maior Vilão" (ver
+  // calcularEMostrarEstatisticas) e as tags do histórico diário (ver
+  // renderizarHistorico7Dias) leem essa informação.
 
   // 3. Persiste a sessão (tempo estudado + meta de pomodoros) e reseta o
   // estado do Pomodoro (isso zera o display). Se falhar, avisa a pessoa
@@ -3525,14 +3527,34 @@ function calcularEMostrarEstatisticas() {
   document.getElementById("stat-horas-focadas").innerText =
     `${Math.floor(minTot / 60)}h ${(minTot % 60).toString().padStart(2, "0")}m`;
 
-  // 2. Maior Distração
+  // 2. Maior Distração ("Maior Vilão"): conta as ocorrências de cada tipo
+  // de distração marcada no checkout, olhando o histórico real de sessões
+  // (logsSessoes[].mood.checkout.atrapalhou) — que é onde
+  // confirmarRegistroDistracao() de fato salva essa informação (ver
+  // persistirSessaoFinalizada em script.js).
+  //
+  // Antes esse card lia de `bancoDistracoes`, um objeto separado que
+  // nunca era incrementado em lugar nenhum do código — só existia lido
+  // (e nunca escrito) do localStorage, então ficava sempre travado no
+  // valor de uma versão antiga do app (ou zerado, pra quem nunca teve
+  // esse objeto salvo). `bancoDistracoes` continua na lista de backup
+  // (CHAVES_BACKUP) só por compatibilidade com backups antigos que ainda
+  // tenham essa chave — não é mais a fonte de dados daqui.
+  const contagemDistracoes = {};
+  logsSessoes.forEach((log) => {
+    const atrapalhou = log.mood?.checkout?.atrapalhou;
+    if (!Array.isArray(atrapalhou)) return;
+    atrapalhou.forEach((motivo) => {
+      contagemDistracoes[motivo] = (contagemDistracoes[motivo] || 0) + 1;
+    });
+  });
   let mSabotador = "Nenhum";
   let maxOco = 0;
   let totInt = 0;
-  Object.keys(bancoDistracoes).forEach((k) => {
-    totInt += bancoDistracoes[k];
-    if (bancoDistracoes[k] > maxOco) {
-      maxOco = bancoDistracoes[k];
+  Object.keys(contagemDistracoes).forEach((k) => {
+    totInt += contagemDistracoes[k];
+    if (contagemDistracoes[k] > maxOco) {
+      maxOco = contagemDistracoes[k];
       mSabotador = k;
     }
   });
@@ -8381,6 +8403,149 @@ async function excluirMeta(indice) {
   renderizarTodoOPainel();
 }
 
+// --- EDITAR PROVA CADASTRADA ---
+// Antes só dava pra excluir e recadastrar do zero (perdendo o vínculo das
+// matérias, já que ele é feito pelo NOME da prova). Agora dá pra alterar
+// qualquer campo, incluindo a quantidade de tópicos do edital.
+function abrirModalEditarProva(indice) {
+  const meta = metas[indice];
+  if (!meta) return;
+
+  document.getElementById("edit-prova-indice").value = indice;
+  document.getElementById("edit-prova-nome").value = meta.objetivoNome;
+  document.getElementById("edit-prova-data").value = meta.dataLimite;
+  document.getElementById("edit-prova-qtd-topicos").value = meta.qtdMaterias;
+  document.getElementById("edit-prova-remuneracao").value =
+    meta.remuneracao ?? "";
+  document.getElementById("edit-prova-valor-inscricao").value =
+    meta.valorInscricao ?? "";
+  document.getElementById("edit-prova-inscricao-inicio").value =
+    meta.inscricaoInicio || "";
+  document.getElementById("edit-prova-inscricao-fim").value =
+    meta.inscricaoFim || "";
+
+  const qtdVinculadas = materias.filter(
+    (m) => m.metaVinculada === meta.objetivoNome,
+  ).length;
+  const avisoVinculo = document.getElementById("edit-prova-aviso-vinculo");
+  if (avisoVinculo) {
+    if (qtdVinculadas > 0) {
+      avisoVinculo.style.display = "block";
+      avisoVinculo.innerText = `Essa prova tem ${qtdVinculadas} matéria(s) vinculada(s) pelo nome. Se você mudar o "Nome da Prova / Concurso", o vínculo delas (e de simulados registrados) é atualizado automaticamente pro novo nome.`;
+    } else {
+      avisoVinculo.style.display = "none";
+    }
+  }
+
+  document.getElementById("modal-editar-prova").style.display = "flex";
+}
+
+function fecharModalEditarProva() {
+  document.getElementById("modal-editar-prova").style.display = "none";
+}
+
+async function salvarEdicaoProva() {
+  const indice = parseInt(
+    document.getElementById("edit-prova-indice").value,
+    10,
+  );
+  const meta = metas[indice];
+  if (!meta) return;
+
+  const novoNome = document.getElementById("edit-prova-nome").value.trim();
+  const novaData = document.getElementById("edit-prova-data").value;
+  const novaQtdTopicos = parseInt(
+    document.getElementById("edit-prova-qtd-topicos").value,
+    10,
+  );
+
+  if (!novoNome) {
+    await mostrarAlerta("Informe o nome da prova.");
+    return;
+  }
+  if (!novaData) {
+    await mostrarAlerta("Informe a data da prova objetiva.");
+    return;
+  }
+  if (!novaQtdTopicos || novaQtdTopicos <= 0) {
+    await mostrarAlerta(
+      "Informe a quantidade de tópicos do edital (maior que zero).",
+    );
+    return;
+  }
+
+  // Nome duplicado pra outra prova (não essa mesma) — o vínculo é feito
+  // por nome, então dois iguais quebrariam a ligação com as matérias.
+  const duplicada = metas.some(
+    (m, i) =>
+      i !== indice &&
+      m.objetivoNome.trim().toLowerCase() === novoNome.toLowerCase(),
+  );
+  if (duplicada) {
+    await mostrarAlerta(
+      `Já existe outra prova chamada "${novoNome}". Escolha outro nome.`,
+    );
+    return;
+  }
+
+  const remuneracaoValor = document.getElementById(
+    "edit-prova-remuneracao",
+  ).value;
+  const valorInscricaoValor = document.getElementById(
+    "edit-prova-valor-inscricao",
+  ).value;
+
+  const nomeAntigo = meta.objetivoNome;
+
+  meta.objetivoNome = novoNome;
+  meta.dataLimite = novaData;
+  meta.qtdMaterias = novaQtdTopicos;
+  meta.remuneracao =
+    remuneracaoValor !== "" ? parseFloat(remuneracaoValor) : null;
+  meta.valorInscricao =
+    valorInscricaoValor !== "" ? parseFloat(valorInscricaoValor) : null;
+  meta.inscricaoInicio =
+    document.getElementById("edit-prova-inscricao-inicio").value || null;
+  meta.inscricaoFim =
+    document.getElementById("edit-prova-inscricao-fim").value || null;
+
+  localStorage.setItem("metas", JSON.stringify(metas));
+
+  // Se o nome mudou, atualiza em cascata tudo que vincula pelo NOME
+  // antigo — senão as matérias e simulados "soltam" da prova sem avisar.
+  if (novoNome !== nomeAntigo) {
+    let algoMudou = false;
+    materias.forEach((m) => {
+      if (m.metaVinculada === nomeAntigo) {
+        m.metaVinculada = novoNome;
+        algoMudou = true;
+      }
+    });
+    if (algoMudou) localStorage.setItem("materias", JSON.stringify(materias));
+
+    let simuladosMudaram = false;
+    registrosSimulados.forEach((r) => {
+      if (r.metaVinculada === nomeAntigo) {
+        r.metaVinculada = novoNome;
+        simuladosMudaram = true;
+      }
+    });
+    if (simuladosMudaram) {
+      localStorage.setItem(
+        "registrosSimulados",
+        JSON.stringify(registrosSimulados),
+      );
+    }
+
+    if (obterMetaFiltroAtiva() === nomeAntigo) {
+      localStorage.setItem("metaFiltroAtivo", novoNome);
+    }
+  }
+
+  fecharModalEditarProva();
+  renderizarTodoOPainel();
+}
+
 // --- COMPARATIVO ENTRE PROVAS (tempo, tópicos e % de acerto por meta) ---
 function calcularEstatisticasPorProva() {
   const hoje = new Date();
@@ -10521,7 +10686,10 @@ function renderizarMetasEGraficos() {
       const status = calcularStatusInscricao(meta);
 
       return `<div class="prova-card${destacada ? " prova-card-ativa" : ""}${meta.aprovado ? " prova-card-aprovada" : ""}">
-        <button type="button" class="prova-card-excluir" title="Excluir esta prova" onclick="excluirMeta(${i})">✕</button>
+        <div class="prova-card-acoes">
+          <button type="button" class="prova-card-editar" title="Editar esta prova" onclick="abrirModalEditarProva(${i})">✏️</button>
+          <button type="button" class="prova-card-excluir" title="Excluir esta prova" onclick="excluirMeta(${i})">✕</button>
+        </div>
         <div class="prova-card-titulo">🎯 ${escapeHtml(meta.objetivoNome)}</div>
         <div class="prova-card-linha"><span>📅 Prova objetiva</span><strong>${dataFormatada}</strong></div>
         <div class="prova-card-linha"><span>💰 Remuneração</span><strong>${remuneracaoFormatada}</strong></div>
