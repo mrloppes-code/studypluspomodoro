@@ -389,8 +389,19 @@ function abrirModalLogin() {
   mostrarPassoLogin("login-passo-form");
 }
 
+// Fica "true" entre o clique no link de recuperação de senha e a definição
+// da senha nova — trava o auto-login normal (SIGNED_IN) nesse intervalo,
+// porque o Supabase dispara SIGNED_IN e PASSWORD_RECOVERY em sequência pro
+// mesmo clique, e sem essa trava o SIGNED_IN "atropelava" a tela de nova
+// senha e logava direto com a senha antiga (ver onAuthStateChange abaixo).
+let emFluxoDeRecuperacaoSenha = false;
+
 function fecharModalLogin() {
   document.getElementById("modal-login").style.display = "none";
+  // Se a pessoa fechar o modal no meio da recuperação (ex: clicando fora ou
+  // no X) sem concluir, libera o SIGNED_IN de novo pra não travar um futuro
+  // login normal nesta mesma aba.
+  emFluxoDeRecuperacaoSenha = false;
 }
 
 function mostrarPassoLogin(idPasso) {
@@ -598,10 +609,20 @@ async function salvarNovaSenha(event) {
     return;
   }
 
+  // Só agora libera o SIGNED_IN normal — e completa o login "na mão" aqui,
+  // porque trocar a senha não dispara um novo evento SIGNED_IN sozinho.
+  emFluxoDeRecuperacaoSenha = false;
+
   await mostrarAlerta("Senha atualizada com sucesso! Você já está logado.", {
     icone: "✅",
   });
-  fecharModalLogin();
+
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    await entrarComSessao(data.session);
+  } else {
+    fecharModalLogin();
+  }
 }
 
 // --- LOGOUT ---
@@ -742,6 +763,17 @@ async function iniciarAutenticacao() {
 
   sb.auth.onAuthStateChange((evento, session) => {
     if (session) tokenAcessoAtual = session.access_token;
+    if (evento === "PASSWORD_RECOVERY") {
+      // Usuário voltou pelo link do e-mail de recuperação de senha. O
+      // Supabase costuma disparar SIGNED_IN logo antes/depois deste mesmo
+      // evento pro mesmo clique — a trava abaixo impede que aquele SIGNED_IN
+      // feche esta tela e logue direto com a senha antiga.
+      emFluxoDeRecuperacaoSenha = true;
+      document.getElementById("modal-login").style.display = "flex";
+      mostrarPassoLogin("login-passo-nova-senha");
+      return;
+    }
+    if (emFluxoDeRecuperacaoSenha) return;
     if (evento === "SIGNED_IN" && session && !usuarioAtual) {
       entrarComSessao(session);
     } else if (evento === "SIGNED_OUT") {
@@ -749,10 +781,6 @@ async function iniciarAutenticacao() {
       tokenAcessoAtual = null;
       limparDadosLocaisDeConta();
       location.reload();
-    } else if (evento === "PASSWORD_RECOVERY") {
-      // Usuário voltou pelo link do e-mail de recuperação de senha.
-      document.getElementById("modal-login").style.display = "flex";
-      mostrarPassoLogin("login-passo-nova-senha");
     }
   });
 }

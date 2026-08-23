@@ -160,7 +160,8 @@ body {
 
 .seletor-provas-container {
   max-width: 1100px;
-  margin: 0 auto 20px auto;
+  margin: 0;
+  flex: 1 1 420px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -170,6 +171,11 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-card);
+  /* Com content-box (padrão), padding+border somavam ~40px por cima do
+     max-width, deixando este card mais largo que os cards da grade abaixo
+     (que não têm padding próprio no container). border-box inclui
+     padding/border dentro da largura, alinhando as bordas dos dois. */
+  box-sizing: border-box;
 }
 .seletor-provas-rotulo {
   color: var(--text-muted);
@@ -325,12 +331,25 @@ body {
   color: var(--text-muted);
 }
 
-.topo-info-container {
+.topo-cabecalho-linha {
   max-width: 1100px;
   margin: 0 auto 20px auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.topo-info-container {
+  margin: 0;
+  display: flex;
   justify-content: center;
   align-items: center;
+  /* Ocupa a linha inteira (própria ou compartilhada) e centraliza o
+     conteúdo dentro dela. Sem isso, quando é o único item numa linha do
+     flex-wrap, "justify-content: space-between" do pai (.topo-cabecalho-linha)
+     o empurra pro início da linha em vez de centralizar de verdade. */
+  flex: 1 1 100%;
 }
 
 /* Sub-navegação da aba Estudos (Cadastro / Hoje & Registros / Desempenho /
@@ -828,6 +847,10 @@ body {
   border-radius: 12px;
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border);
+  /* Mesma correção: cards com max-width próprio (ex: .card-recomendacao-hoje,
+     "O que eu faço agora?") somavam padding+border por cima do max-width em
+     content-box, ficando mais largos que a grade de cards abaixo. */
+  box-sizing: border-box;
 }
 h2 {
   margin-top: 0;
@@ -2850,7 +2873,8 @@ body.modo-isolamento-ativo .timer-preparacao {
   flex-direction: column;
   justify-content: center;
   background: var(--surface-accent);
-  border: 1px dashed var(--primary);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
   padding: 20px;
   border-radius: 12px;
 }
@@ -5538,11 +5562,21 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 
 /* ============================================================
-   "O QUE EU FAÇO AGORA?" — recomendação do dia no topo do painel
+   "O QUE EU FAÇO AGORA?" — recomendação do dia no topo do painel.
+   É a informação mais acionável da tela (uma sugestão concreta do que
+   fazer agora), então ganha o mesmo tratamento visual usado no card
+   "Alvo e Meta" (fundo com leve tom de destaque + friso lateral azul) —
+   um "selo" consistente de "isso é importante", em vez de mais um card
+   igual aos outros.
    ============================================================ */
 .card-recomendacao-hoje {
   max-width: 1100px;
   margin: 0 auto 20px auto;
+  background: var(--surface-accent);
+  border-left: 4px solid var(--primary);
+}
+.card-recomendacao-hoje h2 {
+  color: var(--accent-text);
 }
 .recomendacao-hoje-lista {
   display: flex;

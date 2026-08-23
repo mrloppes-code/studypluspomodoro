@@ -1019,32 +1019,43 @@
         </div>
       </div>
 
-      <!-- SEQUÊNCIA DIÁRIA: fica no topo, acima de tudo — vale pra qualquer
-           aba, igual o seletor de prova logo abaixo. -->
-      <div class="topo-info-container">
-        <button class="streak-badge-btn">
-          🔥 Sequência:
-          <span class="numero" id="streak-contador-val">0 dias</span>
-        </button>
-        <span
-          class="streak-freeze-indicador"
-          id="streak-freeze-indicador"
-          title="Congelamento de sequência"
-          >❄️</span
+      <!-- CABEÇALHO: seletor de prova em foco (contexto principal, à
+           esquerda) + sequência diária (badge de status, à direita) — antes
+           eram dois blocos empilhados, com a sequência centralizada
+           sozinha e sem relação visual com nada ao redor. Juntos numa
+           única linha, ficam lidos como "o mesmo cabeçalho", não dois
+           elementos soltos. Continuam sendo os mesmos dois containers
+           (cada um com sua própria lógica de show/hide em JS) — só o
+           wrapper novo (.topo-cabecalho-linha) que os organiza lado a
+           lado. -->
+      <div class="topo-cabecalho-linha">
+        <!-- SELETOR DE PROVA/EXAME ATIVO: aparece em qualquer aba assim que
+             existir pelo menos uma meta cadastrada, e filtra as matérias e
+             estatísticas mostradas (gráfico, matérias cadastradas, revisão
+             pendente, questões) pra prova escolhida. -->
+        <div
+          class="seletor-provas-container"
+          id="seletor-provas-container"
+          style="display: none"
         >
-      </div>
+          <span class="seletor-provas-rotulo">Prova em foco:</span>
+          <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
+        </div>
 
-      <!-- SELETOR DE PROVA/EXAME ATIVO: aparece em qualquer aba assim que
-           existir pelo menos uma meta cadastrada, e filtra as matérias e
-           estatísticas mostradas (gráfico, matérias cadastradas, revisão
-           pendente, questões) pra prova escolhida. -->
-      <div
-        class="seletor-provas-container"
-        id="seletor-provas-container"
-        style="display: none"
-      >
-        <span class="seletor-provas-rotulo">Prova em foco:</span>
-        <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
+        <!-- SEQUÊNCIA DIÁRIA: fica no topo, acima de tudo — vale pra
+             qualquer aba, igual o seletor de prova ao lado. -->
+        <div class="topo-info-container">
+          <button class="streak-badge-btn">
+            🔥 Sequência:
+            <span class="numero" id="streak-contador-val">0 dias</span>
+          </button>
+          <span
+            class="streak-freeze-indicador"
+            id="streak-freeze-indicador"
+            title="Congelamento de sequência"
+            >❄️</span
+          >
+        </div>
       </div>
 
       <!-- MODAL: CHECK-IN (MOOD TRACKER) — como você está antes de focar -->
@@ -2274,7 +2285,7 @@
                   title="Arraste para reordenar"
                   >⠿</span
                 >
-                🎯 Alvo e Meta Recente
+                <span id="widget-meta-topo-titulo">🎯 Alvo e Meta Recente</span>
               </h2>
               <div id="widget-meta-conteudo"></div>
             </div>
@@ -5875,7 +5886,7 @@ Licitações e Contratos"
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="js/auth-sync.js?v=7"></script>
+    <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=2"></script>
     <script src="js/script.js?v=70"></script>
 

@@ -10780,8 +10780,23 @@ function renderizarMetasEGraficos() {
     let prazo = new Date(metaAtiva.dataLimite + "T23:59:59");
     let dRestantes = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24));
 
+    // A linha "Prova em Foco" só aparece quando NÃO há filtro ativo (ou
+    // seja, mostrando a meta mais recente como fallback) — com filtro
+    // ativo, o nome da prova já está destacado no seletor "Prova em foco"
+    // lá em cima (.topo-cabecalho-linha), então repetir aqui é redundante.
+    const linhaProvaEmFoco = filtroAtivo
+      ? ""
+      : `<div class="meta-stat-row"><div class="meta-stat-lbl">Meta Principal Ativa</div><div class="meta-stat-val" style="color:var(--accent-text);">${escapeHtml(metaAtiva.objetivoNome)}</div></div>`;
+
+    const tituloWidget = document.getElementById("widget-meta-topo-titulo");
+    if (tituloWidget) {
+      tituloWidget.innerText = filtroAtivo
+        ? "🎯 Sua Prova"
+        : "🎯 Alvo e Meta Recente";
+    }
+
     widgetConteudo.innerHTML = `
-                <div class="meta-stat-row"><div class="meta-stat-lbl">${filtroAtivo ? "Prova em Foco" : "Meta Principal Ativa"}</div><div class="meta-stat-val" style="color:var(--accent-text);">${escapeHtml(metaAtiva.objetivoNome)}</div></div>
+                ${linhaProvaEmFoco}
                 <div class="meta-stat-row"><div class="meta-stat-lbl">Tópicos Totais</div><div class="meta-stat-val"><span class="meta-highlight">${metaAtiva.qtdMaterias}</span> conteúdos no edital</div></div>
                 <div class="meta-stat-row"><div class="meta-stat-lbl">Dias para a Prova</div><div class="meta-countdown" style="font-size:1.4rem;">${dRestantes > 0 ? dRestantes : 0} dias restantes</div></div>`;
   }
