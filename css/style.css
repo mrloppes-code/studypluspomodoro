@@ -350,6 +350,9 @@ body {
      flex-wrap, "justify-content: space-between" do pai (.topo-cabecalho-linha)
      o empurra pro início da linha em vez de centralizar de verdade. */
   flex: 1 1 100%;
+  /* Mostra a Sequência ACIMA do card "Prova em foco", mesmo ele vindo
+     primeiro no HTML (order só muda a ordem visual, não a do DOM/tab). */
+  order: -1;
 }
 
 /* Sub-navegação da aba Estudos (Cadastro / Hoje & Registros / Desempenho /
