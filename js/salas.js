@@ -27,6 +27,51 @@ let canalRealtimeSala = null;
 // de um atributo onclick.
 let ultimoRankingSalaCarregado = [];
 
+// --- CONVITE VIA LINK (?sala=CODIGO) ---
+// Guarda o código de uma sala convidada por link (ver
+// montarMensagemConviteSalaPadrao) até dar pra entrar de verdade — a
+// pessoa pode não estar logada ainda quando o link abre, então o convite
+// fica "pendente" até o login terminar (ver processarConviteDeSalaPendente,
+// chamado de dentro de entrarComSessao() em auth-sync.js).
+let codigoConviteSalaPendente = null;
+
+// Lê "?sala=CODIGO" da URL assim que o script carrega (antes até do
+// DOMContentLoaded) e já limpa da URL com history.replaceState — assim um
+// F5 depois não tenta entrar de novo, e o link não fica "sujo" na barra de
+// endereço depois de processado.
+function capturarConviteDeSalaNaURL() {
+  const params = new URLSearchParams(window.location.search);
+  const codigo = params.get("sala");
+  if (!codigo) return;
+
+  codigoConviteSalaPendente = codigo.trim().toUpperCase();
+
+  params.delete("sala");
+  const querySemConvite = params.toString();
+  const novaUrl =
+    window.location.pathname + (querySemConvite ? `?${querySemConvite}` : "");
+  window.history.replaceState({}, "", novaUrl);
+}
+capturarConviteDeSalaNaURL();
+
+// Chamado depois que o login termina (de dentro de entrarComSessao() em
+// auth-sync.js) — se tinha um convite pendente, entra na sala
+// automaticamente e já abre o modal mostrando o resultado, sem a pessoa
+// precisar digitar o código na mão.
+async function processarConviteDeSalaPendente() {
+  if (!codigoConviteSalaPendente || !SUPABASE_CONFIGURADO || !usuarioAtual) {
+    return;
+  }
+  const codigo = codigoConviteSalaPendente;
+  codigoConviteSalaPendente = null;
+
+  await entrarNaSala(codigo);
+
+  const modal = document.getElementById("modal-sala-estudo");
+  if (modal) modal.style.display = "flex";
+  renderizarTelaSala();
+}
+
 function obterDataLocalStringSalas(d) {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 }
@@ -544,6 +589,7 @@ function renderizarTelaSala() {
     const codigoEl = document.getElementById("sala-codigo-atual");
     if (nomeEl) nomeEl.textContent = salaAtual.nome;
     if (codigoEl) codigoEl.textContent = salaAtual.codigo;
+    atualizarMensagemConviteSalaPadrao();
 
     const souDonoDaSala =
       usuarioAtual && salaAtual.criadoPor === usuarioAtual.id;
@@ -556,6 +602,8 @@ function renderizarTelaSala() {
   } else {
     semSala.style.display = "block";
     comSala.style.display = "none";
+    const campoConvite = document.getElementById("sala-convite-mensagem");
+    if (campoConvite) campoConvite.value = "";
   }
 }
 
@@ -600,6 +648,53 @@ async function copiarCodigoSala() {
   } catch {
     await mostrarAlerta(`Código da sala: ${salaAtual.codigo}`);
   }
+}
+
+// --- CONVITE (WhatsApp / E-mail) ---
+// Mensagem pré-preenchida (nome de quem convida + nome/código da sala +
+// link direto pro app) num campo editável — a pessoa pode ajustar o texto
+// antes de mandar, então é uma mensagem personalizada de verdade, não um
+// texto fixo. window.location.origin+pathname resolve pro domínio real
+// onde o app está publicado, sem precisar cravar uma URL fixa no código.
+function montarMensagemConviteSalaPadrao() {
+  if (!salaAtual) return "";
+  // O "?sala=CÓDIGO" na URL é o que faz quem abrir o link entrar direto na
+  // sala (ver capturarConviteDeSalaNaURL/processarConviteDeSalaPendente) —
+  // sem precisar digitar o código na mão depois de entrar/criar a conta.
+  const linkApp = `${window.location.origin}${window.location.pathname}?sala=${salaAtual.codigo}`;
+  return `${nomeExibicaoAtual()} te chamou pra estudar junto na sala "${salaAtual.nome}", no Estude+! 📚🔥\n\nÉ só abrir o link abaixo que você já entra direto na sala:\n${linkApp}`;
+}
+
+// Preenche o campo de convite com o texto padrão — chamado sempre que a
+// sala muda (entrar/criar/restaurar), de dentro de renderizarTelaSala().
+// Só sobrescreve se o campo ainda estiver vazio, pra não apagar um texto
+// que a pessoa já tinha personalizado nessa mesma sessão do app (ex:
+// depois de mandar por WhatsApp, ela ainda pode querer mandar por e-mail
+// com o mesmo texto ajustado, sem o campo resetar sozinho no meio).
+function atualizarMensagemConviteSalaPadrao() {
+  const campo = document.getElementById("sala-convite-mensagem");
+  if (campo && salaAtual && !campo.value.trim()) {
+    campo.value = montarMensagemConviteSalaPadrao();
+  }
+}
+
+function lerMensagemConviteSala() {
+  const campo = document.getElementById("sala-convite-mensagem");
+  const texto = campo ? campo.value.trim() : "";
+  return texto || montarMensagemConviteSalaPadrao();
+}
+
+function enviarConviteSalaWhatsApp() {
+  if (!salaAtual) return;
+  const mensagem = lerMensagemConviteSala();
+  window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, "_blank");
+}
+
+function enviarConviteSalaEmail() {
+  if (!salaAtual) return;
+  const mensagem = lerMensagemConviteSala();
+  const assunto = `Convite pra sala de estudos "${salaAtual.nome}" no Estude+`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
 }
 
 async function criarSalaPeloFormulario(event) {

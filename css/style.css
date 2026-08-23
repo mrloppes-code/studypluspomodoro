@@ -350,8 +350,9 @@ body {
      flex-wrap, "justify-content: space-between" do pai (.topo-cabecalho-linha)
      o empurra pro início da linha em vez de centralizar de verdade. */
   flex: 1 1 100%;
-  /* Mostra a Sequência ACIMA do card "Prova em foco", mesmo ele vindo
-     primeiro no HTML (order só muda a ordem visual, não a do DOM/tab). */
+  /* Mantém a Sequência acima do card "Prova em foco" (ordem visual da
+     versão original), já que o flex:1 1 100% acima muda a forma como as
+     linhas se distribuem. */
   order: -1;
 }
 
@@ -6219,6 +6220,68 @@ body.modo-isolamento-ativo .btn-editar-perfil {
 }
 .sala-btn-excluir:hover {
   background: rgba(239, 68, 68, 0.12);
+}
+
+/* CONVITE (WhatsApp / E-mail): textarea editável com a mensagem padrão +
+   dois botões de envio direto, um pra cada canal (ver montarMensagem-
+   ConviteSalaPadrao / enviarConviteSalaWhatsApp / enviarConviteSalaEmail
+   em salas.js). WhatsApp em verde e E-mail no azul padrão do app — cor
+   reconhecível de cada canal, sem inventar uma paleta nova. */
+.sala-convite-bloco {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sala-convite-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+.sala-convite-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 78px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-main);
+  margin: 0 0 10px 0;
+}
+.sala-convite-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sala-convite-btn {
+  flex: 1 1 160px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sala-convite-btn-whatsapp {
+  background: #25d366;
+  border: 1px solid #25d366;
+  color: #06210f;
+}
+.sala-convite-btn-whatsapp:hover {
+  filter: brightness(1.08);
+}
+.sala-convite-btn-email {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: white;
+}
+.sala-convite-btn-email:hover {
+  filter: brightness(1.08);
 }
 
 .sala-ranking-lista {

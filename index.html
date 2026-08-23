@@ -611,6 +611,39 @@
             </div>
           </div>
 
+          <!-- CONVITE: mensagem pré-pronta (editável) + botões diretos pra
+               WhatsApp e E-mail. Ver montarMensagemConviteSalaPadrao() e
+               enviarConviteSalaWhatsApp()/enviarConviteSalaEmail() em
+               salas.js. -->
+          <div class="sala-convite-bloco">
+            <label for="sala-convite-mensagem" class="sala-convite-label"
+              >✉️ Convidar alguém pra sala</label
+            >
+            <textarea
+              id="sala-convite-mensagem"
+              class="sala-convite-textarea"
+              rows="4"
+              maxlength="500"
+              placeholder="Sua mensagem de convite..."
+            ></textarea>
+            <div class="sala-convite-botoes">
+              <button
+                type="button"
+                class="sala-convite-btn sala-convite-btn-whatsapp"
+                onclick="enviarConviteSalaWhatsApp()"
+              >
+                💬 Enviar por WhatsApp
+              </button>
+              <button
+                type="button"
+                class="sala-convite-btn sala-convite-btn-email"
+                onclick="enviarConviteSalaEmail()"
+              >
+                📧 Enviar por E-mail
+              </button>
+            </div>
+          </div>
+
           <form
             id="sala-form-meta"
             class="sala-form-meta"
@@ -5887,7 +5920,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
-    <script src="js/salas.js?v=2"></script>
+    <script src="js/salas.js?v=3"></script>
     <script src="js/script.js?v=70"></script>
 
     <script>

@@ -714,7 +714,15 @@ async function entrarComSessao(session) {
   atualizarProgressoPomodoros();
   if (typeof atualizarBolinhaNovidades === "function")
     atualizarBolinhaNovidades();
-  if (typeof restaurarSalaSalva === "function") restaurarSalaSalva();
+  if (typeof restaurarSalaSalva === "function") await restaurarSalaSalva();
+  // Se a pessoa chegou aqui por um link de convite de sala (?sala=CODIGO,
+  // ver capturarConviteDeSalaNaURL em salas.js) e precisou logar primeiro,
+  // é aqui que ela entra na sala automaticamente — depois de
+  // restaurarSalaSalva() de propósito, pra um convite novo sempre "ganhar"
+  // de uma sala antiga que porventura tivesse sido restaurada.
+  if (typeof processarConviteDeSalaPendente === "function") {
+    await processarConviteDeSalaPendente();
+  }
 }
 
 // --- RECONCILIAÇÃO AO VOLTAR PRO APP (sem precisar recarregar a página) ---
@@ -759,6 +767,21 @@ async function iniciarAutenticacao() {
     await entrarComSessao(data.session);
   } else {
     atualizarUiUsuarioLogado();
+    // Chegou por um link de convite de sala (?sala=CODIGO) mas ainda não
+    // tem sessão — pede login/cadastro primeiro. Depois que entrarComSessao()
+    // rodar (login normal ou recém-criada a conta), o convite pendente é
+    // processado automaticamente lá (ver processarConviteDeSalaPendente em
+    // salas.js), sem a pessoa precisar digitar o código na mão.
+    if (
+      typeof codigoConviteSalaPendente !== "undefined" &&
+      codigoConviteSalaPendente
+    ) {
+      await mostrarAlerta(
+        "Você recebeu um convite pra uma sala de estudos! Entre na sua conta (ou crie uma rapidinho) pra entrar direto na sala.",
+        { icone: "🎉", titulo: "Convite pra sala de estudos" },
+      );
+      abrirModalLogin();
+    }
   }
 
   sb.auth.onAuthStateChange((evento, session) => {
