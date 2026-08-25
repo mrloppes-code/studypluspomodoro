@@ -8754,7 +8754,48 @@ function renderizarSeletorProvas() {
     .join("");
 
   lista.innerHTML = cardTodas + cardsProvas;
+
+  atualizarSetaSeletorProvas();
 }
+
+// Mostra/esconde o botão de seta do seletor de provas: só faz sentido
+// exibi-lo quando as provas realmente não cabem todas na largura
+// disponível (senão não tem pra onde rolar/avançar).
+function atualizarSetaSeletorProvas() {
+  const lista = document.getElementById("seletor-provas-lista");
+  const seta = document.getElementById("seletor-provas-seta");
+  if (!lista || !seta) return;
+
+  // Espera o próximo frame pra garantir que o layout já foi calculado
+  // (innerHTML acabou de ser trocado).
+  requestAnimationFrame(() => {
+    const temOverflow = lista.scrollWidth > lista.clientWidth + 2;
+    seta.style.display = temOverflow ? "flex" : "none";
+  });
+}
+
+// Avança a lista de provas por um "passo" (perto da largura visível).
+// Ao chegar no fim, o próximo clique volta pro início — assim um único
+// botão dá pra percorrer todas as provas cadastradas em loop.
+function avancarSeletorProvas() {
+  const lista = document.getElementById("seletor-provas-lista");
+  if (!lista) return;
+
+  const maxScroll = lista.scrollWidth - lista.clientWidth;
+  if (lista.scrollLeft >= maxScroll - 4) {
+    lista.scrollTo({ left: 0, behavior: "smooth" });
+  } else {
+    lista.scrollBy({ left: lista.clientWidth * 0.8, behavior: "smooth" });
+  }
+}
+
+// Se a janela for redimensionada (ex: virar o celular, ou redimensionar
+// a janela no desktop), reavalia se a seta ainda é necessária.
+window.addEventListener("resize", () => {
+  if (typeof metas !== "undefined" && metas.length > 0) {
+    atualizarSetaSeletorProvas();
+  }
+});
 
 // Troca a prova em foco e redesenha tudo que depende dela (gráfico, lista
 // de matérias cadastradas, revisão pendente, questões e o widget de meta).

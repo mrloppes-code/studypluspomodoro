@@ -183,6 +183,13 @@ body {
   font-weight: 700;
   white-space: nowrap;
 }
+.seletor-provas-lista-wrapper {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .seletor-provas-lista {
   min-width: 0;
   flex: 1 1 auto;
@@ -190,8 +197,37 @@ body {
   flex-wrap: nowrap;
   gap: 10px;
   overflow-x: auto;
+  scroll-behavior: smooth;
   padding-bottom: 2px;
-  scrollbar-width: thin;
+  /* A rolagem continua funcionando (inclusive por toque/trackpad); só a
+     barra de rolagem visual é escondida, já que agora tem o botão de
+     seta pra indicar/navegar entre as provas. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.seletor-provas-lista::-webkit-scrollbar {
+  display: none;
+}
+.seletor-provas-seta {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.seletor-provas-seta:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--accent-text);
 }
 .seletor-provas-lista .prova-card {
   display: flex;

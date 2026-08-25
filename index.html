@@ -1072,7 +1072,19 @@
           style="display: none"
         >
           <span class="seletor-provas-rotulo">Prova em foco:</span>
-          <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
+          <div class="seletor-provas-lista-wrapper">
+            <div class="seletor-provas-lista" id="seletor-provas-lista"></div>
+            <button
+              type="button"
+              class="seletor-provas-seta"
+              id="seletor-provas-seta"
+              onclick="avancarSeletorProvas()"
+              aria-label="Ver outras provas"
+              style="display: none"
+            >
+              ›
+            </button>
+          </div>
         </div>
 
         <!-- SEQUÊNCIA DIÁRIA: fica no topo, acima de tudo — vale pra
