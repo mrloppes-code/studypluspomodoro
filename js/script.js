@@ -8597,19 +8597,35 @@ function renderizarChecklistVinculoMetas(containerId, marcados) {
         "_",
       );
       const checked = marcadosSet.has(meta.objetivoNome) ? "checked" : "";
+      const classeMarcado = marcadosSet.has(meta.objetivoNome)
+        ? " marcado"
+        : "";
       return `
-        <label class="materia-vinculo-opcao" for="${idSeguro}">
+        <label class="materia-vinculo-opcao${classeMarcado}" for="${idSeguro}">
           <input
             type="checkbox"
             id="${idSeguro}"
             value="${escapeHtml(meta.objetivoNome)}"
             ${checked}
           />
-          🎯 ${escapeHtml(meta.objetivoNome)}
+          <span class="materia-vinculo-opcao-icone">🎯</span>
+          <span class="materia-vinculo-opcao-nome">${escapeHtml(meta.objetivoNome)}</span>
+          <span class="materia-vinculo-opcao-selo">✓</span>
         </label>
       `;
     })
     .join("");
+
+  // Fallback pra navegadores sem suporte a CSS :has(): alterna a classe
+  // "marcado" no label manualmente a cada clique, refletindo o estado do
+  // checkbox. Um listener por container (delegado), então funciona pra
+  // qualquer quantidade de opções sem precisar religar nada.
+  container.onchange = (evento) => {
+    const input = evento.target;
+    if (input.type !== "checkbox") return;
+    const label = input.closest(".materia-vinculo-opcao");
+    if (label) label.classList.toggle("marcado", input.checked);
+  };
 }
 
 function lerChecklistVinculoMetas(containerId) {

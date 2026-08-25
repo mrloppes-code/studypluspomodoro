@@ -1930,30 +1930,126 @@ body.modo-isolamento-ativo .timer.pausa-ativa {
 .materia-vinculo-lista {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 160px;
+  gap: 6px;
+  max-height: 190px;
   overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 10px;
+  padding: 4px 4px 4px 0;
   margin-bottom: 6px;
-  background: rgba(255, 255, 255, 0.02);
+  /* Barra de rolagem fina e discreta, no tom do tema, em vez do padrão
+     cinza/bloco do navegador. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.materia-vinculo-lista::-webkit-scrollbar {
+  width: 6px;
+}
+.materia-vinculo-lista::-webkit-scrollbar-track {
+  background: transparent;
+}
+.materia-vinculo-lista::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+.materia-vinculo-lista::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 .materia-vinculo-opcao {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 2px;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
   font-size: 0.85rem;
+  font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 9px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
 }
-.materia-vinculo-opcao input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--primary);
-  cursor: pointer;
+.materia-vinculo-opcao:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.materia-vinculo-opcao:active {
+  transform: scale(0.99);
+}
+/* Estado marcado: destaque de cor (mesmo tom do accent usado nos cards
+   de prova em foco), com uma faixa lateral esquerda pra ficar visível
+   até num relance, sem precisar reparar no checkbox. */
+.materia-vinculo-opcao:has(input:checked) {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  border-left-color: var(--accent-text, #3b82f6);
+  color: var(--accent-text, #3b82f6);
+}
+/* Fallback pra navegadores sem suporte a :has() — uma classe equivalente
+   é alternada via JS (ver renderizarChecklistVinculoMetas). */
+.materia-vinculo-opcao.marcado {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  border-left-color: var(--accent-text, #3b82f6);
+  color: var(--accent-text, #3b82f6);
+}
+.materia-vinculo-opcao-icone {
   flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+.materia-vinculo-opcao-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* O checkbox nativo continua no DOM (clicável, acessível, funciona com
+   teclado/leitor de tela), só fica visualmente escondido — quem indica
+   o estado marcado/desmarcado pro usuário é o "selo" customizado ao lado. */
+.materia-vinculo-opcao input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.materia-vinculo-opcao-selo {
+  flex-shrink: 0;
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.materia-vinculo-opcao:has(input:checked) .materia-vinculo-opcao-selo {
+  background: var(--accent-text, #3b82f6);
+  border-color: var(--accent-text, #3b82f6);
+  color: white;
+}
+.materia-vinculo-opcao.marcado .materia-vinculo-opcao-selo {
+  background: var(--accent-text, #3b82f6);
+  border-color: var(--accent-text, #3b82f6);
+  color: white;
 }
 
 .editar-cor-linha {
