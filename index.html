@@ -2614,14 +2614,13 @@
                 >0 / 40</span
               >
 
-              <label for="mat-vinc-meta">Vincular a uma Meta:</label>
-              <select id="mat-vinc-meta">
-                <option value="">Matéria Isolada</option>
-              </select>
+              <label>Vincular a Provas:</label>
+              <div id="mat-vinc-meta-lista" class="materia-vinculo-lista"></div>
               <span class="campo-ajuda">
-                Vincular liga essa matéria a uma meta com prazo (ela passa a
-                contar como um dos tópicos daquele objetivo). "Matéria Isolada"
-                é só pra estudo livre, sem vínculo com nenhuma meta.
+                Marque uma ou mais provas: útil pra conteúdo transversal (cai em
+                mais de um edital). Ela passa a contar como um dos tópicos de
+                cada objetivo marcado. Sem marcar nenhuma, fica como "Matéria
+                Isolada" — só pra estudo livre.
               </span>
 
               <span class="campo-ajuda" style="margin-top: -6px">
@@ -2725,6 +2724,23 @@
                 faltarem 3 dias ou menos pro prazo encerrar.
               </span>
 
+              <label for="meta-nota-corte" style="margin-top: 10px"
+                >Nota de Corte % (opcional):</label
+              >
+              <input
+                type="number"
+                id="meta-nota-corte"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="Ex: 60"
+              />
+              <span class="campo-ajuda">
+                Usada pra comparar com sua nota estimada (aba Desempenho → "Nota
+                Estimada"), calculada a partir do peso e do % de acerto de cada
+                matéria vinculada a essa prova.
+              </span>
+
               <button
                 type="submit"
                 style="
@@ -2754,9 +2770,9 @@
               class="campo-ajuda"
               style="margin-top: -4px; margin-bottom: 14px"
             >
-              Vincule as matérias que você cadastrar ao lado a uma destas provas
-              (campo "Vincular a uma Meta") pra acompanhar peso, desempenho e
-              tempo de estudo separados por concurso.
+              Vincule as matérias que você cadastrar ao lado a uma ou mais
+              destas provas (campo "Vincular a Provas") pra acompanhar peso,
+              desempenho e tempo de estudo separados por concurso.
             </p>
             <p
               id="alerta-inscricoes-proximas"
@@ -3072,6 +3088,7 @@
                         id="questoes-erro-nao-sabia"
                         min="0"
                         placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
                       />
                     </div>
                     <div>
@@ -3083,6 +3100,7 @@
                         id="questoes-erro-confundiu"
                         min="0"
                         placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
                       />
                     </div>
                     <div>
@@ -3094,6 +3112,7 @@
                         id="questoes-erro-leitura"
                         min="0"
                         placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
                       />
                     </div>
                     <div>
@@ -3105,6 +3124,7 @@
                         id="questoes-erro-atencao"
                         min="0"
                         placeholder="0"
+                        oninput="atualizarResumoDistribuicaoQuestoes()"
                       />
                     </div>
                   </div>
@@ -3633,6 +3653,120 @@
               </p>
               <div class="radar-competencias-chart-wrapper">
                 <canvas id="chartRadarCompetencias"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- NOTA ESTIMADA / SIMULAÇÃO DE APROVAÇÃO: cruza o peso de cada
+               matéria (o mesmo usado na Matriz de Prioridade) com o % de
+               acerto dela (o mesmo usado no Radar) numa média ponderada —
+               "se a prova fosse hoje, eu passaria?" — comparando com a
+               nota de corte cadastrada na prova (campo opcional em
+               Cadastrar/Editar Prova). Respeita o filtro de "Prova em
+               foco" lá em cima, com o mesmo fallback pra meta mais
+               recente usado no widget "Alvo e Meta". -->
+          <div
+            class="card resumo-card"
+            id="card-nota-estimada"
+            style="display: none"
+          >
+            <h2>🎓 Nota Estimada</h2>
+            <p class="campo-ajuda">
+              Se a prova fosse hoje, com base no seu desempenho por matéria.
+            </p>
+            <button
+              type="button"
+              class="btn-ver-detalhes"
+              onclick="abrirModalDetalheCard('modal-nota-estimada')"
+            >
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div
+            id="modal-nota-estimada"
+            class="modal-distracao modal-detalhe-card"
+            onclick="
+              fecharModalDetalheCardSeClicouFora(event, 'modal-nota-estimada')
+            "
+          >
+            <div class="modal-conteudo modal-detalhe-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalDetalheCard('modal-nota-estimada')"
+                title="Fechar"
+              >
+                ✕
+              </button>
+              <h2>🎓 Nota Estimada</h2>
+              <p
+                class="campo-ajuda"
+                style="margin-top: -4px; margin-bottom: 14px"
+              >
+                Média do % de acerto de cada matéria, ponderada pelo peso que
+                você deu a ela — a mesma lógica da Matriz de Prioridade, só que
+                resumida num número só. Considera apenas matérias com pelo menos
+                5 questões respondidas. Respeita o filtro de "Prova em foco" lá
+                em cima.
+              </p>
+
+              <p id="nota-estimada-vazio" class="sessoes-hoje-vazio">
+                Ainda não há matérias com questões suficientes (mínimo 5)
+                vinculadas a essa prova pra estimar uma nota. Continue
+                registrando questões em Hoje & Registros.
+              </p>
+
+              <div id="nota-estimada-corpo" style="display: none">
+                <div class="nota-estimada-stats-row">
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Nota Estimada</span>
+                    <span class="analise-stat-valor" id="nota-estimada-valor"
+                      >0%</span
+                    >
+                  </div>
+                  <div class="analise-stat-card" id="nota-estimada-corte-bloco">
+                    <span class="analise-stat-label">Nota de Corte</span>
+                    <span
+                      class="analise-stat-valor"
+                      id="nota-estimada-corte-valor"
+                      >—</span
+                    >
+                  </div>
+                  <div class="analise-stat-card">
+                    <span class="analise-stat-label">Situação</span>
+                    <span
+                      class="analise-stat-valor"
+                      id="nota-estimada-situacao"
+                      style="font-size: 1.2rem"
+                      >—</span
+                    >
+                  </div>
+                </div>
+
+                <div class="nota-estimada-barra-fundo">
+                  <div
+                    class="nota-estimada-barra-preenchida"
+                    id="nota-estimada-barra"
+                  ></div>
+                  <div
+                    class="nota-estimada-barra-corte"
+                    id="nota-estimada-barra-corte-marcador"
+                    style="display: none"
+                    title="Nota de corte"
+                  ></div>
+                </div>
+
+                <p
+                  class="campo-ajuda"
+                  id="nota-estimada-cobertura"
+                  style="margin-top: 14px"
+                ></p>
+
+                <div
+                  class="nota-estimada-tabela"
+                  id="nota-estimada-tabela"
+                ></div>
               </div>
             </div>
           </div>
@@ -4727,10 +4861,11 @@
             <div class="peso-estrelas" id="edit-peso-estrelas-container"></div>
             <input type="hidden" id="edit-mat-peso" />
 
-            <label for="edit-mat-vinc-meta">Vincular a uma Meta:</label>
-            <select id="edit-mat-vinc-meta">
-              <option value="">Matéria Isolada</option>
-            </select>
+            <label>Vincular a Provas:</label>
+            <div
+              id="edit-mat-vinc-meta-lista"
+              class="materia-vinculo-lista"
+            ></div>
 
             <label for="edit-mat-cor">Cor da Matéria:</label>
             <div class="editar-cor-linha">
@@ -4900,6 +5035,19 @@ Licitações e Contratos"
                 <input type="date" id="edit-prova-inscricao-fim" />
               </div>
             </div>
+
+            <label for="edit-prova-nota-corte" style="margin-top: 10px"
+              >Nota de Corte % (opcional):</label
+            >
+            <input
+              type="number"
+              id="edit-prova-nota-corte"
+              min="0"
+              max="100"
+              step="0.1"
+              placeholder="Ex: 60"
+            />
+
             <p
               class="campo-ajuda"
               id="edit-prova-aviso-vinculo"
@@ -5921,7 +6069,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=3"></script>
-    <script src="js/script.js?v=70"></script>
+    <script src="js/script.js?v=71"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

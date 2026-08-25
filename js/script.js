@@ -148,6 +148,7 @@ const IDS_CARDS_DETALHE_COM_VISIBILIDADE_CONDICIONAL = [
   "card-questoes-evolucao",
   "card-simulados-evolucao",
   "card-sessoes-por-tipo",
+  "card-nota-estimada",
 ];
 
 function obterModoVisualizacaoCards() {
@@ -261,6 +262,7 @@ async function copiarEmailFeedback() {
 let historicoEstudos =
   JSON.parse(localStorage.getItem("historicoEstudos")) || {};
 let materias = JSON.parse(localStorage.getItem("materias")) || [];
+migrarMateriasParaMultiMeta(materias);
 let anotacoesFlashcards =
   JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
 let lembretes = JSON.parse(localStorage.getItem("lembretes")) || [];
@@ -3949,7 +3951,7 @@ function salvarProgressoGeral(materia, minutos, nota, mood, tipoSessao) {
 async function adicionarNovaMateria(e) {
   e.preventDefault();
   let nome = document.getElementById("mat-only-nome").value.trim();
-  let metaVinculada = document.getElementById("mat-vinc-meta").value;
+  let metasVinculadas = lerChecklistVinculoMetas("mat-vinc-meta-lista");
   let peso = parseInt(document.getElementById("mat-only-peso").value, 10) || 1;
 
   if (!nome) return;
@@ -3969,7 +3971,7 @@ async function adicionarNovaMateria(e) {
   // ✏️ editar na lista de Matérias Cadastradas.
   const cor = gerarCorAutomaticaMateria();
 
-  materias.push({ nome, metaVinculada, cor, peso });
+  materias.push({ nome, metasVinculadas, cor, peso });
   localStorage.setItem("materias", JSON.stringify(materias));
   if (!tempoPorMateria[nome]) tempoPorMateria[nome] = 0;
   localStorage.setItem("tempoPorMateria", JSON.stringify(tempoPorMateria));
@@ -4044,7 +4046,7 @@ function renderizarMateriasCadastradas() {
   const filtro = obterMetaFiltroAtiva();
   const itensFiltrados = materias
     .map((m, i) => ({ m, i }))
-    .filter(({ m }) => !filtro || (m.metaVinculada || "") === filtro);
+    .filter(({ m }) => !filtro || materiaVinculadaAMeta(m, filtro));
 
   if (itensFiltrados.length === 0) {
     container.innerHTML =
@@ -4057,9 +4059,10 @@ function renderizarMateriasCadastradas() {
     .map(({ m, i }) => {
       const peso = m.peso || 1;
       const estrelas = "★".repeat(peso) + "☆".repeat(5 - peso);
-      const vinculo = m.metaVinculada
-        ? `🎯 ${escapeHtml(m.metaVinculada)}`
-        : "Isolada";
+      const vinculo =
+        (m.metasVinculadas || []).length > 0
+          ? m.metasVinculadas.map((nm) => `🎯 ${escapeHtml(nm)}`).join(" ")
+          : "Isolada";
       const topicos = m.topicos || [];
       const progressoTopicos =
         topicos.length > 0
@@ -4618,14 +4621,30 @@ function atualizarResumoDistribuicaoQuestoes() {
   const totalDistribuido = linhas.reduce((s, l) => s + l.total, 0);
   const acertosDistribuidos = linhas.reduce((s, l) => s + l.acertos, 0);
 
+  // As questões que sobram da distribuição (total - distribuído) só têm
+  // pra onde ir se o Diagnóstico dos erros classificar exatamente essa
+  // diferença — elas são, por definição, erros sem banca associada. É
+  // esse "fechamento" que faz o total de 50 bater levando em conta tanto
+  // os acertos distribuídos quanto os erros diagnosticados.
+  const restante = Math.max(totalDeclarado - totalDistribuido, 0);
+  const { soma: somaDiagnostico } = lerCausasErroDoFormulario("questoes");
+  const diagnosticoFechaRestante = restante > 0 && somaDiagnostico === restante;
+
   const elStatus = document.getElementById("questoes-distribuicao-status");
   if (elStatus) {
-    const bate = totalDeclarado > 0 && totalDistribuido === totalDeclarado;
-    elStatus.textContent = `Questões distribuídas: ${totalDistribuido} / ${totalDeclarado}${bate ? " ✓" : ""}`;
+    const bate =
+      totalDeclarado > 0 &&
+      (totalDistribuido === totalDeclarado || diagnosticoFechaRestante);
+    let texto = `Questões distribuídas: ${totalDistribuido} / ${totalDeclarado}`;
+    if (totalDistribuido < totalDeclarado && somaDiagnostico > 0) {
+      texto += ` (+${somaDiagnostico} no diagnóstico)`;
+    }
+    texto += bate ? " ✓" : "";
+    elStatus.textContent = texto;
     elStatus.classList.toggle("questoes-distribuicao-status-ok", bate);
     elStatus.classList.toggle(
       "questoes-distribuicao-status-pendente",
-      !bate && totalDistribuido > 0,
+      !bate && (totalDistribuido > 0 || somaDiagnostico > 0),
     );
   }
 
@@ -4633,15 +4652,26 @@ function atualizarResumoDistribuicaoQuestoes() {
     "questoes-distribuicao-aproveitamento",
   );
   if (elAproveitamento) {
-    elAproveitamento.textContent =
-      totalDistribuido > 0
-        ? `Aproveitamento geral: ${acertosDistribuidos}/${totalDistribuido} → ${(
-            (acertosDistribuidos / totalDistribuido) *
-            100
-          )
-            .toFixed(1)
-            .replace(".", ",")}%`
-        : "";
+    // Se o diagnóstico já fecha o total, o aproveitamento real da sessão
+    // usa o total declarado como base (os "restante" são todos errados) —
+    // caso contrário, mostra o aproveitamento só do que já foi distribuído.
+    if (diagnosticoFechaRestante) {
+      elAproveitamento.textContent = `Aproveitamento geral: ${acertosDistribuidos}/${totalDeclarado} → ${(
+        (acertosDistribuidos / totalDeclarado) *
+        100
+      )
+        .toFixed(1)
+        .replace(".", ",")}%`;
+    } else if (totalDistribuido > 0) {
+      elAproveitamento.textContent = `Aproveitamento geral: ${acertosDistribuidos}/${totalDistribuido} → ${(
+        (acertosDistribuidos / totalDistribuido) *
+        100
+      )
+        .toFixed(1)
+        .replace(".", ",")}%`;
+    } else {
+      elAproveitamento.textContent = "";
+    }
   }
 }
 
@@ -4673,9 +4703,9 @@ async function registrarQuestoes(event) {
   }
 
   const totalDistribuido = linhas.reduce((s, l) => s + l.total, 0);
-  if (totalDistribuido !== totalDeclarado) {
+  if (totalDistribuido > totalDeclarado) {
     await mostrarAlerta(
-      `A soma das linhas de distribuição (${totalDistribuido}) precisa bater exatamente com o total de questões informado (${totalDeclarado}).`,
+      `A soma das linhas de distribuição (${totalDistribuido}) não pode ser maior que o total de questões informado (${totalDeclarado}).`,
     );
     return;
   }
@@ -4689,14 +4719,35 @@ async function registrarQuestoes(event) {
   }
 
   const acertosTotais = linhas.reduce((s, l) => s + l.acertos, 0);
-  const errosTotais = totalDeclarado - acertosTotais;
   const { causas, soma, algumPreenchido } =
     lerCausasErroDoFormulario("questoes");
-  if (algumPreenchido && soma > errosTotais) {
-    await mostrarAlerta(
-      `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa sessão (${errosTotais}).`,
-    );
-    return;
+
+  // O que não foi distribuído por banca só fecha o total de duas formas:
+  // ou a distribuição já soma o total sozinha (restante = 0), ou o
+  // Diagnóstico dos erros classifica exatamente essa diferença — esse
+  // restante é, por definição, todo formado por questões erradas sem
+  // banca associada.
+  const restante = totalDeclarado - totalDistribuido;
+  if (restante > 0) {
+    if (soma !== restante) {
+      await mostrarAlerta(
+        soma === 0
+          ? `Faltam ${restante} questões para completar o total de ${totalDeclarado}. Adicione uma linha de distribuição (pode ser "Não especificar") ou classifique essas ${restante} no Diagnóstico dos erros.`
+          : `A distribuição soma ${totalDistribuido} e o Diagnóstico dos erros soma ${soma}, mas juntos precisam somar exatamente o total declarado (${totalDeclarado}). Ajuste um dos dois — falta${restante - soma === 1 ? "" : "m"} ${Math.abs(restante - soma)} questõe${Math.abs(restante - soma) === 1 ? "" : "s"}.`,
+      );
+      return;
+    }
+  } else {
+    // Distribuição já fechou o total sozinha: o diagnóstico, se
+    // preenchido, só pode classificar até o total de erros já embutido
+    // nas linhas (acertos < total de cada linha).
+    const errosTotais = totalDeclarado - acertosTotais;
+    if (algumPreenchido && soma > errosTotais) {
+      await mostrarAlerta(
+        `A soma dos motivos de erro (${soma}) não pode ser maior que o total de erros dessa sessão (${errosTotais}).`,
+      );
+      return;
+    }
   }
 
   const dataRegistro = obterDataLocalString(new Date());
@@ -4719,12 +4770,27 @@ async function registrarQuestoes(event) {
   });
 
   // O diagnóstico de erros vale pra sessão inteira, não pra uma banca
-  // específica (é um só campo no formulário — ver wireframe). Por isso vai
-  // num registro à parte com total=0/banca=null: não conta em nenhuma
-  // estatística de questões nem aparece no Desempenho por Banca, mas entra
-  // normalmente no Caderno de Erros (que agrupa por matéria, não por banca
-  // nem pelo total do registro).
-  if (algumPreenchido) {
+  // específica (é um só campo no formulário — ver wireframe).
+  if (restante > 0) {
+    // Essas questões não entraram em nenhuma linha de distribuição — o
+    // Diagnóstico classificou exatamente essa diferença, e por definição
+    // são todas erradas (banca=null = "Não especificar"). Total > 0 aqui é
+    // essencial: é o que faz elas contarem no total geral, no % de
+    // acerto, em metas e streaks — além de entrarem no Caderno de Erros.
+    registrosQuestoes.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      data: dataRegistro,
+      materia,
+      topico,
+      total: restante,
+      acertos: 0,
+      banca: null,
+      causasErro: causas,
+    });
+  } else if (algumPreenchido) {
+    // Distribuição já soma o total sozinha: o diagnóstico só classifica o
+    // motivo de erros que já estão embutidos nas linhas acima, então esse
+    // registro fica com total=0 de propósito — não deve contar de novo.
     registrosQuestoes.push({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       data: dataRegistro,
@@ -6760,6 +6826,151 @@ function renderizarDesempenhoPorTopico(materiaNome) {
 // só rankear por % de acerto, cruza com o peso que a pessoa já dá pra
 // cada matéria (o mesmo peso usado no ritmo sugerido e na ordenação de
 // matérias).
+// --- NOTA ESTIMADA / SIMULAÇÃO DE APROVAÇÃO ---
+// Junta o peso de cada matéria (o mesmo campo usado na Matriz de
+// Prioridade) com o % de acerto dela (a mesma base do Radar de
+// Competências) numa média ponderada — a resposta prática de "se a prova
+// fosse hoje, eu passaria?", comparada com a nota de corte cadastrada na
+// prova. Só entram na conta matérias com amostra mínima de questões, pra
+// não deixar uma matéria mal-testada distorcer a estimativa.
+function renderizarNotaEstimada() {
+  const card = document.getElementById("card-nota-estimada");
+  const vazio = document.getElementById("nota-estimada-vazio");
+  const corpo = document.getElementById("nota-estimada-corpo");
+  if (!card) return;
+
+  // Mesmo fallback do widget "Alvo e Meta": com filtro ativo usa a prova
+  // escolhida, sem filtro usa a meta mais recente cadastrada.
+  const filtroAtivo = obterMetaFiltroAtiva();
+  const metaAtiva =
+    (filtroAtivo && metas.find((m) => m.objetivoNome === filtroAtivo)) ||
+    metas[metas.length - 1];
+
+  if (!metaAtiva) {
+    card.style.display = "none";
+    return;
+  }
+
+  const materiasDaProva = materias.filter((m) =>
+    materiaVinculadaAMeta(m, metaAtiva.objetivoNome),
+  );
+
+  const AMOSTRA_MINIMA = 5;
+  const desempenho = calcularDesempenhoPorMateria(registrosQuestoes);
+
+  const pontosComDados = [];
+  const materiasSemDados = [];
+  materiasDaProva.forEach((m) => {
+    const d = desempenho.find((x) => x.materia === m.nome);
+    if (d && d.total >= AMOSTRA_MINIMA) {
+      pontosComDados.push({
+        materia: m.nome,
+        peso: m.peso || 1,
+        pct: d.pct,
+      });
+    } else {
+      materiasSemDados.push(m.nome);
+    }
+  });
+
+  card.style.display = "block";
+
+  if (pontosComDados.length === 0) {
+    if (vazio) vazio.style.display = "block";
+    if (corpo) corpo.style.display = "none";
+    return;
+  }
+  if (vazio) vazio.style.display = "none";
+  if (corpo) corpo.style.display = "block";
+
+  const somaPeso = pontosComDados.reduce((s, p) => s + p.peso, 0);
+  const somaPesoPct = pontosComDados.reduce((s, p) => s + p.peso * p.pct, 0);
+  const notaEstimada = somaPeso > 0 ? somaPesoPct / somaPeso : 0;
+  const notaCorte = metaAtiva.notaCorte;
+  const aprovado = notaCorte != null ? notaEstimada >= notaCorte : null;
+  const corResultado =
+    aprovado === null
+      ? "var(--text-main)"
+      : aprovado
+        ? "var(--success)"
+        : "var(--danger)";
+
+  const elValor = document.getElementById("nota-estimada-valor");
+  if (elValor) {
+    elValor.innerText = `${notaEstimada.toFixed(1).replace(".", ",")}%`;
+    elValor.style.color = corResultado;
+  }
+
+  const elCorteValor = document.getElementById("nota-estimada-corte-valor");
+  if (elCorteValor) {
+    elCorteValor.innerText =
+      notaCorte != null ? `${notaCorte}%` : "Não definida";
+  }
+
+  const elSituacao = document.getElementById("nota-estimada-situacao");
+  if (elSituacao) {
+    elSituacao.innerText =
+      aprovado === null ? "—" : aprovado ? "✅ Passaria" : "❌ Não passaria";
+    elSituacao.style.color = corResultado;
+  }
+
+  // Barra de progresso: preenchimento = nota estimada; marcador vertical =
+  // nota de corte (só aparece se ela estiver cadastrada), pra comparação
+  // visual direta dos dois números.
+  const barra = document.getElementById("nota-estimada-barra");
+  if (barra) {
+    barra.style.width = `${Math.min(100, Math.max(0, notaEstimada))}%`;
+    barra.style.background = corResultado;
+  }
+  const marcadorCorte = document.getElementById(
+    "nota-estimada-barra-corte-marcador",
+  );
+  if (marcadorCorte) {
+    if (notaCorte != null) {
+      marcadorCorte.style.display = "block";
+      marcadorCorte.style.left = `${Math.min(100, Math.max(0, notaCorte))}%`;
+    } else {
+      marcadorCorte.style.display = "none";
+    }
+  }
+
+  // Cobertura: deixa explícito que a nota é uma estimativa PARCIAL — só
+  // cobre o que já tem amostra suficiente, não o edital inteiro.
+  const elCobertura = document.getElementById("nota-estimada-cobertura");
+  if (elCobertura) {
+    const totalMaterias = materiasDaProva.length;
+    elCobertura.innerHTML =
+      materiasSemDados.length > 0
+        ? `📊 Baseado em <strong>${pontosComDados.length} de ${totalMaterias}</strong> matérias com questões suficientes (mínimo 5). Ainda sem dados: ${materiasSemDados.map((n) => escapeHtml(n)).join(", ")}.`
+        : `📊 Baseado em todas as <strong>${totalMaterias}</strong> matérias vinculadas a essa prova.`;
+  }
+
+  // Tabela de contribuição, da matéria que mais pesa na média pra baixo —
+  // explica "por que" a nota deu esse número.
+  const tabela = document.getElementById("nota-estimada-tabela");
+  if (tabela) {
+    const linhasOrdenadas = [...pontosComDados].sort(
+      (a, b) => b.peso * b.pct - a.peso * a.pct,
+    );
+    tabela.innerHTML = linhasOrdenadas
+      .map((p) => {
+        const corPct =
+          p.pct >= 70
+            ? "var(--success)"
+            : p.pct >= 50
+              ? "var(--warning)"
+              : "var(--danger)";
+        return `
+        <div class="nota-estimada-tabela-linha">
+          <span class="nota-estimada-tabela-materia">${escapeHtml(p.materia)}</span>
+          <span class="nota-estimada-tabela-peso" title="Peso ${p.peso}">${"★".repeat(p.peso)}</span>
+          <span class="nota-estimada-tabela-pct" style="color: ${corPct}">${p.pct}%</span>
+        </div>`;
+      })
+      .join("");
+  }
+}
+
 function renderizarMatrizPrioridade() {
   const card = document.getElementById("card-matriz-prioridade");
   const canvas = document.getElementById("chartMatrizPrioridade");
@@ -7894,15 +8105,10 @@ function abrirModalEditarMateria(indice) {
     m.peso || 1,
   );
 
-  const selectMeta = document.getElementById("edit-mat-vinc-meta");
-  selectMeta.innerHTML = '<option value="">Matéria Isolada</option>';
-  metas.forEach((meta) => {
-    const opt = document.createElement("option");
-    opt.value = meta.objetivoNome;
-    opt.textContent = meta.objetivoNome;
-    selectMeta.appendChild(opt);
-  });
-  selectMeta.value = m.metaVinculada || "";
+  renderizarChecklistVinculoMetas(
+    "edit-mat-vinc-meta-lista",
+    m.metasVinculadas || [],
+  );
 
   renderizarTopicosEdicao();
 
@@ -8140,7 +8346,7 @@ async function salvarEdicaoMateria() {
   const novaCor = document.getElementById("edit-mat-cor").value;
   const novoPeso =
     parseInt(document.getElementById("edit-mat-peso").value, 10) || 1;
-  const novaMeta = document.getElementById("edit-mat-vinc-meta").value;
+  const novasMetas = lerChecklistVinculoMetas("edit-mat-vinc-meta-lista");
 
   // Se o nome mudou, migra o histórico existente (tempo acumulado e
   // sessões já registradas) pro nome novo — senão o histórico "perderia o
@@ -8161,7 +8367,7 @@ async function salvarEdicaoMateria() {
   materias[indice] = {
     ...m,
     nome: novoNome,
-    metaVinculada: novaMeta,
+    metasVinculadas: novasMetas,
     cor: novaCor,
     peso: novoPeso,
   };
@@ -8210,6 +8416,8 @@ function adicionarNovaMeta(e) {
     document.getElementById("meta-inscricao-inicio").value || null;
   const inscricaoFim =
     document.getElementById("meta-inscricao-fim").value || null;
+  const notaCorteValor = document.getElementById("meta-nota-corte").value;
+  const notaCorte = notaCorteValor !== "" ? parseFloat(notaCorteValor) : null;
 
   // Se esses dados vieram do Analisador de Edital (IA) e ainda não foram
   // consumidos, anexa a lista de cargos extraída à prova sendo cadastrada
@@ -8225,6 +8433,7 @@ function adicionarNovaMeta(e) {
     valorInscricao,
     inscricaoInicio,
     inscricaoFim,
+    notaCorte,
     cargos,
   });
   localStorage.setItem("metas", JSON.stringify(metas));
@@ -8342,54 +8551,122 @@ function verificarAlarmesInscricao() {
 
 function atualizarDropdowns() {
   const selectPomo = document.getElementById("pomo-materia");
-  const selectVincMeta = document.getElementById("mat-vinc-meta");
-  if (selectPomo && selectVincMeta) {
+  if (selectPomo) {
     // Guarda a seleção atual antes de reconstruir as opções — sem isso, a
     // matéria da sessão em andamento voltava para "Estudo Geral" toda vez
     // que o painel era re-renderizado (ex: ao completar uma sessão).
     const valorAtualPomo = selectPomo.value;
-    const valorAtualVincMeta = selectVincMeta.value;
-
     selectPomo.innerHTML = '<option value="">Estudo Geral</option>';
-    selectVincMeta.innerHTML = '<option value="">Matéria Isolada</option>';
     obterMateriasOrdenadasPorPeso().forEach((m) => {
       selectPomo.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
     });
-    metas.forEach((m) => {
-      selectVincMeta.innerHTML += `<option value="${m.objetivoNome}">${m.objetivoNome}</option>`;
-    });
-
-    // Restaura a seleção anterior, se a opção ainda existir
     if ([...selectPomo.options].some((o) => o.value === valorAtualPomo)) {
       selectPomo.value = valorAtualPomo;
     }
-    if (
-      [...selectVincMeta.options].some((o) => o.value === valorAtualVincMeta)
-    ) {
-      selectVincMeta.value = valorAtualVincMeta;
-    }
   }
+
+  // Checklist de "Vincular a Provas" do formulário de cadastro — guarda o
+  // que já estava marcado antes de reconstruir, mesma ideia do select acima.
+  const listaCadastro = document.getElementById("mat-vinc-meta-lista");
+  if (listaCadastro) {
+    const marcadosAntes = lerChecklistVinculoMetas("mat-vinc-meta-lista");
+    renderizarChecklistVinculoMetas("mat-vinc-meta-lista", marcadosAntes);
+  }
+}
+
+// --- CHECKLIST DE VÍNCULO COM METAS (matéria transversal a várias provas) ---
+// Substitui o antigo <select> único por uma lista de checkboxes: uma
+// matéria pode cair em mais de uma prova (ex: Português cobrado tanto pelo
+// concurso X quanto pelo Y), então o vínculo precisa aceitar zero, uma ou
+// várias metas marcadas ao mesmo tempo.
+function renderizarChecklistVinculoMetas(containerId, marcados) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (metas.length === 0) {
+    container.innerHTML =
+      '<span class="campo-ajuda" style="margin: 0">Nenhuma prova cadastrada ainda — cadastre uma em "Provas & Metas" pra poder vincular.</span>';
+    return;
+  }
+
+  const marcadosSet = new Set(marcados || []);
+  container.innerHTML = metas
+    .map((meta) => {
+      const idSeguro = `${containerId}-${meta.objetivoNome}`.replace(
+        /[^a-zA-Z0-9_-]/g,
+        "_",
+      );
+      const checked = marcadosSet.has(meta.objetivoNome) ? "checked" : "";
+      return `
+        <label class="materia-vinculo-opcao" for="${idSeguro}">
+          <input
+            type="checkbox"
+            id="${idSeguro}"
+            value="${escapeHtml(meta.objetivoNome)}"
+            ${checked}
+          />
+          🎯 ${escapeHtml(meta.objetivoNome)}
+        </label>
+      `;
+    })
+    .join("");
+}
+
+function lerChecklistVinculoMetas(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return [];
+  return Array.from(
+    container.querySelectorAll('input[type="checkbox"]:checked'),
+  ).map((cb) => cb.value);
 }
 
 // --- PROVA/EXAME EM FOCO (filtro de estatísticas por meta) ---
 // Cada "meta" já representa uma prova/exame (objetivoNome + data + qtd. de
 // tópicos do edital), e cada matéria pode estar vinculada a uma delas
-// (m.metaVinculada). Esse filtro só decide QUAL prova está "em foco" pra
+// (m.metasVinculadas). Esse filtro só decide QUAL prova está "em foco" pra
 // fins de exibição — ele não separa os dados em áreas diferentes do
 // localStorage, então nada é duplicado nem perdido ao trocar de prova.
 function obterMetaFiltroAtiva() {
   return localStorage.getItem("metaFiltroAtivo") || "";
 }
 
+// Uma matéria pode estar vinculada a mais de uma prova (conteúdos
+// transversais, cobrados por bancas/concursos diferentes) — daí
+// m.metasVinculadas ser um array, não mais um nome só.
+// Migra matérias salvas no formato antigo (m.metaVinculada = string única)
+// pro novo formato (m.metasVinculadas = array) — necessário pra permitir
+// vincular uma matéria a mais de uma prova (conteúdo transversal cobrado
+// por bancas/concursos diferentes) sem perder o vínculo já cadastrado
+// antes dessa mudança. Roda toda vez que `materias` é carregado do
+// localStorage (é idempotente: matérias já migradas não são afetadas).
+function migrarMateriasParaMultiMeta(lista) {
+  (lista || []).forEach((m) => {
+    if (!Array.isArray(m.metasVinculadas)) {
+      m.metasVinculadas = m.metaVinculada ? [m.metaVinculada] : [];
+    }
+    delete m.metaVinculada;
+  });
+}
+
+function materiaVinculadaAMeta(m, nomeMeta) {
+  return (m.metasVinculadas || []).includes(nomeMeta);
+}
+
 // "" (Todas as Provas) sempre retorna a lista completa de matérias.
 function obterMateriasDoFiltroAtivo() {
   const filtro = obterMetaFiltroAtiva();
   if (!filtro) return materias;
-  return materias.filter((m) => (m.metaVinculada || "") === filtro);
+  return materias.filter((m) => materiaVinculadaAMeta(m, filtro));
 }
 
 // Chips de seleção (Todas as Provas + uma por meta cadastrada). Só aparece
 // quando existe pelo menos uma meta — sem metas, não tem o que alternar.
+// Cards de seleção (Todas as Provas + uma por meta cadastrada). Cada card
+// de prova mostra dias restantes e o % do edital concluído (tópicos das
+// matérias vinculadas a ela) — dá pra bater o olho e ver quais provas
+// estão mais urgentes/adiantadas sem precisar entrar em "Provas & Metas".
+// Só aparece quando existe pelo menos uma meta — sem metas, não tem o que
+// alternar.
 function renderizarSeletorProvas() {
   const container = document.getElementById("seletor-provas-container");
   const lista = document.getElementById("seletor-provas-lista");
@@ -8402,15 +8679,81 @@ function renderizarSeletorProvas() {
   container.style.display = "flex";
 
   const filtro = obterMetaFiltroAtiva();
-  let html = `<button type="button" class="prova-pill${filtro === "" ? " prova-pill-ativa" : ""}" onclick="selecionarProvaAtiva('')">📚 Todas as Provas</button>`;
+  const hoje = new Date();
 
-  metas.forEach((meta) => {
-    const nomeEscapadoJs = String(meta.objetivoNome).replace(/'/g, "\\'");
-    const ativa = filtro === meta.objetivoNome;
-    html += `<button type="button" class="prova-pill${ativa ? " prova-pill-ativa" : ""}" onclick="selecionarProvaAtiva('${nomeEscapadoJs}')">🎯 ${escapeHtml(meta.objetivoNome)}</button>`;
-  });
+  const cardTodas = `
+    <button
+      type="button"
+      class="prova-card${filtro === "" ? " prova-card-ativa" : ""}"
+      onclick="selecionarProvaAtiva('')"
+    >
+      <span class="prova-card-icone">📚</span>
+      <span class="prova-card-corpo">
+        <span class="prova-card-nome">Todas as Provas</span>
+        <span class="prova-card-sub">${materias.length} matéria(s) no total</span>
+      </span>
+    </button>
+  `;
 
-  lista.innerHTML = html;
+  const cardsProvas = metas
+    .map((meta) => {
+      const nomeEscapadoJs = String(meta.objetivoNome).replace(/'/g, "\\'");
+      const ativa = filtro === meta.objetivoNome;
+
+      const diasRestantes = meta.dataLimite
+        ? Math.ceil((new Date(meta.dataLimite + "T23:59:59") - hoje) / 86400000)
+        : null;
+      let sub;
+      if (diasRestantes === null) {
+        sub = "sem data definida";
+      } else if (diasRestantes < 0) {
+        sub = "prova já passou";
+      } else if (diasRestantes === 0) {
+        sub = "é hoje!";
+      } else {
+        sub = `${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} restante${diasRestantes === 1 ? "" : "s"}`;
+      }
+
+      const materiasDaMeta = materias.filter((m) =>
+        materiaVinculadaAMeta(m, meta.objetivoNome),
+      );
+      let topicosConcluidos = 0;
+      let topicosTotais = 0;
+      materiasDaMeta.forEach((m) => {
+        const topicos = m.topicos || [];
+        topicosTotais += topicos.length;
+        topicosConcluidos += topicos.filter((t) => t.concluido).length;
+      });
+      const pctEdital =
+        topicosTotais > 0
+          ? Math.round((topicosConcluidos / topicosTotais) * 100)
+          : null;
+
+      const urgente =
+        diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 14;
+
+      return `
+        <button
+          type="button"
+          class="prova-card${ativa ? " prova-card-ativa" : ""}${urgente ? " prova-card-urgente" : ""}"
+          onclick="selecionarProvaAtiva('${nomeEscapadoJs}')"
+        >
+          <span class="prova-card-icone">${urgente ? "⏰" : "🎯"}</span>
+          <span class="prova-card-corpo">
+            <span class="prova-card-nome">${escapeHtml(meta.objetivoNome)}</span>
+            <span class="prova-card-sub">${sub} · ${materiasDaMeta.length} matéria(s)</span>
+            ${
+              pctEdital !== null
+                ? `<span class="prova-card-barra"><span style="width:${pctEdital}%"></span></span><span class="prova-card-pct">${pctEdital}% do edital</span>`
+                : ""
+            }
+          </span>
+        </button>
+      `;
+    })
+    .join("");
+
+  lista.innerHTML = cardTodas + cardsProvas;
 }
 
 // Troca a prova em foco e redesenha tudo que depende dela (gráfico, lista
@@ -8443,13 +8786,17 @@ async function excluirMeta(indice) {
   if (!meta) return;
 
   const confirmado = await mostrarConfirmacao(
-    `Excluir a prova "${meta.objetivoNome}"? As matérias vinculadas a ela passam a ficar como "Matéria Isolada" — o histórico de tempo estudado nelas é mantido.`,
+    `Excluir a prova "${meta.objetivoNome}"? O vínculo com ela é removido das matérias (matérias vinculadas só a essa prova passam a "Matéria Isolada"; se estiverem vinculadas a outra(s) prova(s) também, esse outro vínculo é mantido) — o histórico de tempo estudado é mantido.`,
     { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
   );
   if (!confirmado) return;
 
   materias.forEach((m) => {
-    if (m.metaVinculada === meta.objetivoNome) m.metaVinculada = "";
+    if (materiaVinculadaAMeta(m, meta.objetivoNome)) {
+      m.metasVinculadas = m.metasVinculadas.filter(
+        (nm) => nm !== meta.objetivoNome,
+      );
+    }
   });
   localStorage.setItem("materias", JSON.stringify(materias));
 
@@ -8483,9 +8830,10 @@ function abrirModalEditarProva(indice) {
     meta.inscricaoInicio || "";
   document.getElementById("edit-prova-inscricao-fim").value =
     meta.inscricaoFim || "";
+  document.getElementById("edit-prova-nota-corte").value = meta.notaCorte ?? "";
 
-  const qtdVinculadas = materias.filter(
-    (m) => m.metaVinculada === meta.objetivoNome,
+  const qtdVinculadas = materias.filter((m) =>
+    materiaVinculadaAMeta(m, meta.objetivoNome),
   ).length;
   const avisoVinculo = document.getElementById("edit-prova-aviso-vinculo");
   if (avisoVinculo) {
@@ -8568,6 +8916,8 @@ async function salvarEdicaoProva() {
     document.getElementById("edit-prova-inscricao-inicio").value || null;
   meta.inscricaoFim =
     document.getElementById("edit-prova-inscricao-fim").value || null;
+  const notaCorteValor = document.getElementById("edit-prova-nota-corte").value;
+  meta.notaCorte = notaCorteValor !== "" ? parseFloat(notaCorteValor) : null;
 
   localStorage.setItem("metas", JSON.stringify(metas));
 
@@ -8576,8 +8926,9 @@ async function salvarEdicaoProva() {
   if (novoNome !== nomeAntigo) {
     let algoMudou = false;
     materias.forEach((m) => {
-      if (m.metaVinculada === nomeAntigo) {
-        m.metaVinculada = novoNome;
+      const idx = (m.metasVinculadas || []).indexOf(nomeAntigo);
+      if (idx !== -1) {
+        m.metasVinculadas[idx] = novoNome;
         algoMudou = true;
       }
     });
@@ -8611,8 +8962,8 @@ function calcularEstatisticasPorProva() {
   const hoje = new Date();
 
   return metas.map((meta) => {
-    const materiasDaMeta = materias.filter(
-      (m) => (m.metaVinculada || "") === meta.objetivoNome,
+    const materiasDaMeta = materias.filter((m) =>
+      materiaVinculadaAMeta(m, meta.objetivoNome),
     );
     const nomesDaMeta = new Set(materiasDaMeta.map((m) => m.nome));
 
@@ -9123,11 +9474,26 @@ function renderizarComparativoProvasCadastro() {
 // dela; com "Todas as Provas", mostra de todas.
 function calcularRitmoSugerido() {
   const hoje = new Date();
+  const filtroAtivo = obterMetaFiltroAtiva();
 
   return obterMateriasDoFiltroAtivo()
-    .filter((m) => m.metaVinculada && (m.topicos || []).length > 0)
+    .filter(
+      (m) =>
+        (m.metasVinculadas || []).length > 0 && (m.topicos || []).length > 0,
+    )
     .map((m) => {
-      const meta = metas.find((mt) => mt.objetivoNome === m.metaVinculada);
+      // Matéria transversal (vinculada a mais de uma prova): com uma
+      // prova específica em foco, usa o prazo dela; sem filtro, usa a
+      // prova mais próxima entre as vinculadas — é o prazo mais urgente
+      // pra decidir o ritmo dessa matéria.
+      const metasDaMateria = m.metasVinculadas
+        .map((nomeMeta) => metas.find((mt) => mt.objetivoNome === nomeMeta))
+        .filter(Boolean);
+      const meta = filtroAtivo
+        ? metasDaMateria.find((mt) => mt.objetivoNome === filtroAtivo)
+        : metasDaMateria.sort(
+            (a, b) => new Date(a.dataLimite) - new Date(b.dataLimite),
+          )[0];
       if (!meta) return null;
 
       const prazo = new Date(meta.dataLimite + "T23:59:59");
@@ -9369,8 +9735,8 @@ function obterProvasEmRetaFinal(limiteDias = LIMITE_DIAS_RETA_FINAL) {
 }
 
 function calcularChecklistRetaFinal(meta) {
-  const materiasAlvo = materias.filter(
-    (m) => m.metaVinculada === meta.objetivoNome,
+  const materiasAlvo = materias.filter((m) =>
+    materiaVinculadaAMeta(m, meta.objetivoNome),
   );
   const hojeStr = obterDataLocalString(new Date());
   const itens = [];
@@ -10739,8 +11105,8 @@ function renderizarMetasEGraficos() {
           : `até ${fimFormatado}`;
       }
 
-      const qtdMateriasVinculadas = materias.filter(
-        (m) => m.metaVinculada === meta.objetivoNome,
+      const qtdMateriasVinculadas = materias.filter((m) =>
+        materiaVinculadaAMeta(m, meta.objetivoNome),
       ).length;
 
       const status = calcularStatusInscricao(meta);
@@ -10756,6 +11122,7 @@ function renderizarMetasEGraficos() {
         <div class="prova-card-linha"><span>📝 Inscrições</span><strong>${periodoInscricao}</strong></div>
         <div class="prova-card-linha"><span>📚 Tópicos do edital</span><strong>${meta.qtdMaterias}</strong></div>
         <div class="prova-card-linha"><span>🔗 Matérias vinculadas</span><strong>${qtdMateriasVinculadas}</strong></div>
+        ${meta.notaCorte != null ? `<div class="prova-card-linha"><span>✅ Nota de corte</span><strong>${meta.notaCorte}%</strong></div>` : ""}
         ${status ? `<span class="status-badge ${status.classe} prova-card-status">${status.texto}</span>` : ""}
         <label class="prova-card-aprovacao">
           <input
@@ -11348,6 +11715,7 @@ function renderizarTodoOPainel() {
   renderizarRitmoSugerido();
   renderizarEvolucaoTemporal();
   renderizarMatrizPrioridade();
+  renderizarNotaEstimada();
   renderizarComparativoAvulsasSimulados();
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
@@ -12261,8 +12629,8 @@ function calcularPrevisoesConclusao() {
 
   return metas
     .map((meta) => {
-      const materiasDaMeta = materias.filter(
-        (m) => m.metaVinculada === meta.objetivoNome,
+      const materiasDaMeta = materias.filter((m) =>
+        materiaVinculadaAMeta(m, meta.objetivoNome),
       );
       const todosTopicos = materiasDaMeta.flatMap((m) => m.topicos || []);
 
@@ -13981,6 +14349,7 @@ function importarDados(event) {
 function recarregarEstadoDoLocalStorage() {
   historicoEstudos = JSON.parse(localStorage.getItem("historicoEstudos")) || {};
   materias = JSON.parse(localStorage.getItem("materias")) || [];
+  migrarMateriasParaMultiMeta(materias);
   metas = JSON.parse(localStorage.getItem("metas")) || [];
   anotacoesFlashcards =
     JSON.parse(localStorage.getItem("anotacoesFlashcards")) || [];
