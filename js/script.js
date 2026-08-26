@@ -8821,18 +8821,385 @@ function selecionarProvaAtiva(nomeObjetivo) {
 }
 
 // Marca/desmarca a prova como aprovado — usado pelo checkbox "Aprovado"
-// no card de "Provas Cadastradas". As conquistas de aprovação (ver
-// CONQUISTAS mais abaixo) contam quantas provas estão marcadas assim.
-function alternarAprovacaoMeta(indice, aprovado) {
+// no card de "Provas Cadastradas". Em vez de marcar direto, abre uma
+// janela com um resumo do histórico de estudo pra essa prova (tempo
+// dedicado, questões, melhor matéria etc.) e um campo pra escrever uma
+// mensagem pessoal sobre a jornada — que fica salva e pode ser relida
+// depois, reabrindo essa mesma janela pelo card. As conquistas de
+// aprovação (ver CONQUISTAS mais abaixo) contam quantas provas estão
+// marcadas como aprovadas.
+// Calcula os números de estudo (tempo dedicado, questões e % de acerto)
+// pra uma prova — usado tanto ao abrir o modal de aprovação quanto no
+// comparativo de desempenho pós-prova, pra não duplicar a mesma conta em
+// dois lugares.
+function calcularResumoEstudoParaProva(meta) {
+  const materiasDaMeta = materias.filter((m) =>
+    materiaVinculadaAMeta(m, meta.objetivoNome),
+  );
+  const nomesDaMeta = new Set(materiasDaMeta.map((m) => m.nome));
+
+  const tempoMinutos = materiasDaMeta.reduce(
+    (soma, m) => soma + (tempoPorMateria[m.nome] || 0),
+    0,
+  );
+
+  const registrosDaMeta = registrosQuestoes.filter((r) =>
+    nomesDaMeta.has(r.materia),
+  );
+  const questoesTotal = registrosDaMeta.reduce((s, r) => s + r.total, 0);
+  const questoesAcertos = registrosDaMeta.reduce((s, r) => s + r.acertos, 0);
+  const percentualEstudo =
+    questoesTotal > 0
+      ? Math.round((questoesAcertos / questoesTotal) * 100)
+      : null;
+
+  return {
+    materiasDaMeta,
+    nomesDaMeta,
+    tempoMinutos,
+    registrosDaMeta,
+    questoesTotal,
+    percentualEstudo,
+  };
+}
+
+// Gera a mesma frase comparativa "desempenho na prova x preparação" usada
+// no modal de aprovação, mas em versão curta pra caber no topo do card —
+// assim a conquista fica visível de cara, sem precisar abrir o modal.
+// Retorna null quando não há dado suficiente (sem acertos/erros, ou sem
+// questões registradas na preparação pra comparar).
+function calcularFraseComparativoPosProva(meta) {
+  const acertos = meta.provaPosAcertos;
+  const erros = meta.provaPosErros;
+  if (acertos == null || erros == null) return null;
+
+  const total = acertos + erros;
+  if (total <= 0) return null;
+
+  const pctProva = Math.round((acertos / total) * 100);
+  const resumoEstudo = calcularResumoEstudoParaProva(meta);
+  if (resumoEstudo.percentualEstudo == null) {
+    return { texto: `🎯 ${pctProva}% de acerto na prova`, classe: "" };
+  }
+
+  const diff = pctProva - resumoEstudo.percentualEstudo;
+  if (diff > 0) {
+    return {
+      texto: `🔥 ${pctProva}% na prova — ${diff} pt(s) acima da sua média de estudo`,
+      classe: "prova-card-comparativo-positivo",
+    };
+  }
+  if (diff < 0) {
+    return {
+      texto: `📉 ${pctProva}% na prova — ${Math.abs(diff)} pt(s) abaixo da sua média de estudo`,
+      classe: "prova-card-comparativo-negativo",
+    };
+  }
+  return {
+    texto: `🎯 ${pctProva}% na prova — igual à sua média de estudo`,
+    classe: "",
+  };
+}
+
+function abrirModalAprovacaoMeta(indice) {
   const meta = metas[indice];
   if (!meta) return;
-  meta.aprovado = aprovado;
+
+  const modal = document.getElementById("modal-aprovacao-prova");
+  if (!modal) return;
+
+  document.getElementById("aprovacao-prova-indice").value = indice;
+
+  const resumoEstudo = calcularResumoEstudoParaProva(meta);
+  const { nomesDaMeta, materiasDaMeta, tempoMinutos, registrosDaMeta } =
+    resumoEstudo;
+
+  // Melhor matéria: prioriza quem já tem uma amostra minimamente confiável
+  // de questões; se nenhuma matéria bater esse mínimo, usa a de maior %
+  // mesmo assim (melhor um retrato aproximado do que nada).
+  const desempenhoPorMateria = calcularDesempenhoPorMateria(registrosDaMeta);
+  const AMOSTRA_MINIMA_APROVACAO = 3;
+  const candidatosConfiaveis = desempenhoPorMateria.filter(
+    (d) => d.total >= AMOSTRA_MINIMA_APROVACAO,
+  );
+  const melhorMateria =
+    candidatosConfiaveis.length > 0
+      ? candidatosConfiaveis[candidatosConfiaveis.length - 1]
+      : desempenhoPorMateria.length > 0
+        ? desempenhoPorMateria[desempenhoPorMateria.length - 1]
+        : null;
+
+  const sessoesDaMeta = logsSessoes.filter((log) =>
+    nomesDaMeta.has(log.materia),
+  );
+
+  const simuladosDaMeta = (registrosSimulados || []).filter(
+    (sim) => (sim.metaVinculada || "") === meta.objetivoNome,
+  );
+
+  let topicosConcluidos = 0;
+  let topicosTotais = 0;
+  materiasDaMeta.forEach((m) => {
+    const topicos = m.topicos || [];
+    topicosTotais += topicos.length;
+    topicosConcluidos += topicos.filter((t) => t.concluido).length;
+  });
+
+  document.getElementById("aprovacao-prova-titulo").textContent = meta.aprovado
+    ? `🎓 ${meta.objetivoNome}`
+    : `Confirmar aprovação — ${meta.objetivoNome}`;
+
+  const dataAprovacaoEl = document.getElementById("aprovacao-prova-data");
+  if (meta.aprovado && meta.dataAprovacao) {
+    dataAprovacaoEl.style.display = "block";
+    dataAprovacaoEl.textContent = `Aprovado em ${new Date(
+      meta.dataAprovacao + "T12:00:00",
+    ).toLocaleDateString("pt-BR")}`;
+  } else {
+    dataAprovacaoEl.style.display = "none";
+  }
+
+  document.getElementById("aprovacao-stat-tempo").textContent =
+    tempoMinutos > 0 ? formatarHorasMinutos(tempoMinutos) : "—";
+  document.getElementById("aprovacao-stat-questoes").textContent =
+    resumoEstudo.questoesTotal > 0
+      ? `${resumoEstudo.questoesTotal} (${resumoEstudo.percentualEstudo}% de acerto)`
+      : "Nenhuma registrada";
+  document.getElementById("aprovacao-stat-melhor-materia").textContent =
+    melhorMateria ? `${melhorMateria.materia} (${melhorMateria.pct}%)` : "—";
+  document.getElementById("aprovacao-stat-topicos").textContent =
+    topicosTotais > 0
+      ? `${topicosConcluidos} / ${topicosTotais} concluídos`
+      : "—";
+  document.getElementById("aprovacao-stat-sessoes").textContent =
+    sessoesDaMeta.length > 0 ? `${sessoesDaMeta.length} sessões` : "—";
+  document.getElementById("aprovacao-stat-simulados").textContent =
+    simuladosDaMeta.length > 0 ? `${simuladosDaMeta.length} realizado(s)` : "—";
+
+  document.getElementById("aprovacao-prova-mensagem").value =
+    meta.mensagemAprovacao || "";
+
+  document.getElementById("aprovacao-pos-acertos").value =
+    meta.provaPosAcertos ?? "";
+  document.getElementById("aprovacao-pos-erros").value =
+    meta.provaPosErros ?? "";
+  document.getElementById("aprovacao-pos-duracao").value =
+    meta.provaPosDuracao || "";
+  document.getElementById("aprovacao-pos-tema-redacao").value =
+    meta.provaPosTemaRedacao || "";
+  atualizarResumoPosProva();
+
+  // Se já existe algum dado de desempenho do dia da prova salvo, abre
+  // direto na visão de resultado (comparando com a preparação) em vez do
+  // formulário — a edição continua possível clicando no lápis, mesmo com
+  // a prova já concluída/aprovada.
+  const temDadosDesempenho =
+    meta.provaPosAcertos != null ||
+    meta.provaPosErros != null ||
+    !!meta.provaPosDuracao ||
+    !!meta.provaPosTemaRedacao;
+  if (temDadosDesempenho) {
+    mostrarResultadoPosProva(meta);
+  } else {
+    mostrarFormPosProva();
+  }
+
+  atualizarBotoesAprovacao(meta);
+
+  modal.style.display = "flex";
+}
+
+// Mostra/oculta os botões "Desmarcar aprovação" e o texto do botão
+// principal conforme o estado atual da meta — extraído em função própria
+// porque é chamado tanto ao abrir o modal quanto depois de salvar (pra
+// não fechar o modal e já refletir o novo estado "aprovado").
+function atualizarBotoesAprovacao(meta) {
+  const btnDesmarcar = document.getElementById("btn-desmarcar-aprovacao");
+  const btnConfirmar = document.getElementById("btn-confirmar-aprovacao");
+  if (meta.aprovado) {
+    btnDesmarcar.style.display = "block";
+    btnConfirmar.textContent = "💾 Salvar mensagem";
+  } else {
+    btnDesmarcar.style.display = "none";
+    btnConfirmar.textContent = "🎓 Confirmar Aprovação";
+  }
+}
+
+// Preenche e mostra o comparativo "desempenho na prova x desempenho na
+// preparação" — é isso que transforma o número bruto de acertos/erros em
+// algo com contexto real (X pontos acima/abaixo da média de estudo).
+function renderizarResultadoPosProva(meta) {
+  const resumoEstudo = calcularResumoEstudoParaProva(meta);
+
+  const acertos = meta.provaPosAcertos;
+  const erros = meta.provaPosErros;
+  const total = (acertos || 0) + (erros || 0);
+  const pctProva =
+    acertos != null && erros != null && total > 0
+      ? Math.round((acertos / total) * 100)
+      : null;
+
+  document.getElementById("aprovacao-resultado-pct").textContent =
+    pctProva != null ? `${pctProva}%` : "—";
+
+  const comparativoEl = document.getElementById(
+    "aprovacao-resultado-comparativo",
+  );
+  if (pctProva == null) {
+    comparativoEl.textContent =
+      "Preencha acertos e erros pra ver a comparação com sua preparação.";
+  } else if (resumoEstudo.percentualEstudo == null) {
+    comparativoEl.textContent =
+      "Você ainda não tem questões registradas na preparação pra comparar.";
+  } else {
+    const diff = pctProva - resumoEstudo.percentualEstudo;
+    if (diff > 0) {
+      comparativoEl.innerHTML = `🔥 <strong>${diff} ponto(s) acima</strong> da sua média nos estudos (${resumoEstudo.percentualEstudo}%)`;
+    } else if (diff < 0) {
+      comparativoEl.innerHTML = `📉 <strong>${Math.abs(diff)} ponto(s) abaixo</strong> da sua média nos estudos (${resumoEstudo.percentualEstudo}%)`;
+    } else {
+      comparativoEl.innerHTML = `🎯 Bateu exatamente sua média nos estudos (${resumoEstudo.percentualEstudo}%)`;
+    }
+  }
+
+  document.getElementById("aprovacao-resultado-duracao").textContent =
+    meta.provaPosDuracao || "—";
+  document.getElementById("aprovacao-resultado-tempo-estudo").textContent =
+    resumoEstudo.tempoMinutos > 0
+      ? formatarHorasMinutos(resumoEstudo.tempoMinutos)
+      : "—";
+
+  const redacaoEl = document.getElementById("aprovacao-resultado-redacao");
+  if (meta.provaPosTemaRedacao) {
+    redacaoEl.style.display = "block";
+    redacaoEl.textContent = `📝 Tema da redação: ${meta.provaPosTemaRedacao}`;
+  } else {
+    redacaoEl.style.display = "none";
+  }
+}
+
+function mostrarResultadoPosProva(meta) {
+  renderizarResultadoPosProva(meta);
+  document.getElementById("aprovacao-pos-prova-form").style.display = "none";
+  document.getElementById("aprovacao-pos-prova-resultado").style.display =
+    "block";
+  document.getElementById("btn-editar-desempenho-prova").style.display = "flex";
+}
+
+function mostrarFormPosProva() {
+  document.getElementById("aprovacao-pos-prova-form").style.display = "block";
+  document.getElementById("aprovacao-pos-prova-resultado").style.display =
+    "none";
+  document.getElementById("btn-editar-desempenho-prova").style.display = "none";
+}
+
+// Chamado pelo lápis ao lado do X: volta pro formulário pra corrigir os
+// números do dia da prova, mesmo que ela já esteja marcada como aprovada.
+function alternarParaEdicaoPosProva() {
+  mostrarFormPosProva();
+}
+
+function fecharModalAprovacaoMeta() {
+  const modal = document.getElementById("modal-aprovacao-prova");
+  if (modal) modal.style.display = "none";
+}
+
+// Calcula, em tempo real, o total de questões e o % de acerto a partir dos
+// campos de Acertos/Erros do dia da prova — só um resumo visual pra
+// conferência, o cálculo em si é refeito na hora de exibir também.
+function atualizarResumoPosProva() {
+  const resumo = document.getElementById("aprovacao-pos-resumo");
+  if (!resumo) return;
+
+  const acertos = Number(
+    document.getElementById("aprovacao-pos-acertos").value,
+  );
+  const erros = Number(document.getElementById("aprovacao-pos-erros").value);
+
+  if (!acertos && !erros) {
+    resumo.textContent = "";
+    return;
+  }
+
+  const total = (acertos || 0) + (erros || 0);
+  const pct = total > 0 ? Math.round(((acertos || 0) / total) * 100) : 0;
+  resumo.textContent = `Total: ${total} questão(ões) · ${pct}% de acerto`;
+}
+
+function fecharModalAprovacaoMetaSeClicouFora(event) {
+  if (event.target === event.currentTarget) fecharModalAprovacaoMeta();
+}
+
+// Confirma a aprovação (ou só atualiza a mensagem, se já estava aprovado)
+// e persiste tudo — a data de aprovação só é gravada na primeira vez, pra
+// não mudar toda vez que o usuário voltar aqui só pra reler/editar a
+// mensagem.
+function confirmarAprovacaoMeta() {
+  const indice = Number(
+    document.getElementById("aprovacao-prova-indice").value,
+  );
+  const meta = metas[indice];
+  if (!meta) return;
+
+  const mensagem = document
+    .getElementById("aprovacao-prova-mensagem")
+    .value.trim();
+  const jaEstavaAprovado = meta.aprovado;
+
+  meta.aprovado = true;
+  meta.mensagemAprovacao = mensagem;
+  if (!meta.dataAprovacao) {
+    meta.dataAprovacao = new Date().toISOString().slice(0, 10);
+  }
+
+  // Estatísticas do dia da prova — tudo opcional, guardado só se o
+  // candidato preencher (campo vazio vira "sem valor", não zero).
+  const acertosValor = document.getElementById("aprovacao-pos-acertos").value;
+  const errosValor = document.getElementById("aprovacao-pos-erros").value;
+  meta.provaPosAcertos = acertosValor !== "" ? Number(acertosValor) : null;
+  meta.provaPosErros = errosValor !== "" ? Number(errosValor) : null;
+  meta.provaPosDuracao = document
+    .getElementById("aprovacao-pos-duracao")
+    .value.trim();
+  meta.provaPosTemaRedacao = document
+    .getElementById("aprovacao-pos-tema-redacao")
+    .value.trim();
+
   localStorage.setItem("metas", JSON.stringify(metas));
 
-  if (aprovado) {
+  if (!jaEstavaAprovado) {
     mostrarToastGamificacao("🎓", "Aprovação Registrada!", meta.objetivoNome);
   }
 
+  // Atualiza a lista de provas por trás do modal (já reflete a borda
+  // dourada, o rótulo "Aprovado" e a frase comparativa no topo do card) e
+  // fecha o modal — dar esse fechamento como confirmação visual clara de
+  // que salvou é melhor do que deixar o modal aberto sem nenhuma mudança
+  // perceptível na tela.
+  renderizarTodoOPainel();
+  fecharModalAprovacaoMeta();
+}
+
+// Desmarca a aprovação — a mensagem escrita continua salva (só some da
+// vista, não é apagada), então dá pra marcar como aprovado de novo depois
+// sem perder o que já foi escrito.
+async function desmarcarAprovacaoMeta() {
+  const indice = Number(
+    document.getElementById("aprovacao-prova-indice").value,
+  );
+  const meta = metas[indice];
+  if (!meta) return;
+
+  const confirmado = await mostrarConfirmacao(
+    `Desmarcar a aprovação de "${meta.objetivoNome}"? A mensagem que você escreveu continua salva, e dá pra marcar como aprovado de novo depois.`,
+    { icone: "↩️", textoConfirmar: "Desmarcar", perigo: true },
+  );
+  if (!confirmado) return;
+
+  meta.aprovado = false;
+  localStorage.setItem("metas", JSON.stringify(metas));
+
+  fecharModalAprovacaoMeta();
   renderizarTodoOPainel();
 }
 
@@ -11168,11 +11535,16 @@ function renderizarMetasEGraficos() {
 
       const status = calcularStatusInscricao(meta);
 
+      const comparativoPosProva = meta.aprovado
+        ? calcularFraseComparativoPosProva(meta)
+        : null;
+
       return `<div class="prova-card${destacada ? " prova-card-ativa" : ""}${meta.aprovado ? " prova-card-aprovada" : ""}">
         <div class="prova-card-acoes">
           <button type="button" class="prova-card-editar" title="Editar esta prova" onclick="abrirModalEditarProva(${i})">✏️</button>
           <button type="button" class="prova-card-excluir" title="Excluir esta prova" onclick="excluirMeta(${i})">✕</button>
         </div>
+        ${comparativoPosProva ? `<div class="prova-card-comparativo ${comparativoPosProva.classe}">${comparativoPosProva.texto}</div>` : ""}
         <div class="prova-card-titulo">🎯 ${escapeHtml(meta.objetivoNome)}</div>
         <div class="prova-card-linha"><span>📅 Prova objetiva</span><strong>${dataFormatada}</strong></div>
         <div class="prova-card-linha"><span>💰 Remuneração</span><strong>${remuneracaoFormatada}</strong></div>
@@ -11185,9 +11557,9 @@ function renderizarMetasEGraficos() {
           <input
             type="checkbox"
             ${meta.aprovado ? "checked" : ""}
-            onchange="alternarAprovacaoMeta(${i}, this.checked)"
+            onclick="event.preventDefault(); abrirModalAprovacaoMeta(${i});"
           />
-          <span>${meta.aprovado ? "🎓 Aprovado!" : "Marcar como Aprovado"}</span>
+          <span>${meta.aprovado ? "🎓 Aprovado" : "Estudando"}</span>
         </label>
       </div>`;
     })

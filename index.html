@@ -5096,6 +5096,272 @@ Licitações e Contratos"
           </div>
         </div>
 
+        <!-- MODAL: APROVAÇÃO DA PROVA (estatísticas resumidas + mensagem
+             pessoal sobre a jornada de estudos, salva e reexibida sempre
+             que o usuário voltar a abrir esse card). -->
+        <div
+          id="modal-aprovacao-prova"
+          class="modal-distracao"
+          onclick="fecharModalAprovacaoMetaSeClicouFora(event)"
+        >
+          <div
+            class="modal-conteudo modal-detalhe-conteudo modal-aprovacao-conteudo"
+          >
+            <button
+              type="button"
+              class="tela-login-fechar"
+              onclick="fecharModalAprovacaoMeta()"
+              title="Fechar"
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              id="btn-editar-desempenho-prova"
+              class="btn-editar-desempenho-prova"
+              onclick="alternarParaEdicaoPosProva()"
+              title="Editar desempenho da prova"
+              style="display: none"
+            >
+              ✏️
+            </button>
+            <h2 id="aprovacao-prova-titulo" style="color: var(--accent-text)">
+              🎓 Confirmar aprovação
+            </h2>
+            <p
+              class="campo-ajuda"
+              id="aprovacao-prova-data"
+              style="display: none; margin-top: -6px"
+            ></p>
+
+            <div class="aprovacao-stats-grid">
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">⏱️</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Tempo dedicado</span>
+                  <span class="aprovacao-stat-valor" id="aprovacao-stat-tempo"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">📝</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Questões resolvidas</span>
+                  <span
+                    class="aprovacao-stat-valor"
+                    id="aprovacao-stat-questoes"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">🏆</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Melhor desempenho</span>
+                  <span
+                    class="aprovacao-stat-valor"
+                    id="aprovacao-stat-melhor-materia"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">📚</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Tópicos do edital</span>
+                  <span class="aprovacao-stat-valor" id="aprovacao-stat-topicos"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">📅</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Sessões de estudo</span>
+                  <span class="aprovacao-stat-valor" id="aprovacao-stat-sessoes"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <div class="aprovacao-stat-item">
+                <span class="aprovacao-stat-icone">🧪</span>
+                <div class="aprovacao-stat-corpo">
+                  <span class="aprovacao-stat-label">Simulados</span>
+                  <span
+                    class="aprovacao-stat-valor"
+                    id="aprovacao-stat-simulados"
+                    >—</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="aprovacao-secao-titulo">
+              📊 Desempenho no dia da prova (opcional)
+            </div>
+
+            <div id="aprovacao-pos-prova-form">
+              <div class="aprovacao-pos-prova-grid">
+                <div>
+                  <label for="aprovacao-pos-acertos">Acertos:</label>
+                  <input
+                    type="number"
+                    id="aprovacao-pos-acertos"
+                    min="0"
+                    placeholder="Ex: 84"
+                    oninput="atualizarResumoPosProva()"
+                  />
+                </div>
+                <div>
+                  <label for="aprovacao-pos-erros">Erros:</label>
+                  <input
+                    type="number"
+                    id="aprovacao-pos-erros"
+                    min="0"
+                    placeholder="Ex: 16"
+                    oninput="atualizarResumoPosProva()"
+                  />
+                </div>
+                <div>
+                  <label for="aprovacao-pos-duracao">Duração da prova:</label>
+                  <input
+                    type="text"
+                    id="aprovacao-pos-duracao"
+                    placeholder="Ex: 4h ou 4h30min"
+                  />
+                </div>
+                <div>
+                  <label for="aprovacao-pos-tema-redacao"
+                    >Tema da redação (se houve):</label
+                  >
+                  <input
+                    type="text"
+                    id="aprovacao-pos-tema-redacao"
+                    placeholder="Ex: Desafios da mobilidade urbana"
+                  />
+                </div>
+              </div>
+              <span
+                class="campo-ajuda"
+                id="aprovacao-pos-resumo"
+                style="margin-top: -6px; min-height: 1.1em"
+              ></span>
+            </div>
+
+            <!-- Visão automática pós-salvamento: transforma o desempenho
+                 bruto (acertos/erros) em algo comparável com a preparação
+                 (% médio nas questões estudadas), pra dar contexto real ao
+                 número em vez de só "84 acertos". Fica escondida até haver
+                 dado salvo, ou enquanto o formulário acima estiver aberto
+                 pra edição. -->
+            <div id="aprovacao-pos-prova-resultado" style="display: none">
+              <div class="aprovacao-resultado-destaque">
+                <span
+                  class="aprovacao-resultado-pct"
+                  id="aprovacao-resultado-pct"
+                  >—</span
+                >
+                <span class="aprovacao-resultado-pct-label"
+                  >de acerto na prova</span
+                >
+              </div>
+              <p
+                class="aprovacao-resultado-comparativo"
+                id="aprovacao-resultado-comparativo"
+              ></p>
+              <div class="aprovacao-resultado-extra-grid">
+                <div class="aprovacao-resultado-extra-item">
+                  <span class="aprovacao-resultado-extra-label"
+                    >Duração da prova</span
+                  >
+                  <span
+                    class="aprovacao-resultado-extra-valor"
+                    id="aprovacao-resultado-duracao"
+                    >—</span
+                  >
+                </div>
+                <div class="aprovacao-resultado-extra-item">
+                  <span class="aprovacao-resultado-extra-label"
+                    >Tempo dedicado ao estudo</span
+                  >
+                  <span
+                    class="aprovacao-resultado-extra-valor"
+                    id="aprovacao-resultado-tempo-estudo"
+                    >—</span
+                  >
+                </div>
+              </div>
+              <p
+                class="aprovacao-resultado-redacao"
+                id="aprovacao-resultado-redacao"
+                style="display: none"
+              ></p>
+            </div>
+
+            <label for="aprovacao-prova-mensagem" style="margin-top: 10px">
+              Uma mensagem sobre sua jornada até aqui (opcional):
+            </label>
+            <textarea
+              id="aprovacao-prova-mensagem"
+              rows="4"
+              maxlength="600"
+              placeholder="Ex: Foram meses difíceis, mas cada hora de estudo valeu a pena. Pra quem for reler isso no futuro: não desista nos dias ruins..."
+            ></textarea>
+            <span class="campo-ajuda" style="margin-top: -2px">
+              Essa mensagem fica guardada aqui e você pode reler sempre que
+              quiser, voltando a abrir esta janela pelo card da prova.
+            </span>
+
+            <input type="hidden" id="aprovacao-prova-indice" />
+
+            <div style="display: flex; gap: 10px; margin-top: 14px">
+              <button
+                type="button"
+                id="btn-desmarcar-aprovacao"
+                onclick="desmarcarAprovacaoMeta()"
+                style="
+                  display: none;
+                  background: transparent;
+                  color: var(--danger);
+                  border: 1px solid var(--danger);
+                  padding: 10px 12px;
+                  font-size: 0.82rem;
+                  white-space: nowrap;
+                  flex-shrink: 0;
+                "
+              >
+                Desmarcar
+              </button>
+              <button
+                type="button"
+                onclick="fecharModalAprovacaoMeta()"
+                style="
+                  flex: 1;
+                  background: #334155;
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                id="btn-confirmar-aprovacao"
+                onclick="confirmarAprovacaoMeta()"
+                style="
+                  flex: 1;
+                  background: var(--success);
+                  color: white;
+                  padding: 10px;
+                "
+              >
+                🎓 Confirmar Aprovação
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- MODAL: REGISTRAR SESSÃO DE ESTUDO (registro avulso, sem passar pelo pomodoro) -->
         <div
           id="modal-registrar-sessao"
