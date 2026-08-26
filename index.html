@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=56" />
+    <link rel="stylesheet" href="css/style.css?v=60" />
   </head>
   <body>
     <button
@@ -808,6 +808,78 @@
       </div>
     </div>
 
+    <!-- MODAL: CONFIGURAR PROVA POR QUESTÃO -->
+    <div id="modal-iniciar-prova-por-questao" class="modal-distracao">
+      <div class="modal-conteudo">
+        <h2 style="margin-top: 0">⏱️ Prova por Questão</h2>
+        <p class="campo-ajuda" style="margin-top: -4px">
+          Cronometra cada questão individualmente: aperte
+          <strong>Espaço</strong> (ou o botão na tela) sempre que terminar uma
+          questão — o tempo dela é registrado e o cronômetro reinicia pra
+          próxima. No final você vê o tempo total, a média por questão e qual
+          foi a mais demorada.
+        </p>
+        <form onsubmit="iniciarProvaPorQuestao(event)">
+          <label for="ppq-nome">Nome do simulado:</label>
+          <input
+            type="text"
+            id="ppq-nome"
+            maxlength="80"
+            placeholder="Ex: Simulado SEDES 2026 - 2ª aplicação"
+            required
+          />
+
+          <label for="ppq-meta">Vincular a uma prova (opcional):</label>
+          <select id="ppq-meta">
+            <option value="">Sem prova vinculada</option>
+          </select>
+
+          <label for="ppq-total-esperado"
+            >Total de questões da prova (opcional):</label
+          >
+          <input
+            type="number"
+            id="ppq-total-esperado"
+            min="1"
+            placeholder="Ex: 120 — só pra acompanhar seu progresso na tela"
+          />
+
+          <div style="display: flex; gap: 10px; margin-top: 14px">
+            <button
+              type="submit"
+              style="
+                flex: 1;
+                padding: 10px;
+                background: var(--primary);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+              "
+            >
+              ▶️ Começar Prova
+            </button>
+            <button
+              type="button"
+              onclick="fecharModalProvaPorQuestao()"
+              style="
+                flex: 0 0 auto;
+                padding: 10px 16px;
+                background: var(--surface-inset);
+                color: var(--text-main);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                cursor: pointer;
+              "
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- TELA CHEIA: SIMULADO CRONOMETRADO EM ANDAMENTO -->
     <div id="tela-simulado-cronometro" class="tela-simulado-cronometro">
       <div class="simulado-cron-conteudo">
@@ -829,6 +901,128 @@
             onclick="cancelarSimuladoCronometrado()"
           >
             ✕ Cancelar Simulado
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TELA CHEIA: PROVA POR QUESTÃO EM ANDAMENTO -->
+    <div id="tela-prova-por-questao" class="tela-simulado-cronometro">
+      <div class="simulado-cron-conteudo">
+        <span class="simulado-cron-selo"
+          >⏱️ Prova por Questão em andamento</span
+        >
+        <h2 id="ppq-nome-exibido">Simulado</h2>
+        <div class="ppq-questao-numero" id="ppq-questao-numero">Questão 1</div>
+        <div class="simulado-cron-tempo" id="ppq-tempo">00:00</div>
+        <p class="simulado-cron-sub" id="ppq-sub">tempo nesta questão</p>
+
+        <button
+          type="button"
+          class="ppq-btn-marcar"
+          onclick="marcarQuestaoProvaPorQuestao()"
+        >
+          ␣ Marcar Questão (Espaço)
+        </button>
+
+        <div class="ppq-lista-tempos" id="ppq-lista-tempos"></div>
+
+        <div class="simulado-cron-botoes" style="margin-top: 18px">
+          <button
+            type="button"
+            class="simulado-cron-btn-finalizar"
+            onclick="finalizarProvaPorQuestao()"
+          >
+            ✅ Finalizar Prova
+          </button>
+          <button
+            type="button"
+            class="simulado-cron-btn-cancelar"
+            onclick="cancelarProvaPorQuestao()"
+          >
+            ✕ Cancelar Prova
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: RESULTADO DA PROVA POR QUESTÃO -->
+    <div id="modal-resultado-prova-por-questao" class="modal-distracao">
+      <div class="modal-conteudo">
+        <h2 style="margin-top: 0">📊 Resultado — Prova por Questão</h2>
+        <p class="campo-ajuda" style="margin-top: -4px" id="ppq-resultado-nome">
+          Simulado
+        </p>
+
+        <div class="ppq-resultado-stats">
+          <div class="ppq-resultado-stat">
+            <span class="ppq-resultado-stat-label">Tempo total</span>
+            <span
+              class="ppq-resultado-stat-valor"
+              id="ppq-resultado-tempo-total"
+              >00:00</span
+            >
+          </div>
+          <div class="ppq-resultado-stat">
+            <span class="ppq-resultado-stat-label">Questões</span>
+            <span class="ppq-resultado-stat-valor" id="ppq-resultado-qtd"
+              >0</span
+            >
+          </div>
+          <div class="ppq-resultado-stat">
+            <span class="ppq-resultado-stat-label">Média por questão</span>
+            <span class="ppq-resultado-stat-valor" id="ppq-resultado-media"
+              >00:00</span
+            >
+          </div>
+          <div class="ppq-resultado-stat">
+            <span class="ppq-resultado-stat-label">Mais demorada</span>
+            <span class="ppq-resultado-stat-valor" id="ppq-resultado-maior"
+              >—</span
+            >
+          </div>
+        </div>
+
+        <label for="ppq-resultado-observacao" style="margin-top: 14px"
+          >Observação na questão mais demorada (opcional):</label
+        >
+        <textarea
+          id="ppq-resultado-observacao"
+          maxlength="300"
+          placeholder="Ex: Travei numa questão de raciocínio lógico, tive que refazer a conta duas vezes..."
+        ></textarea>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px">
+          <button
+            type="button"
+            onclick="salvarResultadoProvaPorQuestao()"
+            style="
+              flex: 1;
+              padding: 10px;
+              background: var(--primary);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 600;
+            "
+          >
+            💾 Salvar e Registrar Resultado
+          </button>
+          <button
+            type="button"
+            onclick="descartarResultadoProvaPorQuestao()"
+            style="
+              flex: 0 0 auto;
+              padding: 10px 16px;
+              background: var(--surface-inset);
+              color: var(--text-main);
+              border: 1px solid var(--border);
+              border-radius: 6px;
+              cursor: pointer;
+            "
+          >
+            Descartar
           </button>
         </div>
       </div>
@@ -1941,7 +2135,7 @@
               style="
                 margin-bottom: 12px;
                 display: grid;
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(5, 1fr);
                 gap: 8px;
               "
               class="secondary-element botoes-secundarios-pomodoro"
@@ -2028,6 +2222,27 @@
                 "
               >
                 🎓 Simulado Cronometrado
+              </button>
+              <button
+                type="button"
+                onclick="abrirModalProvaPorQuestao()"
+                title="Cronometra cada questão individualmente: aperte Espaço (ou o botão na tela) ao terminar cada uma. No final mostra tempo total, média por questão e qual foi a mais demorada"
+                style="
+                  background: #334155;
+                  color: white;
+                  padding: 6px 8px;
+                  font-size: 0.78rem;
+                  border-radius: 6px;
+                  border: none;
+                  cursor: pointer;
+                  width: 100%;
+                  box-sizing: border-box;
+                  white-space: normal;
+                  text-align: center;
+                  line-height: 1.25;
+                "
+              >
+                ⏱️ Prova por Questão
               </button>
             </div>
 
@@ -3293,17 +3508,35 @@
             id="card-questoes-evolucao"
             style="display: none"
           >
-            <h2>📝 Evolução de Questões</h2>
+            <h2>
+              📝 Evolução de Questões
+              <span
+                class="questoes-evolucao-badge-externas"
+                id="questoes-evolucao-badge-externas"
+                style="display: none"
+                title="Questões somadas de outras plataformas, à parte destas estatísticas"
+              ></span>
+            </h2>
             <p class="campo-ajuda">
               Total respondido e evolução de acertos/erros.
             </p>
-            <button
-              type="button"
-              class="btn-ver-detalhes"
-              onclick="abrirModalDetalheCard('modal-questoes-evolucao')"
-            >
-              Ver Detalhes
-            </button>
+            <div class="questoes-evolucao-card-acoes">
+              <button
+                type="button"
+                class="btn-ver-detalhes"
+                onclick="abrirModalDetalheCard('modal-questoes-evolucao')"
+              >
+                Ver Detalhes
+              </button>
+              <button
+                type="button"
+                class="btn-ver-detalhes"
+                onclick="abrirModalQuestoesFontesExternas()"
+                title="Unificar aqui as questões resolvidas em outras plataformas, sem misturar com essas estatísticas"
+              >
+                ➕ Outras Fontes
+              </button>
+            </div>
           </div>
 
           <div
@@ -3332,6 +3565,31 @@
               >
                 Total respondido e evolução de acertos/erros.
               </p>
+
+              <!-- Fica sempre visível — inclusive no "modo expandido" (onde
+                   o card-resumo com o botão "Outras Fontes" some e só este
+                   modal-detalhe-card fica na tela), pra sempre existir um
+                   jeito de abrir o registro de outras plataformas. Texto e
+                   botão mudam conforme já existe ou não algum lançamento
+                   (ver renderizarQuestoesFontesExternas em script.js). Esse
+                   total é só informativo: propositalmente NÃO entra nas
+                   stats/gráfico abaixo. -->
+              <div
+                class="questoes-evolucao-externas-aviso"
+                id="questoes-evolucao-externas-resumo"
+              >
+                <span id="questoes-evolucao-externas-texto">
+                  Nenhuma questão de outras plataformas registrada ainda.
+                </span>
+                <button
+                  type="button"
+                  class="btn-ver-detalhes"
+                  id="questoes-evolucao-externas-btn"
+                  onclick="abrirModalQuestoesFontesExternas()"
+                >
+                  ➕ Outras Fontes
+                </button>
+              </div>
 
               <div
                 class="analise-periodo-toggle"
@@ -3398,6 +3656,135 @@
               <div class="analise-barras-wrapper">
                 <canvas id="chartQuestoesEvolucao"></canvas>
               </div>
+            </div>
+          </div>
+
+          <!-- MODAL: OUTRAS FONTES DE QUESTÕES — registro manual e
+               isolado de questões resolvidas em outras plataformas
+               (QConcursos, TEC Concursos, apps de questões etc.), pra
+               unificar a quantidade num só lugar. Fica salvo na chave
+               própria "questoesFontesExternas", separada de
+               registrosQuestoes — por isso esses números NUNCA entram nos
+               cálculos de Evolução de Questões, metas, streaks ou
+               qualquer outra estatística já existente do app. É só um
+               mural informativo à parte. -->
+          <div
+            id="modal-questoes-fontes-externas"
+            class="modal-distracao"
+            onclick="fecharModalQuestoesFontesExternasSeClicouFora(event)"
+          >
+            <div class="modal-conteudo modal-fontes-externas-conteudo">
+              <button
+                type="button"
+                class="tela-login-fechar"
+                onclick="fecharModalQuestoesFontesExternas()"
+                title="Fechar"
+              >
+                ✕
+              </button>
+
+              <h2 style="margin-top: 0">➕ Outras Fontes de Questões</h2>
+              <p class="campo-ajuda" style="margin-top: -4px">
+                Resolveu questões em outra plataforma (QConcursos, TEC
+                Concursos, Gran Cursos, apps de questões etc.)? Registre aqui
+                pra unificar tudo num só lugar. Esses números ficam só aqui —
+                não entram no gráfico nem nas estatísticas de "Evolução de
+                Questões".
+              </p>
+
+              <form
+                id="form-fonte-externa"
+                onsubmit="salvarQuestaoFonteExterna(event)"
+              >
+                <label for="fonte-externa-nome">Plataforma / fonte:</label>
+                <input
+                  type="text"
+                  id="fonte-externa-nome"
+                  list="fonte-externa-sugestoes"
+                  placeholder="Ex: QConcursos, TEC Concursos..."
+                  required
+                />
+                <datalist id="fonte-externa-sugestoes">
+                  <option value="QConcursos"></option>
+                  <option value="TEC Concursos"></option>
+                  <option value="Gran Cursos"></option>
+                  <option value="Estratégia Concursos"></option>
+                  <option value="Aprova Concursos"></option>
+                </datalist>
+
+                <div class="flex-inputs">
+                  <div>
+                    <label for="fonte-externa-total">Questões:</label>
+                    <input
+                      type="number"
+                      id="fonte-externa-total"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label for="fonte-externa-acertos"
+                      >Acertos (opcional):</label
+                    >
+                    <input type="number" id="fonte-externa-acertos" min="0" />
+                  </div>
+                </div>
+
+                <label for="fonte-externa-data">Data:</label>
+                <input type="date" id="fonte-externa-data" />
+
+                <div class="fonte-externa-form-botoes">
+                  <button
+                    type="submit"
+                    id="fonte-externa-btn-salvar"
+                    style="
+                      width: 100%;
+                      padding: 10px;
+                      background: var(--primary);
+                      color: white;
+                      margin-top: 4px;
+                    "
+                  >
+                    ➕ Adicionar
+                  </button>
+                  <button
+                    type="button"
+                    id="fonte-externa-btn-cancelar"
+                    onclick="cancelarEdicaoFonteExterna()"
+                    style="display: none"
+                  >
+                    Cancelar edição
+                  </button>
+                </div>
+              </form>
+
+              <div class="fonte-externa-stats-row">
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Total Unificado</span>
+                  <span
+                    class="analise-stat-valor"
+                    id="fonte-externa-total-unificado"
+                    >0</span
+                  >
+                </div>
+                <div class="analise-stat-card">
+                  <span class="analise-stat-label">Aproveitamento</span>
+                  <span
+                    class="analise-stat-valor questoes-evolucao-stat-acerto"
+                    id="fonte-externa-pct-unificado"
+                  ></span>
+                </div>
+              </div>
+
+              <div
+                class="fonte-externa-breakdown"
+                id="fonte-externa-breakdown"
+              ></div>
+
+              <div
+                id="fonte-externa-lista"
+                class="questoes-lista-recente"
+              ></div>
             </div>
           </div>
 
@@ -6347,7 +6734,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=3"></script>
-    <script src="js/script.js?v=71"></script>
+    <script src="js/script.js?v=76"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

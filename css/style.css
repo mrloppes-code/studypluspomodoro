@@ -3579,20 +3579,21 @@ body.modo-isolamento-ativo .secondary-element {
 }
 
 /* Botões secundários do Pomodoro (Testar Alarme / Sessão Planejada / Sons
-   Ambiente / Simulado Cronometrado): sempre em grid de 4 colunas fixas
-   (definido inline no HTML), garantindo os 4 numa única linha em qualquer
-   largura. Em telas estreitas só reduzimos fonte/padding pra caber o texto
-   mais longo ("Simulado Cronometrado") sem quebrar o layout. */
+   Ambiente / Simulado Cronometrado / Prova por Questão): sempre em grid de
+   5 colunas fixas (definido inline no HTML), garantindo os 5 numa única
+   linha em qualquer largura. Em telas estreitas só reduzimos fonte/padding
+   pra caber o texto mais longo ("Simulado Cronometrado") sem quebrar o
+   layout. */
 @media (max-width: 640px) {
   .botoes-secundarios-pomodoro button {
-    padding: 5px 4px !important;
-    font-size: 0.66rem !important;
+    padding: 5px 3px !important;
+    font-size: 0.6rem !important;
   }
 }
 @media (max-width: 420px) {
   .botoes-secundarios-pomodoro button {
-    padding: 4px 3px !important;
-    font-size: 0.58rem !important;
+    padding: 4px 2px !important;
+    font-size: 0.54rem !important;
   }
 }
 
@@ -5762,17 +5763,20 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 
 /* Grade dos 3 gráficos do modal "Comparar Provas" (acessível pela aba
-   Cadastro) — ficam lado a lado, cada um ocupando só o espaço necessário,
-   em vez de empilhados ocupando a altura toda do modal. Colapsa pra 1
-   coluna sozinho em telas estreitas, sem precisar de media query manual. */
+   Cadastro) — cada gráfico ocupa a largura toda do modal, empilhados. Com
+   várias provas cadastradas, as barras e os rótulos (que ficam inclinados
+   no eixo X) precisam desse espaço horizontal todo pra não amontoar; em 3
+   colunas lado a lado cada gráfico ficava espremido demais pra caber mais
+   de 1-2 barras legíveis. */
 .comparativo-provas-graficos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
   margin: 18px 0 4px;
 }
 .comparativo-provas-grafico-bloco {
   min-width: 0;
+  width: 100%;
 }
 .comparativo-provas-grafico-bloco h3 {
   margin: 0 0 8px;
@@ -5782,12 +5786,13 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 }
 .comparativo-provas-grafico-bloco .chart-wrapper {
   max-width: 100%;
-  height: 220px;
+  width: 100%;
+  height: 260px;
   margin: 0 auto;
 }
 @media (max-width: 560px) {
   .comparativo-provas-grafico-bloco .chart-wrapper {
-    height: 200px;
+    height: 220px;
   }
 }
 
@@ -6215,6 +6220,85 @@ body.modo-isolamento-ativo .btn-novidades {
   .simulado-cron-botoes button {
     width: 100%;
   }
+}
+
+/* Prova por Questão: badge do número da questão atual, botão grande de
+   marcar, lista de tempos já registrados na tela cheia, e os cards de
+   estatística do modal de resultado no final. Reaproveita as classes
+   .tela-simulado-cronometro / .simulado-cron-* acima pro layout base. */
+.ppq-questao-numero {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+.ppq-btn-marcar {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 16px 28px;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.ppq-btn-marcar:hover {
+  background: var(--primary-hover);
+}
+.ppq-lista-tempos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 440px;
+  max-height: 90px;
+  overflow-y: auto;
+  margin-top: 18px;
+}
+.ppq-pill {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 50px;
+  font-variant-numeric: tabular-nums;
+}
+.ppq-pill-lenta {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.ppq-resultado-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px 0;
+}
+.ppq-resultado-stat {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ppq-resultado-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.ppq-resultado-stat-valor {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+.simulados-item-observacao {
+  font-style: italic;
 }
 
 /* Destaque temporário no card de Simulados quando a pessoa chega vinda do
@@ -7850,4 +7934,110 @@ body.modo-cards-expandido
 .flashcards-btn-exportar:hover {
   border-color: var(--primary);
   color: var(--accent-text);
+}
+
+/* ============================================================
+   OUTRAS FONTES DE QUESTÕES — botão/aviso no card "Evolução de
+   Questões" + modal de registro manual. Ver comentários no
+   script.js (registrosQuestoesFontesExternas) e no index.html
+   (#modal-questoes-fontes-externas) pra contexto completo: é um
+   registro isolado, que nunca entra nas contas da Evolução de
+   Questões — só um mural informativo à parte.
+   ============================================================ */
+.questoes-evolucao-card-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.questoes-evolucao-externas-aviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surface-inset);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+.questoes-evolucao-externas-aviso em {
+  display: block;
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  margin-top: 2px;
+}
+.questoes-evolucao-externas-aviso .btn-ver-detalhes {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+
+.modal-fontes-externas-conteudo {
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.fonte-externa-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+.fonte-externa-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.fonte-externa-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.questoes-evolucao-badge-externas {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-inset));
+  border: 1px solid var(--primary);
+  color: var(--accent-text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.fonte-externa-form-botoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fonte-externa-form-botoes #fonte-externa-btn-salvar {
+  flex: 1;
+}
+#fonte-externa-btn-cancelar {
+  width: auto;
+  margin: 4px 0 0 0;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#fonte-externa-btn-cancelar:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.fonte-externa-item-editando {
+  border-color: var(--primary) !important;
 }

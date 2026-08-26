@@ -353,6 +353,23 @@ let simuladoCronIntervalId = null;
 let simuladoCronDados =
   JSON.parse(localStorage.getItem("simuladoCronDados")) || null; // { timestampAlvo, nome, metaVinculada, total }
 
+// Prova por Questão: outro modo de cronômetro em tela cheia, mas mede o
+// tempo de CADA questão individualmente em vez de um total regressivo. O
+// usuário aperta Espaço (ou o botão na tela) sempre que termina uma
+// questão: o tempo dela é registrado e o cronômetro reinicia do zero pra
+// próxima. Também persistido no localStorage pelo mesmo motivo do
+// Simulado Cronometrado acima (sobreviver a um recarregamento no meio da
+// prova).
+let provaPorQuestaoIntervalId = null;
+let provaPorQuestaoDados =
+  JSON.parse(localStorage.getItem("provaPorQuestaoDados")) || null; // { nome, metaVinculada, totalEsperado, tempos: [segundos,...], inicioQuestaoAtual }
+// Resultado já calculado (tempo total, média, questão mais demorada),
+// esperando confirmação no modal de resultado antes de virar registro.
+let provaPorQuestaoResultadoPendente = null;
+// Depois que o resultado é confirmado, guarda os dados de tempo aqui até
+// registrarSimulado() salvar o registro correspondente e anexá-los nele.
+let provaPorQuestaoParaRegistrar = null;
+
 // --- VARIÁVEIS GLOBAIS DE EXECUÇÃO ---
 let cacheMinutosSessaoAtual = 0;
 let cacheMateriaSessaoAtual = "";
@@ -3002,6 +3019,19 @@ document.addEventListener("keydown", (e) => {
     tag === "select" ||
     e.target.isContentEditable;
   if (estaDigitando) return;
+
+  // Prova por Questão em andamento: Espaço marca a questão atual (e
+  // reinicia o cronômetro pra próxima), em vez de controlar o pomodoro.
+  const telaProvaPorQuestao = document.getElementById("tela-prova-por-questao");
+  if (
+    e.code === "Space" &&
+    telaProvaPorQuestao &&
+    telaProvaPorQuestao.style.display === "flex"
+  ) {
+    e.preventDefault();
+    marcarQuestaoProvaPorQuestao();
+    return;
+  }
 
   if (e.code === "Space") {
     e.preventDefault();
@@ -7816,14 +7846,32 @@ async function registrarSimulado(event) {
     return;
   }
 
-  registrosSimulados.push({
+  const novoRegistroSimulado = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     data: obterDataLocalString(new Date()),
     nome,
     metaVinculada: metaVinculada || null,
     total,
     acertos,
-  });
+  };
+
+  // Se esse registro veio de uma Prova por Questão (mesmo nome que o
+  // formulário já foi preenchido automaticamente), anexa tempo total,
+  // média por questão e a questão mais demorada — ver
+  // finalizarProvaPorQuestao() e salvarResultadoProvaPorQuestao().
+  if (
+    provaPorQuestaoParaRegistrar &&
+    provaPorQuestaoParaRegistrar.nome === nome
+  ) {
+    novoRegistroSimulado.provaPorQuestao = {
+      tempoTotalSegundos: provaPorQuestaoParaRegistrar.tempoTotalSegundos,
+      duracaoMediaSegundos: provaPorQuestaoParaRegistrar.duracaoMediaSegundos,
+      questaoMaisDemorada: provaPorQuestaoParaRegistrar.questaoMaisDemorada,
+    };
+    provaPorQuestaoParaRegistrar = null;
+  }
+
+  registrosSimulados.push(novoRegistroSimulado);
   localStorage.setItem(
     "registrosSimulados",
     JSON.stringify(registrosSimulados),
@@ -7839,6 +7887,7 @@ async function registrarSimulado(event) {
   renderizarSimulados();
   renderizarComparativoAvulsasSimulados();
   renderizarEvolucaoSimulados();
+  renderizarEvolucaoQuestoes();
 }
 
 function excluirRegistroSimulado(id) {
@@ -7850,6 +7899,7 @@ function excluirRegistroSimulado(id) {
   renderizarSimulados();
   renderizarComparativoAvulsasSimulados();
   renderizarEvolucaoSimulados();
+  renderizarEvolucaoQuestoes();
 }
 
 // --- SIMULADO CRONOMETRADO ---
@@ -8035,6 +8085,292 @@ function verificarSimuladoCronometradoEmAndamento() {
   }
 }
 
+// ============================================================
+// PROVA POR QUESTÃO
+// ============================================================
+// Cronômetro em tela cheia que mede o tempo de CADA questão
+// individualmente (em vez de um tempo total regressivo, como no Simulado
+// Cronometrado acima). O usuário aperta Espaço — ou o botão "Marcar
+// Questão" na tela — sempre que termina uma questão: o tempo dela entra
+// na lista, o cronômetro reinicia do zero e passa a contar a próxima. Ao
+// finalizar, mostra tempo total, duração média por questão e qual foi a
+// mais demorada, com a chance de deixar uma observação nela antes de
+// mandar pro formulário de Registrar Simulado (que só pede os acertos).
+
+function abrirModalProvaPorQuestao() {
+  preencherSelectDeMetas("ppq-meta");
+  document.getElementById("modal-iniciar-prova-por-questao").style.display =
+    "flex";
+}
+
+function fecharModalProvaPorQuestao() {
+  document.getElementById("modal-iniciar-prova-por-questao").style.display =
+    "none";
+}
+
+async function iniciarProvaPorQuestao(event) {
+  event.preventDefault();
+
+  const nome = document.getElementById("ppq-nome").value.trim();
+  const metaVinculada = document.getElementById("ppq-meta").value;
+  const totalEsperadoStr = document.getElementById("ppq-total-esperado").value;
+  const totalEsperado = totalEsperadoStr
+    ? parseInt(totalEsperadoStr, 10)
+    : null;
+
+  if (!nome) {
+    await mostrarAlerta("Dê um nome pra prova.");
+    return;
+  }
+
+  provaPorQuestaoDados = {
+    nome,
+    metaVinculada,
+    totalEsperado,
+    tempos: [],
+    inicioQuestaoAtual: Date.now(),
+  };
+  salvarProvaPorQuestaoDados();
+
+  fecharModalProvaPorQuestao();
+  iniciarAudioContext(); // gesto do usuário: libera áudio pro app em geral
+  mostrarTelaProvaPorQuestao();
+}
+
+function salvarProvaPorQuestaoDados() {
+  localStorage.setItem(
+    "provaPorQuestaoDados",
+    JSON.stringify(provaPorQuestaoDados),
+  );
+}
+
+function mostrarTelaProvaPorQuestao() {
+  if (!provaPorQuestaoDados) return;
+
+  document.getElementById("ppq-nome-exibido").innerText =
+    provaPorQuestaoDados.nome;
+  document.getElementById("tela-prova-por-questao").style.display = "flex";
+
+  atualizarDisplayProvaPorQuestao();
+  renderizarListaTemposProvaPorQuestao();
+  clearInterval(provaPorQuestaoIntervalId);
+  provaPorQuestaoIntervalId = setInterval(
+    atualizarDisplayProvaPorQuestao,
+    1000,
+  );
+}
+
+function atualizarDisplayProvaPorQuestao() {
+  if (!provaPorQuestaoDados) return;
+
+  const decorridoSegundos = Math.floor(
+    (Date.now() - provaPorQuestaoDados.inicioQuestaoAtual) / 1000,
+  );
+  const numeroQuestao = provaPorQuestaoDados.tempos.length + 1;
+
+  const displayTempo = document.getElementById("ppq-tempo");
+  const displayNumero = document.getElementById("ppq-questao-numero");
+
+  if (displayTempo)
+    displayTempo.innerText = formatarSegundosParaRelogio(decorridoSegundos);
+  if (displayNumero) {
+    displayNumero.innerText = provaPorQuestaoDados.totalEsperado
+      ? `Questão ${numeroQuestao} de ${provaPorQuestaoDados.totalEsperado}`
+      : `Questão ${numeroQuestao}`;
+  }
+}
+
+// Registra o tempo da questão atual e reinicia o cronômetro pra próxima.
+// Chamada tanto pelo botão "Marcar Questão" quanto pelo atalho de
+// teclado (Espaço, ver o listener de keydown mais abaixo no arquivo).
+function marcarQuestaoProvaPorQuestao() {
+  if (!provaPorQuestaoDados) return;
+
+  const decorridoSegundos = Math.max(
+    1,
+    Math.round((Date.now() - provaPorQuestaoDados.inicioQuestaoAtual) / 1000),
+  );
+  const numeroQuestao = provaPorQuestaoDados.tempos.length + 1;
+
+  provaPorQuestaoDados.tempos.push(decorridoSegundos);
+  provaPorQuestaoDados.inicioQuestaoAtual = Date.now();
+  salvarProvaPorQuestaoDados();
+
+  atualizarDisplayProvaPorQuestao();
+  renderizarListaTemposProvaPorQuestao();
+
+  mostrarToastGamificacao(
+    "⏱️",
+    `Questão ${numeroQuestao} registrada`,
+    formatarSegundosParaRelogio(decorridoSegundos),
+  );
+}
+
+function renderizarListaTemposProvaPorQuestao() {
+  const container = document.getElementById("ppq-lista-tempos");
+  if (!container || !provaPorQuestaoDados) return;
+
+  const tempos = provaPorQuestaoDados.tempos;
+  if (tempos.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  const maiorValor = Math.max(...tempos);
+  container.innerHTML = tempos
+    .map((seg, i) => {
+      const classe =
+        seg === maiorValor ? "ppq-pill ppq-pill-lenta" : "ppq-pill";
+      return `<span class="${classe}">Q${i + 1}: ${formatarSegundosParaRelogio(seg)}</span>`;
+    })
+    .join("");
+}
+
+function finalizarProvaPorQuestao() {
+  if (!provaPorQuestaoDados) return;
+
+  // A questão em andamento no momento de finalizar também conta — não
+  // precisa apertar Espaço na última questão só pra poder finalizar.
+  const decorridoAtual = Math.round(
+    (Date.now() - provaPorQuestaoDados.inicioQuestaoAtual) / 1000,
+  );
+  const tempos = [...provaPorQuestaoDados.tempos];
+  if (decorridoAtual > 0) {
+    tempos.push(decorridoAtual);
+  }
+
+  if (tempos.length === 0) {
+    mostrarAlerta("Marque pelo menos uma questão antes de finalizar.");
+    return;
+  }
+
+  clearInterval(provaPorQuestaoIntervalId);
+  provaPorQuestaoIntervalId = null;
+  document.getElementById("tela-prova-por-questao").style.display = "none";
+
+  const tempoTotalSegundos = tempos.reduce((s, t) => s + t, 0);
+  const duracaoMediaSegundos = tempoTotalSegundos / tempos.length;
+  const maiorValor = Math.max(...tempos);
+  const maiorIndice = tempos.indexOf(maiorValor);
+
+  provaPorQuestaoResultadoPendente = {
+    nome: provaPorQuestaoDados.nome,
+    metaVinculada: provaPorQuestaoDados.metaVinculada,
+    tempos,
+    tempoTotalSegundos,
+    duracaoMediaSegundos,
+    questaoMaisDemorada: {
+      numero: maiorIndice + 1,
+      segundos: maiorValor,
+      observacao: "",
+    },
+  };
+
+  provaPorQuestaoDados = null;
+  localStorage.removeItem("provaPorQuestaoDados");
+
+  mostrarModalResultadoProvaPorQuestao();
+}
+
+async function cancelarProvaPorQuestao() {
+  const confirmado = await mostrarConfirmacao(
+    "Cancelar a prova por questão? Os tempos registrados até agora serão perdidos.",
+    { icone: "🛑", textoConfirmar: "Cancelar prova" },
+  );
+  if (!confirmado) return;
+
+  clearInterval(provaPorQuestaoIntervalId);
+  provaPorQuestaoIntervalId = null;
+  provaPorQuestaoDados = null;
+  localStorage.removeItem("provaPorQuestaoDados");
+  document.getElementById("tela-prova-por-questao").style.display = "none";
+}
+
+function mostrarModalResultadoProvaPorQuestao() {
+  const r = provaPorQuestaoResultadoPendente;
+  if (!r) return;
+
+  document.getElementById("ppq-resultado-nome").innerText = r.nome;
+  document.getElementById("ppq-resultado-tempo-total").innerText =
+    formatarSegundosParaRelogio(r.tempoTotalSegundos);
+  document.getElementById("ppq-resultado-qtd").innerText = r.tempos.length;
+  document.getElementById("ppq-resultado-media").innerText =
+    formatarSegundosParaRelogio(r.duracaoMediaSegundos);
+  document.getElementById("ppq-resultado-maior").innerText =
+    `Questão ${r.questaoMaisDemorada.numero} · ${formatarSegundosParaRelogio(r.questaoMaisDemorada.segundos)}`;
+  document.getElementById("ppq-resultado-observacao").value = "";
+
+  document.getElementById("modal-resultado-prova-por-questao").style.display =
+    "flex";
+}
+
+function salvarResultadoProvaPorQuestao() {
+  const r = provaPorQuestaoResultadoPendente;
+  if (!r) return;
+
+  const observacao = document
+    .getElementById("ppq-resultado-observacao")
+    .value.trim();
+  r.questaoMaisDemorada.observacao = observacao;
+
+  // Guarda os dados pra registrarSimulado() anexar ao registro assim que
+  // o usuário completar e enviar o formulário (só falta informar os
+  // acertos, preenchido a seguir).
+  provaPorQuestaoParaRegistrar = r;
+  provaPorQuestaoResultadoPendente = null;
+
+  document.getElementById("modal-resultado-prova-por-questao").style.display =
+    "none";
+
+  preencherFormularioSimuladoApósProvaPorQuestao(r);
+}
+
+function descartarResultadoProvaPorQuestao() {
+  provaPorQuestaoResultadoPendente = null;
+  document.getElementById("modal-resultado-prova-por-questao").style.display =
+    "none";
+}
+
+// Mesmo comportamento do fluxo do Simulado Cronometrado (ver
+// preencherFormularioSimuladoApósCronometro): leva a pessoa direto pra
+// aba Estudos com o formulário de registro já preenchido — só falta
+// digitar os acertos.
+function preencherFormularioSimuladoApósProvaPorQuestao(r) {
+  navegarPara("estudos");
+
+  setTimeout(() => {
+    preencherSelectDeMetas("simulado-meta");
+
+    const campoNome = document.getElementById("simulado-nome");
+    const campoMeta = document.getElementById("simulado-meta");
+    const campoTotal = document.getElementById("simulado-total");
+    const campoAcertos = document.getElementById("simulado-acertos");
+
+    if (campoNome) campoNome.value = r.nome;
+    if (campoMeta && r.metaVinculada) campoMeta.value = r.metaVinculada;
+    if (campoTotal) campoTotal.value = r.tempos.length;
+
+    const cartaoSimulado = document.getElementById("card-simulados");
+    if (cartaoSimulado) {
+      cartaoSimulado.scrollIntoView({ behavior: "smooth", block: "center" });
+      cartaoSimulado.classList.add("form-simulado-destaque");
+      setTimeout(
+        () => cartaoSimulado.classList.remove("form-simulado-destaque"),
+        2600,
+      );
+    }
+    if (campoAcertos) campoAcertos.focus();
+  }, 150);
+}
+
+// Ao abrir o app, retoma uma Prova por Questão que já estava em
+// andamento (ex: a pessoa recarregou a página no meio da prova). Como
+// aqui não existe "tempo esgotado" (o cronômetro é só informativo, conta
+// pra frente), simplesmente reabre a tela de onde parou.
+function verificarProvaPorQuestaoEmAndamento() {
+  if (!provaPorQuestaoDados) return;
+  mostrarTelaProvaPorQuestao();
+}
+
 function renderizarSimulados() {
   const seletorMeta = document.getElementById("simulado-meta");
   if (seletorMeta) {
@@ -8077,11 +8413,22 @@ function renderizarSimulados() {
         const vinculo = r.metaVinculada
           ? `🎯 ${escapeHtml(r.metaVinculada)}`
           : "Sem prova vinculada";
+        // Prova por Questão: linha extra com tempo total, média por
+        // questão e qual foi a mais demorada (e a observação, se houver).
+        const detalheTempo = r.provaPorQuestao
+          ? `<span class="simulados-item-detalhe">⏱️ ${formatarSegundosParaRelogio(r.provaPorQuestao.tempoTotalSegundos)} no total · média ${formatarSegundosParaRelogio(r.provaPorQuestao.duracaoMediaSegundos)}/questão · mais lenta: Q${r.provaPorQuestao.questaoMaisDemorada.numero} (${formatarSegundosParaRelogio(r.provaPorQuestao.questaoMaisDemorada.segundos)})</span>`
+          : "";
+        const detalheObservacao = r.provaPorQuestao?.questaoMaisDemorada
+          ?.observacao
+          ? `<span class="simulados-item-detalhe simulados-item-observacao">📝 ${escapeHtml(r.provaPorQuestao.questaoMaisDemorada.observacao)}</span>`
+          : "";
         return `
         <div class="simulados-item">
           <div class="simulados-item-info">
             <span class="simulados-item-nome">${escapeHtml(r.nome)}</span>
             <span class="simulados-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${vinculo} · ${r.data.split("-").reverse().join("/")}</span>
+            ${detalheTempo}
+            ${detalheObservacao}
           </div>
           <button type="button" onclick="excluirRegistroSimulado('${r.id}')" title="Excluir registro">✕</button>
         </div>
@@ -12137,6 +12484,7 @@ function renderizarTodoOPainel() {
   renderizarRevisaoPendente();
   renderizarQuestoesResolvidas();
   renderizarEvolucaoQuestoes();
+  renderizarQuestoesFontesExternas();
   renderizarSimulados();
   renderizarEvolucaoSimulados();
   renderizarSessoesPorTipo();
@@ -12519,10 +12867,18 @@ function gerarBucketsQuestoesEvolucao(periodo) {
     const doIntervalo = registrosQuestoes.filter(
       (r) => r.data >= inicioStr && r.data <= fimStr,
     );
-    return {
-      total: doIntervalo.reduce((s, r) => s + (r.total || 0), 0),
-      acertos: doIntervalo.reduce((s, r) => s + (r.acertos || 0), 0),
-    };
+    // Simulados completos também contam como questões respondidas no dia
+    // em que foram registrados (mesmo critério de data usado acima).
+    const simuladosDoIntervalo = registrosSimulados.filter(
+      (r) => r.data >= inicioStr && r.data <= fimStr,
+    );
+    const total =
+      doIntervalo.reduce((s, r) => s + (r.total || 0), 0) +
+      simuladosDoIntervalo.reduce((s, r) => s + (r.total || 0), 0);
+    const acertos =
+      doIntervalo.reduce((s, r) => s + (r.acertos || 0), 0) +
+      simuladosDoIntervalo.reduce((s, r) => s + (r.acertos || 0), 0);
+    return { total, acertos };
   };
 
   if (periodo === "7dias" || periodo === "30dias") {
@@ -12572,18 +12928,21 @@ function renderizarEvolucaoQuestoes() {
   const canvas = document.getElementById("chartQuestoesEvolucao");
   if (!card || !canvas) return;
 
-  if (registrosQuestoes.length === 0) {
+  if (registrosQuestoes.length === 0 && registrosSimulados.length === 0) {
     card.style.display = "none";
     return;
   }
   card.style.display = "block";
 
   // --- Stats do histórico inteiro (não filtradas por período) ---
-  const totalGeral = registrosQuestoes.reduce((s, r) => s + (r.total || 0), 0);
-  const acertosGeral = registrosQuestoes.reduce(
-    (s, r) => s + (r.acertos || 0),
-    0,
-  );
+  // Inclui tanto questões avulsas quanto simulados completos, já que
+  // ambos agora contam no quantitativo de questões respondidas.
+  const totalGeral =
+    registrosQuestoes.reduce((s, r) => s + (r.total || 0), 0) +
+    registrosSimulados.reduce((s, r) => s + (r.total || 0), 0);
+  const acertosGeral =
+    registrosQuestoes.reduce((s, r) => s + (r.acertos || 0), 0) +
+    registrosSimulados.reduce((s, r) => s + (r.acertos || 0), 0);
   const errosGeral = totalGeral - acertosGeral;
   const pctAcertoGeral =
     totalGeral > 0 ? Math.round((acertosGeral / totalGeral) * 100) : 0;
@@ -12670,6 +13029,284 @@ function renderizarEvolucaoQuestoes() {
       },
     },
   });
+}
+
+// --- OUTRAS FONTES DE QUESTÕES (aba Desempenho): registro manual e
+// TOTALMENTE separado de registrosQuestoes. Serve só pra o usuário
+// unificar, num só lugar, a quantidade de questões que resolveu em outras
+// plataformas (QConcursos, TEC Concursos, Gran Cursos etc.) — armazenado
+// numa chave própria ("questoesFontesExternas"). Por pedido explícito,
+// esses números NUNCA entram em gerarBucketsQuestoesEvolucao,
+// renderizarEvolucaoQuestoes ou qualquer outra conta do app (metas,
+// streaks, desempenho por matéria/banca, Caderno de Erros etc.) — é só um
+// mural informativo à parte.
+let registrosQuestoesFontesExternas =
+  JSON.parse(localStorage.getItem("questoesFontesExternas")) || [];
+// Guarda o id do registro em edição (null = formulário está em modo
+// "adicionar novo"). Enquanto não-nulo, salvarQuestaoFonteExterna()
+// atualiza esse registro existente em vez de criar um novo.
+let fonteExternaIdEmEdicao = null;
+
+function abrirModalQuestoesFontesExternas() {
+  renderizarQuestoesFontesExternas();
+  const dataInput = document.getElementById("fonte-externa-data");
+  if (dataInput && !dataInput.value) {
+    dataInput.value = obterDataLocalString(new Date());
+  }
+  const modal = document.getElementById("modal-questoes-fontes-externas");
+  if (modal) modal.style.display = "flex";
+}
+
+function fecharModalQuestoesFontesExternas() {
+  const modal = document.getElementById("modal-questoes-fontes-externas");
+  if (modal) modal.style.display = "none";
+  // Fechar o modal com uma edição pendente não deve deixar o formulário
+  // "preso" em modo edição da próxima vez que ele for aberto.
+  cancelarEdicaoFonteExterna();
+}
+
+function fecharModalQuestoesFontesExternasSeClicouFora(event) {
+  if (event.target.id === "modal-questoes-fontes-externas") {
+    fecharModalQuestoesFontesExternas();
+  }
+}
+
+// Preenche o formulário com os dados do registro escolhido e liga o modo
+// de edição — o mesmo formulário de "adicionar" é reaproveitado, só o
+// botão de salvar e o rótulo mudam (ver renderizarQuestoesFontesExternas /
+// salvarQuestaoFonteExterna).
+function editarQuestaoFonteExterna(id) {
+  const registro = registrosQuestoesFontesExternas.find((r) => r.id === id);
+  if (!registro) return;
+
+  fonteExternaIdEmEdicao = id;
+
+  document.getElementById("fonte-externa-nome").value = registro.fonte;
+  document.getElementById("fonte-externa-total").value = registro.total;
+  document.getElementById("fonte-externa-acertos").value =
+    registro.acertos === null || registro.acertos === undefined
+      ? ""
+      : registro.acertos;
+  document.getElementById("fonte-externa-data").value = registro.data;
+
+  const btnSalvar = document.getElementById("fonte-externa-btn-salvar");
+  const btnCancelar = document.getElementById("fonte-externa-btn-cancelar");
+  if (btnSalvar) btnSalvar.innerText = "💾 Salvar Alterações";
+  if (btnCancelar) btnCancelar.style.display = "block";
+
+  renderizarQuestoesFontesExternas();
+
+  const form = document.getElementById("form-fonte-externa");
+  if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Volta o formulário pro modo "adicionar novo", limpando os campos e
+// desfazendo a marcação visual do item em edição na lista.
+function cancelarEdicaoFonteExterna() {
+  fonteExternaIdEmEdicao = null;
+
+  // Limpa só nome/quantidade/acertos — a data fica como estava, pra
+  // continuar rápido de registrar vários lançamentos do mesmo dia em
+  // seguida (mesmo comportamento de antes da edição existir).
+  const fonteInput = document.getElementById("fonte-externa-nome");
+  const totalInput = document.getElementById("fonte-externa-total");
+  const acertosInput = document.getElementById("fonte-externa-acertos");
+  if (fonteInput) fonteInput.value = "";
+  if (totalInput) totalInput.value = "";
+  if (acertosInput) acertosInput.value = "";
+
+  const btnSalvar = document.getElementById("fonte-externa-btn-salvar");
+  const btnCancelar = document.getElementById("fonte-externa-btn-cancelar");
+  if (btnSalvar) btnSalvar.innerText = "➕ Adicionar";
+  if (btnCancelar) btnCancelar.style.display = "none";
+
+  renderizarQuestoesFontesExternas();
+}
+
+async function salvarQuestaoFonteExterna(event) {
+  event.preventDefault();
+
+  const fonteInput = document.getElementById("fonte-externa-nome");
+  const fonte = fonteInput.value.trim();
+  const total = parseInt(
+    document.getElementById("fonte-externa-total").value,
+    10,
+  );
+  const acertosInput = document.getElementById("fonte-externa-acertos");
+  const acertosBruto =
+    acertosInput.value === "" ? null : parseInt(acertosInput.value, 10);
+  const dataInput = document.getElementById("fonte-externa-data");
+  const data = dataInput.value || obterDataLocalString(new Date());
+
+  if (!fonte) {
+    await mostrarAlerta(
+      "Informe o nome da plataforma ou fonte (ex: QConcursos, TEC Concursos).",
+    );
+    return;
+  }
+  if (!total || total <= 0) {
+    await mostrarAlerta("Informe a quantidade de questões (maior que zero).");
+    return;
+  }
+  if (acertosBruto !== null && (isNaN(acertosBruto) || acertosBruto < 0)) {
+    await mostrarAlerta("Os acertos não podem ser negativos.");
+    return;
+  }
+  if (acertosBruto !== null && acertosBruto > total) {
+    await mostrarAlerta(
+      "Os acertos não podem ser maiores que o total de questões.",
+    );
+    return;
+  }
+
+  if (fonteExternaIdEmEdicao) {
+    const registro = registrosQuestoesFontesExternas.find(
+      (r) => r.id === fonteExternaIdEmEdicao,
+    );
+    if (registro) {
+      registro.fonte = fonte;
+      registro.total = total;
+      registro.acertos = acertosBruto;
+      registro.data = data;
+    }
+  } else {
+    registrosQuestoesFontesExternas.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      fonte,
+      total,
+      acertos: acertosBruto,
+      data,
+    });
+  }
+  localStorage.setItem(
+    "questoesFontesExternas",
+    JSON.stringify(registrosQuestoesFontesExternas),
+  );
+
+  cancelarEdicaoFonteExterna();
+}
+
+function excluirQuestaoFonteExterna(id) {
+  registrosQuestoesFontesExternas = registrosQuestoesFontesExternas.filter(
+    (r) => r.id !== id,
+  );
+  localStorage.setItem(
+    "questoesFontesExternas",
+    JSON.stringify(registrosQuestoesFontesExternas),
+  );
+  // Excluir o registro que estava em edição também sai do modo edição —
+  // senão "Salvar Alterações" ficaria apontando pra um id que não existe
+  // mais.
+  if (fonteExternaIdEmEdicao === id) {
+    cancelarEdicaoFonteExterna();
+  } else {
+    renderizarQuestoesFontesExternas();
+  }
+}
+
+// Atualiza tanto o modal de gerenciamento (form + lista + total) quanto o
+// aviso resumido dentro do modal de "Evolução de Questões" — mas nunca
+// toca em registrosQuestoes, buckets, gráfico ou estatísticas existentes.
+function renderizarQuestoesFontesExternas() {
+  const totalGeral = registrosQuestoesFontesExternas.reduce(
+    (s, r) => s + (r.total || 0),
+    0,
+  );
+  const comAcertos = registrosQuestoesFontesExternas.filter(
+    (r) => r.acertos !== null && r.acertos !== undefined,
+  );
+  const totalComAcertos = comAcertos.reduce((s, r) => s + r.total, 0);
+  const acertosGeral = comAcertos.reduce((s, r) => s + r.acertos, 0);
+
+  const elTotalModal = document.getElementById("fonte-externa-total-unificado");
+  if (elTotalModal) elTotalModal.innerText = totalGeral.toLocaleString("pt-BR");
+
+  const elPctModal = document.getElementById("fonte-externa-pct-unificado");
+  if (elPctModal) {
+    elPctModal.innerText =
+      totalComAcertos > 0
+        ? `${Math.round((acertosGeral / totalComAcertos) * 100)}%`
+        : "—";
+  }
+
+  const breakdownEl = document.getElementById("fonte-externa-breakdown");
+  if (breakdownEl) {
+    const mapa = {};
+    registrosQuestoesFontesExternas.forEach((r) => {
+      mapa[r.fonte] = (mapa[r.fonte] || 0) + (r.total || 0);
+    });
+    breakdownEl.innerHTML = Object.entries(mapa)
+      .sort((a, b) => b[1] - a[1])
+      .map(
+        ([fonte, total]) =>
+          `<span class="fonte-externa-chip">${escapeHtml(fonte)}: ${total}</span>`,
+      )
+      .join("");
+  }
+
+  const lista = document.getElementById("fonte-externa-lista");
+  if (lista) {
+    const ordenados = [...registrosQuestoesFontesExternas].reverse();
+    if (ordenados.length === 0) {
+      lista.innerHTML =
+        '<p class="sessoes-hoje-vazio">Nenhuma questão de outras plataformas registrada ainda.</p>';
+    } else {
+      lista.innerHTML = ordenados
+        .map((r) => {
+          const dataLabel = r.data.split("-").reverse().join("/");
+          const detalhe =
+            r.acertos !== null && r.acertos !== undefined
+              ? `${r.acertos}/${r.total} acertos · ${dataLabel}`
+              : `${r.total} questões · ${dataLabel}`;
+          const classeEditando =
+            r.id === fonteExternaIdEmEdicao
+              ? " fonte-externa-item-editando"
+              : "";
+          return `
+            <div class="questoes-item${classeEditando}">
+              <div class="questoes-item-info">
+                <span class="questoes-item-materia">${escapeHtml(r.fonte)}</span>
+                <span class="questoes-item-detalhe">${detalhe}</span>
+              </div>
+              <button type="button" onclick="editarQuestaoFonteExterna('${r.id}')" title="Editar registro">✎</button>
+              <button type="button" onclick="excluirQuestaoFonteExterna('${r.id}')" title="Remover registro">✕</button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+
+  // Aviso dentro do modal "Evolução de Questões": fica sempre visível (o
+  // texto e o botão mudam conforme já existe ou não algum registro) — é o
+  // que garante um jeito de abrir "Outras Fontes" mesmo no modo expandido,
+  // onde o card-resumo com o botão homônimo fica escondido. Sempre deixa
+  // explícito que esse total não entra nas estatísticas ao lado/abaixo.
+  const avisoTexto = document.getElementById(
+    "questoes-evolucao-externas-texto",
+  );
+  const avisoBtn = document.getElementById("questoes-evolucao-externas-btn");
+  if (avisoTexto && avisoBtn) {
+    if (totalGeral > 0) {
+      avisoTexto.innerHTML = `➕ <strong>${totalGeral.toLocaleString("pt-BR")}</strong> questões extras somadas de outras plataformas <em>(não entram nas estatísticas acima)</em>`;
+      avisoBtn.innerText = "Gerenciar";
+    } else {
+      avisoTexto.innerText =
+        "Nenhuma questão de outras plataformas registrada ainda.";
+      avisoBtn.innerText = "➕ Outras Fontes";
+    }
+  }
+
+  // Badge no card compacto (resumo), visível antes mesmo de abrir o modal.
+  const badge = document.getElementById("questoes-evolucao-badge-externas");
+  if (badge) {
+    if (totalGeral > 0) {
+      badge.innerText = `+${totalGeral.toLocaleString("pt-BR")} outras fontes`;
+      badge.style.display = "inline-block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
 }
 
 // --- ANÁLISE DE SIMULADOS (aba Desempenho): evolução da nota prova a
@@ -14681,6 +15318,7 @@ const CHAVES_BACKUP = [
   "pomosIniciadosPorDia",
   "pomosPorDia",
   "registrosQuestoes",
+  "questoesFontesExternas",
   "registrosSimulados",
   "semanaReferenciaFreeze",
   "tarefas",
@@ -14811,6 +15449,8 @@ function recarregarEstadoDoLocalStorage() {
   tarefas = JSON.parse(localStorage.getItem("tarefas")) || [];
   registrosQuestoes =
     JSON.parse(localStorage.getItem("registrosQuestoes")) || [];
+  registrosQuestoesFontesExternas =
+    JSON.parse(localStorage.getItem("questoesFontesExternas")) || [];
   registrosSimulados =
     JSON.parse(localStorage.getItem("registrosSimulados")) || [];
   metaHorasSemanaisAlvo =
@@ -14838,6 +15478,7 @@ function iniciarAppEstudeMais() {
   atualizarProgressoPomodoros();
   sincronizarAbaTimerPreparo();
   verificarSimuladoCronometradoEmAndamento();
+  verificarProvaPorQuestaoEmAndamento();
   restaurarSessaoAtivaSalva();
   restaurarOrdemWidgetsPainel();
   exibirBoasVindasComFlashcards();
