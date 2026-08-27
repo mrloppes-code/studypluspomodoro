@@ -7867,6 +7867,7 @@ async function registrarSimulado(event) {
       tempoTotalSegundos: provaPorQuestaoParaRegistrar.tempoTotalSegundos,
       duracaoMediaSegundos: provaPorQuestaoParaRegistrar.duracaoMediaSegundos,
       questaoMaisDemorada: provaPorQuestaoParaRegistrar.questaoMaisDemorada,
+      temposPorQuestaoSegundos: provaPorQuestaoParaRegistrar.tempos,
     };
     provaPorQuestaoParaRegistrar = null;
   }
@@ -8251,9 +8252,10 @@ function finalizarProvaPorQuestao() {
   const duracaoMediaSegundos = tempoTotalSegundos / tempos.length;
   const maiorValor = Math.max(...tempos);
   const maiorIndice = tempos.indexOf(maiorValor);
+  const nomeProva = provaPorQuestaoDados.nome;
 
   provaPorQuestaoResultadoPendente = {
-    nome: provaPorQuestaoDados.nome,
+    nome: nomeProva,
     metaVinculada: provaPorQuestaoDados.metaVinculada,
     tempos,
     tempoTotalSegundos,
@@ -8267,6 +8269,24 @@ function finalizarProvaPorQuestao() {
 
   provaPorQuestaoDados = null;
   localStorage.removeItem("provaPorQuestaoDados");
+
+  // Registra o tempo total da prova no histórico de estudos — o mesmo
+  // caminho (salvarProgressoGeral) usado quando um pomodoro comum é
+  // finalizado — como UMA sessão única (não dividida em ciclos), pra
+  // aparecer somada no total do dia e na lista "Sessões de Hoje". Não usa
+  // "materia" (fica como "Estudo Geral" e não mexe em tempoPorMateria,
+  // já que uma prova completa normalmente cobre várias matérias de uma
+  // vez) — o nome da prova e o resumo do tempo vão na nota da sessão.
+  // tipoSessao "questoes" também alimenta o card "Sessões por Tipo".
+  const minutosEstudados = Math.max(1, Math.round(tempoTotalSegundos / 60));
+  salvarProgressoGeral(
+    null,
+    minutosEstudados,
+    `⏱️ Prova por Questão: "${nomeProva}" — ${tempos.length} questão(ões), tempo total ${formatarSegundosParaRelogio(tempoTotalSegundos)}, média ${formatarSegundosParaRelogio(duracaoMediaSegundos)}/questão`,
+    null,
+    "questoes",
+  );
+  provaPorQuestaoResultadoPendente.minutosRegistrados = minutosEstudados;
 
   mostrarModalResultadoProvaPorQuestao();
 }
@@ -8298,6 +8318,11 @@ function mostrarModalResultadoProvaPorQuestao() {
   document.getElementById("ppq-resultado-maior").innerText =
     `Questão ${r.questaoMaisDemorada.numero} · ${formatarSegundosParaRelogio(r.questaoMaisDemorada.segundos)}`;
   document.getElementById("ppq-resultado-observacao").value = "";
+
+  const notaTempo = document.getElementById("ppq-resultado-nota-tempo");
+  if (notaTempo) {
+    notaTempo.innerText = `✅ ${r.minutosRegistrados} min já registrados no seu histórico de estudos de hoje (como uma sessão única, tipo "Questões").`;
+  }
 
   document.getElementById("modal-resultado-prova-por-questao").style.display =
     "flex";
@@ -13443,7 +13468,8 @@ function renderizarEvolucaoSimulados() {
   }
 
   // --- Lista dos simulados mais recentes, mesmo padrão visual da lista
-  // de Questões Resolvidas (mais novo primeiro).
+  // de Questões Resolvidas (mais novo primeiro). Cada item é clicável —
+  // abre o detalhe completo do registro (ver abrirModalDetalheSimulado).
   const lista = document.getElementById("simulados-evolucao-lista");
   if (lista) {
     const recentes = [...ordenados].reverse().slice(0, 8);
@@ -13451,16 +13477,145 @@ function renderizarEvolucaoSimulados() {
       .map((r) => {
         const pct = r.total > 0 ? Math.round((r.acertos / r.total) * 100) : 0;
         return `
-          <div class="questoes-item">
+          <div
+            class="questoes-item questoes-item-clicavel"
+            onclick="abrirModalDetalheSimulado('${r.id}')"
+            title="Ver detalhes desse simulado"
+          >
             <div class="questoes-item-info">
               <span class="questoes-item-materia">${escapeHtml(r.nome)}</span>
               <span class="questoes-item-detalhe">${r.acertos}/${r.total} acertos (${pct}%) · ${r.data.split("-").reverse().join("/")}</span>
             </div>
+            <span class="questoes-item-seta" aria-hidden="true">›</span>
           </div>
         `;
       })
       .join("");
   }
+}
+
+// Modal de detalhe de UM registro de simulado (aberto a partir da lista
+// em "Análise de Simulados", aba Desempenho). Mostra acertos/total/%,
+// prova vinculada e, se o registro veio de uma Prova por Questão, o
+// tempo total, a média por questão, a questão mais demorada (com a
+// observação, se houver) e o tempo individual de cada questão.
+function abrirModalDetalheSimulado(id) {
+  const r = registrosSimulados.find((item) => item.id === id);
+  if (!r) return;
+
+  const pct = r.total > 0 ? Math.round((r.acertos / r.total) * 100) : 0;
+  const vinculo = r.metaVinculada
+    ? `🎯 ${escapeHtml(r.metaVinculada)}`
+    : "Sem prova vinculada";
+  const dataFormatada = r.data.split("-").reverse().join("/");
+
+  let html = `
+    <h2 style="margin-top: 0">🎓 ${escapeHtml(r.nome)}</h2>
+    <p class="campo-ajuda" style="margin-top: -4px; margin-bottom: 14px">
+      ${dataFormatada} · ${vinculo}
+    </p>
+    <div class="analise-stats-row" style="grid-template-columns: repeat(3, 1fr)">
+      <div class="analise-stat-card">
+        <span class="analise-stat-label">Acertos</span>
+        <span class="analise-stat-valor">${r.acertos}/${r.total}</span>
+      </div>
+      <div class="analise-stat-card">
+        <span class="analise-stat-label">% de Acerto</span>
+        <span class="analise-stat-valor questoes-evolucao-stat-acerto">${pct}%</span>
+      </div>
+      <div class="analise-stat-card">
+        <span class="analise-stat-label">Erros</span>
+        <span class="analise-stat-valor questoes-evolucao-stat-erro">${r.total - r.acertos}</span>
+      </div>
+    </div>
+  `;
+
+  if (r.provaPorQuestao) {
+    const ppq = r.provaPorQuestao;
+    const temposIndividuais = Array.isArray(ppq.temposPorQuestaoSegundos)
+      ? ppq.temposPorQuestaoSegundos
+      : [];
+    const maiorValor =
+      temposIndividuais.length > 0 ? Math.max(...temposIndividuais) : null;
+
+    html += `
+      <h3 style="margin: 18px 0 10px; font-size: 1rem">⏱️ Prova por Questão</h3>
+      <div class="analise-stats-row" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="analise-stat-card">
+          <span class="analise-stat-label">Tempo Total</span>
+          <span class="analise-stat-valor">${formatarSegundosParaRelogio(ppq.tempoTotalSegundos)}</span>
+        </div>
+        <div class="analise-stat-card">
+          <span class="analise-stat-label">Média/Questão</span>
+          <span class="analise-stat-valor">${formatarSegundosParaRelogio(ppq.duracaoMediaSegundos)}</span>
+        </div>
+        <div class="analise-stat-card">
+          <span class="analise-stat-label">Mais Demorada</span>
+          <span class="analise-stat-valor">Q${ppq.questaoMaisDemorada.numero} · ${formatarSegundosParaRelogio(ppq.questaoMaisDemorada.segundos)}</span>
+        </div>
+      </div>
+      ${
+        ppq.questaoMaisDemorada.observacao
+          ? `<p class="campo-ajuda" style="margin: -4px 0 14px"><strong>📝 Observação (Q${ppq.questaoMaisDemorada.numero}):</strong> ${escapeHtml(ppq.questaoMaisDemorada.observacao)}</p>`
+          : ""
+      }
+      ${
+        temposIndividuais.length > 0
+          ? `<p class="campo-ajuda" style="margin-bottom: 8px">Tempo de cada questão:</p>
+             <div class="ppq-lista-tempos" style="justify-content: flex-start; max-width: none; max-height: 140px; margin-top: 0">
+               ${temposIndividuais
+                 .map((seg, i) => {
+                   const classe =
+                     seg === maiorValor
+                       ? "ppq-pill ppq-pill-lenta"
+                       : "ppq-pill";
+                   return `<span class="${classe}">Q${i + 1}: ${formatarSegundosParaRelogio(seg)}</span>`;
+                 })
+                 .join("")}
+             </div>`
+          : ""
+      }
+    `;
+  }
+
+  html += `
+    <div style="display: flex; gap: 10px; margin-top: 18px">
+      <button
+        type="button"
+        onclick="excluirRegistroSimuladoDoDetalhe('${r.id}')"
+        style="
+          flex: 1;
+          padding: 10px;
+          background: transparent;
+          color: var(--danger);
+          border: 1px solid var(--danger);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+        "
+      >
+        🗑️ Excluir Registro
+      </button>
+    </div>
+  `;
+
+  document.getElementById("detalhe-simulado-conteudo").innerHTML = html;
+  document.getElementById("modal-detalhe-simulado").style.display = "flex";
+}
+
+function fecharModalDetalheSimulado() {
+  document.getElementById("modal-detalhe-simulado").style.display = "none";
+}
+
+async function excluirRegistroSimuladoDoDetalhe(id) {
+  const confirmado = await mostrarConfirmacao(
+    "Excluir esse registro de simulado? Essa ação não pode ser desfeita.",
+    { icone: "🗑️", textoConfirmar: "Excluir", perigo: true },
+  );
+  if (!confirmado) return;
+
+  excluirRegistroSimulado(id);
+  fecharModalDetalheSimulado();
 }
 
 // --- SESSÕES POR TIPO DE MATERIAL (aba Desempenho) ---

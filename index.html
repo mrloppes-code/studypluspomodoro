@@ -29,7 +29,7 @@
         document.documentElement.setAttribute("data-theme", temaSalvo);
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=60" />
+    <link rel="stylesheet" href="css/style.css?v=61" />
   </head>
   <body>
     <button
@@ -983,6 +983,14 @@
           </div>
         </div>
 
+        <p
+          class="campo-ajuda"
+          id="ppq-resultado-nota-tempo"
+          style="margin-top: -8px"
+        >
+          ✅ Tempo já registrado no seu histórico de estudos de hoje.
+        </p>
+
         <label for="ppq-resultado-observacao" style="margin-top: 14px"
           >Observação na questão mais demorada (opcional):</label
         >
@@ -1025,6 +1033,29 @@
             Descartar
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- MODAL: DETALHE DE UM SIMULADO (aba Desempenho → Análise de
+         Simulados). Conteúdo é montado dinamicamente em JS (ver
+         abrirModalDetalheSimulado), já que muda registro a registro. -->
+    <div
+      id="modal-detalhe-simulado"
+      class="modal-distracao"
+      onclick="
+        fecharModalDetalheCardSeClicouFora(event, 'modal-detalhe-simulado')
+      "
+    >
+      <div class="modal-conteudo modal-detalhe-conteudo">
+        <button
+          type="button"
+          class="tela-login-fechar"
+          onclick="fecharModalDetalheSimulado()"
+          title="Fechar"
+        >
+          ✕
+        </button>
+        <div id="detalhe-simulado-conteudo"></div>
       </div>
     </div>
 
@@ -6734,7 +6765,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=3"></script>
-    <script src="js/script.js?v=76"></script>
+    <script src="js/script.js?v=77"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {

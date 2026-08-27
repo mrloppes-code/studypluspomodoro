@@ -5428,6 +5428,21 @@ body.modo-isolamento-ativo .conta-usuario-badge {
 .questoes-item button:hover {
   color: var(--danger);
 }
+.questoes-item-clicavel {
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.questoes-item-clicavel:hover {
+  border-color: var(--primary);
+  background: var(--surface-accent);
+}
+.questoes-item-seta {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
 @media (max-width: 500px) {
   .questoes-form-linha {
     flex-direction: column;
