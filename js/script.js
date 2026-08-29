@@ -4780,7 +4780,21 @@ async function registrarQuestoes(event) {
     }
   }
 
-  const dataRegistro = obterDataLocalString(new Date());
+  // Registro retroativo: se a pessoa escolher uma data no campo, o
+  // lançamento (e, consequentemente, o gráfico de Evolução de Questões e
+  // as estatísticas "hoje/no total") passam a valer pra aquele dia — não
+  // pro dia em que ela abriu o app. Campo vazio cai no comportamento
+  // antigo (hoje). Datas futuras não são aceitas.
+  const hojeStr = obterDataLocalString(new Date());
+  const campoDataQuestoes = document.getElementById("questoes-data");
+  const dataEscolhida = campoDataQuestoes ? campoDataQuestoes.value : "";
+  if (dataEscolhida && dataEscolhida > hojeStr) {
+    await mostrarAlerta(
+      "A data do registro não pode ser no futuro. Escolha hoje ou um dia anterior.",
+    );
+    return;
+  }
+  const dataRegistro = dataEscolhida || hojeStr;
 
   // Uma linha de distribuição = um registro próprio (mesma matéria/tópico/
   // data), cada um com sua banca e seu total/acertos — é o que faz o
@@ -4839,6 +4853,7 @@ async function registrarQuestoes(event) {
   // Matéria/tópico ficam selecionados — a próxima sessão da mesma matéria
   // é rápida de registrar de novo.
   document.getElementById("questoes-total").value = "";
+  if (campoDataQuestoes) campoDataQuestoes.value = hojeStr;
   reiniciarLinhasDistribuicaoQuestoes();
   ["nao-sabia", "confundiu", "leitura", "atencao"].forEach((sufixo) => {
     const campo = document.getElementById(`questoes-erro-${sufixo}`);
@@ -6519,10 +6534,19 @@ function renderizarQuestoesResolvidas() {
   const lista = document.getElementById("questoes-lista-recente");
   if (!lista) return;
 
-  const recentes = [...registrosDoFiltro]
-    .filter((r) => r.total > 0)
-    .reverse()
-    .slice(0, 8);
+  // Ordena pela data do registro (não pela ordem de inserção): com
+  // lançamentos retroativos, o mais recente digitado pode ser de um dia
+  // passado, então a lista precisa refletir a data real, do dia mais
+  // novo pro mais velho (empate = o que foi inserido por último primeiro).
+  const recentes = registrosDoFiltro
+    .map((r, indiceOriginal) => ({ r, indiceOriginal }))
+    .filter(({ r }) => r.total > 0)
+    .sort((a, b) => {
+      if (a.r.data !== b.r.data) return a.r.data < b.r.data ? 1 : -1;
+      return b.indiceOriginal - a.indiceOriginal;
+    })
+    .slice(0, 8)
+    .map(({ r }) => r);
   if (recentes.length === 0) {
     lista.innerHTML = filtroProva
       ? '<p class="sessoes-hoje-vazio">Nenhuma questão registrada para essa prova ainda.</p>'
@@ -15628,6 +15652,16 @@ function recarregarEstadoDoLocalStorage() {
 function iniciarAppEstudeMais() {
   recarregarEstadoDoLocalStorage();
   carregarDadosPerfil();
+
+  // Campo de data do registro de Questões Resolvidas: começa em hoje e
+  // não aceita datas futuras (registro é sempre de algo já resolvido).
+  const campoDataQuestoesInit = document.getElementById("questoes-data");
+  if (campoDataQuestoesInit) {
+    const hojeInit = obterDataLocalString(new Date());
+    campoDataQuestoesInit.value = hojeInit;
+    campoDataQuestoesInit.max = hojeInit;
+  }
+
   renderizarTodoOPainel();
   renderizarTarefas();
   atualizarProgressoPomodoros();
