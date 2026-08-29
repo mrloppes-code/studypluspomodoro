@@ -278,6 +278,18 @@ let cargosExtraidosEditalPendentes = null;
 let tempoPorMateria = JSON.parse(localStorage.getItem("tempoPorMateria")) || {};
 let logsSessoes = JSON.parse(localStorage.getItem("logsSessoes")) || [];
 
+// --- CONQUISTAS FANTASMA (easter eggs) ---
+// Flags permanentes pra segredos que não dá pra derivar só olhando os
+// dados normais (tipo "abriu o app numa data especial" ou "digitou um
+// código secreto") — uma vez marcado true, fica true pra sempre, mesmo
+// que a condição (a data de hoje, por exemplo) deixe de valer amanhã.
+let easterEggFlags = JSON.parse(localStorage.getItem("easterEggFlags")) || {};
+function marcarEasterEgg(chave) {
+  if (easterEggFlags[chave]) return; // já marcado, não faz nada
+  easterEggFlags[chave] = true;
+  localStorage.setItem("easterEggFlags", JSON.stringify(easterEggFlags));
+}
+
 // --- MOOD TRACKER (Tier 1: check-in + check-out) ---
 // Guarda as respostas do check-in (preenchido antes de começar a focar)
 // até a sessão terminar, quando finalmente são anexadas ao registro em
@@ -704,6 +716,11 @@ function alternarTema() {
   document.documentElement.setAttribute("data-theme", novoTema);
   localStorage.setItem("temaApp", novoTema);
   atualizarBotaoTema();
+
+  // Easter egg: primeira vez no tema claro. renderizarTodoOPainel() logo
+  // abaixo já chama renderizarGamificacao(), então não precisa de mais
+  // nada aqui pra desbloquear/mostrar o toast.
+  if (novoTema === "light") marcarEasterEgg("temaClaro");
 
   // Os gráficos (Chart.js) leem as cores direto das variáveis CSS no
   // momento em que são desenhados, então precisam ser recriados para
@@ -4874,6 +4891,14 @@ async function registrarQuestoes(event) {
   renderizarRadarCompetencias();
   renderizarCadernoDeErros();
   renderizarDesempenhoPorBanca();
+  // Easter egg: fechou a sessão com exatamente 100 questões no total.
+  if (totalDeclarado === 100) marcarEasterEgg("cemRedondo");
+  // Recalcula XP/nível e checa conquistas (inclusive as de volume de
+  // questões) com os novos registros já somados — sem isso, um lançamento
+  // (retroativo ou não) só refletia em Conquistas depois de outra ação
+  // disparar renderizarTodoOPainel(), então o desbloqueio/toast podia
+  // demorar a aparecer ou nem aparecer.
+  renderizarGamificacao();
   document.getElementById("questoes-total").focus();
 }
 
@@ -6480,6 +6505,7 @@ function excluirRegistroQuestoes(id) {
   renderizarCadernoDeErros();
   renderizarDesempenhoPorBanca();
   renderizarInsightTempoPorQuestao();
+  renderizarGamificacao();
 }
 
 function renderizarQuestoesResolvidas() {
@@ -12788,6 +12814,12 @@ function alternarTarefaConcluida(id) {
   tarefa.concluida = !tarefa.concluida;
   salvarTarefas();
   renderizarTarefas();
+
+  // Easter egg: zerou a lista (tinha pelo menos 1 tarefa e concluiu todas).
+  if (tarefas.length > 0 && tarefas.every((t) => t.concluida)) {
+    marcarEasterEgg("caixaZerada");
+    renderizarGamificacao();
+  }
 }
 
 function editarTarefa(id) {
@@ -14446,6 +14478,18 @@ function obterMedalhaPorNivel(nivel) {
 
 // Reúne as métricas cruas usadas tanto para calcular XP quanto para
 // verificar as condições das conquistas.
+// Marca (permanentemente) os easter eggs que dependem da data real do
+// calendário — chamado sempre que as estatísticas de gamificação são
+// recalculadas. Só liga a flag no dia certo; ela nunca é desligada depois.
+function verificarEasterEggsPorData() {
+  const hoje = new Date();
+  const dia = hoje.getDate();
+  const mes = hoje.getMonth() + 1; // getMonth() é 0-indexado
+
+  if (mes === 10 && dia === 31) marcarEasterEgg("halloween");
+  if (mes === 1 && dia === 1) marcarEasterEgg("anoNovo");
+}
+
 function obterStatsGamificacao() {
   const minutosTotais = Object.values(historicoEstudos).reduce(
     (s, m) => s + m,
@@ -14507,7 +14551,7 @@ function obterStatsGamificacao() {
   // avulsa.
   const provasResolvidasTotais = registrosSimulados.length;
 
-  return {
+  const statsBase = {
     minutosTotais,
     pomodorosTotais,
     streakAtual,
@@ -14520,6 +14564,105 @@ function obterStatsGamificacao() {
     aprovacoesTotais,
     questoesRegistradasTotais,
     provasResolvidasTotais,
+  };
+
+  // --- Campos extras só usados pelas conquistas fantasma (página 3) ---
+  // O nível depende do XP, que por sua vez depende dos campos acima —
+  // calcula em cima do statsBase, sem entrar em loop.
+  const nivelAtual = calcularNivelPorXp(calcularXPTotal(statsBase));
+
+  // Horários "de cinema" batidos em algum registro de sessão de estudo já
+  // salvo (permanente: uma vez no histórico, o log não some sozinho).
+  const estudouMeiaNoiteEmPonto = logsSessoes.some(
+    (log) => log.hora === "00:00",
+  );
+  const estudouTresEMeia = logsSessoes.some((log) => log.hora === "03:33");
+
+  // Quantas sessões de madrugada (antes das 7h) já foram registradas no
+  // total — diferente de temSessaoMadrugada (que só checa "teve alguma"),
+  // esse aqui conta quantas vezes, pra secreto que pede volume.
+  const sessoesDeMadrugadaContagem = logsSessoes.filter((log) => {
+    if (!log.hora) return false;
+    return parseInt(log.hora.split(":")[0], 10) < 7;
+  }).length;
+
+  // Dias de fim de semana (sábado ou domingo) com algum minuto estudado —
+  // usa as chaves de historicoEstudos ("AAAA-MM-DD") direto.
+  const diasDeFimDeSemanaComEstudo = Object.keys(historicoEstudos).filter(
+    (dataStr) => {
+      if (!(historicoEstudos[dataStr] > 0)) return false;
+      const diaDaSemana = new Date(`${dataStr}T00:00:00`).getDay();
+      return diaDaSemana === 0 || diaDaSemana === 6;
+    },
+  ).length;
+
+  // Tópicos marcados como concluídos, somando todas as matérias.
+  const topicosConcluidosTotais = materias.reduce(
+    (s, m) => s + (m.topicos || []).filter((t) => t.concluido).length,
+    0,
+  );
+
+  // Bancas examinadoras distintas já usadas em registros de questões
+  // (ignora "Não especificar", que fica com banca null/vazia).
+  const bancasDistintas = new Set(
+    registrosQuestoes.filter((r) => r.banca).map((r) => r.banca),
+  ).size;
+
+  // Pelo menos um simulado com 100% de acerto e volume mínimo (pra não
+  // valer um "1 de 1" que seria trivial demais).
+  const simuladoPerfeito = registrosSimulados.some(
+    (r) => r.total >= 10 && r.acertos === r.total,
+  );
+
+  // Os 4 motivos do Diagnóstico de Erros já usados pelo menos uma vez cada
+  // (em qualquer registro de questões, não precisa ser na mesma sessão).
+  const chavesCausaErro = [
+    "naoSabia",
+    "confundiuConceito",
+    "erroLeitura",
+    "faltaAtencao",
+  ];
+  const causasJaUsadas = {};
+  registrosQuestoes.forEach((r) => {
+    if (!r.causasErro) return;
+    chavesCausaErro.forEach((chave) => {
+      if ((r.causasErro[chave] || 0) > 0) causasJaUsadas[chave] = true;
+    });
+  });
+  const usouTodosOsMotivosDeErro = chavesCausaErro.every(
+    (chave) => causasJaUsadas[chave],
+  );
+
+  verificarEasterEggsPorData();
+
+  // "Colecionador de Emblemas": todas as conquistas normais (páginas 1 e
+  // 2) já desbloqueadas. Testa o check() de cada uma contra o statsBase —
+  // seguro porque nenhuma delas depende dos campos extras calculados aqui.
+  const colecionadorCompleto = CONQUISTAS.concat(CONQUISTAS_PAGINA2).every(
+    (c) => c.check(statsBase),
+  );
+
+  return {
+    ...statsBase,
+    nivelAtual,
+    estudouMeiaNoiteEmPonto,
+    estudouTresEMeia,
+    doisExtremos: temSessaoMadrugada && temSessaoNoturna,
+    sessoesDeMadrugadaContagem,
+    diasDeFimDeSemanaComEstudo,
+    topicosConcluidosTotais,
+    bancasDistintas,
+    simuladoPerfeito,
+    usouTodosOsMotivosDeErro,
+    materiasCadastradasTotais: materias.length,
+    congelamentosUsados: diasCongeladosStreak.length,
+    temaClaroAtivado: !!easterEggFlags.temaClaro,
+    tarefasZeradasAlgumaVez: !!easterEggFlags.caixaZerada,
+    registrouCemRedondo: !!easterEggFlags.cemRedondo,
+    logoClicadaRapido: !!easterEggFlags.sobrecarga,
+    halloweenVisitado: !!easterEggFlags.halloween,
+    anoNovoVisitado: !!easterEggFlags.anoNovo,
+    colecionadorCompleto,
   };
 }
 
@@ -14911,20 +15054,171 @@ const CONQUISTAS_PAGINA2 = [
   },
 ];
 
-// Todas as conquistas do jogo (as duas páginas juntas) — usado pra
+// Página 3 de conquistas: EASTER EGGS 👻 — não têm metrica/alvo de
+// propósito, porque não devem aparecer no widget "Próxima Conquista" nem
+// mostrar barra de progresso (ela entregaria a condição secreta). O
+// nome/ícone/descrição de verdade só é exibido depois de desbloqueada;
+// enquanto bloqueada, o grid mostra "???" (ver renderizarGridConquistas).
+const CONQUISTAS_PAGINA3 = [
+  {
+    id: "sobrecarga",
+    nome: "Sobrecarga de Energia",
+    desc: "Clicou 10 vezes seguidas e rápido no logo ⚡ ESTUDE+ lá no topo",
+    icone: "⚡",
+    check: (s) => s.logoClicadaRapido,
+  },
+  {
+    id: "meiaNoite",
+    nome: "Meia-Noite em Ponto",
+    desc: "Registrou uma sessão de estudo às 00:00 em ponto",
+    icone: "🕛",
+    check: (s) => s.estudouMeiaNoiteEmPonto,
+  },
+  {
+    id: "horaDoPesadelo",
+    nome: "Hora do Pesadelo",
+    desc: "Registrou uma sessão de estudo às 03:33",
+    icone: "👻",
+    check: (s) => s.estudouTresEMeia,
+  },
+  {
+    id: "resposta42",
+    nome: "A Resposta",
+    desc: "Chegou ao nível 42 — a resposta pra vida, o universo e tudo mais",
+    icone: "🌌",
+    check: (s) => s.nivelAtual >= 42,
+  },
+  {
+    id: "doisExtremos",
+    nome: "Nos Dois Extremos",
+    desc: "Já estudou de madrugada (antes das 7h) e também depois das 23h",
+    icone: "🌗",
+    check: (s) => s.doisExtremos,
+  },
+  {
+    id: "halloween",
+    nome: "Visita de Halloween",
+    desc: "Abriu o app em 31 de outubro",
+    icone: "🎃",
+    check: (s) => s.halloweenVisitado,
+  },
+  {
+    id: "anoNovo",
+    nome: "Réveillon Dedicado",
+    desc: "Abriu o app em 1º de janeiro",
+    icone: "🎆",
+    check: (s) => s.anoNovoVisitado,
+  },
+  {
+    id: "colecionador",
+    nome: "Colecionador de Emblemas",
+    desc: "Desbloqueou todas as conquistas das páginas 1 e 2",
+    icone: "🏅",
+    check: (s) => s.colecionadorCompleto,
+  },
+  {
+    id: "temaClaro",
+    nome: "Descobriu a Luz",
+    desc: "Trocou pro tema claro pelo menos uma vez",
+    icone: "☀️",
+    check: (s) => s.temaClaroAtivado,
+  },
+  {
+    id: "caixaZerada",
+    nome: "Caixa Zerada",
+    desc: "Concluiu todas as tarefas da lista de uma vez só",
+    icone: "📭",
+    check: (s) => s.tarefasZeradasAlgumaVez,
+  },
+  {
+    id: "simuladoPerfeito",
+    nome: "Cravou na Mosca",
+    desc: "Fez 100% de acerto num simulado com pelo menos 10 questões",
+    icone: "🎯",
+    check: (s) => s.simuladoPerfeito,
+  },
+  {
+    id: "turistaDeBancas",
+    nome: "Turista de Bancas",
+    desc: "Resolveu questões de 5 bancas examinadoras diferentes",
+    icone: "🌍",
+    check: (s) => s.bancasDistintas >= 5,
+  },
+  {
+    id: "autoconhecimento",
+    nome: "Autoconhecimento",
+    desc: "Já usou os 4 motivos do Diagnóstico de Erros pelo menos uma vez cada",
+    icone: "🧩",
+    check: (s) => s.usouTodosOsMotivosDeErro,
+  },
+  {
+    id: "segundaChance",
+    nome: "Segunda Chance",
+    desc: "Usou o Congelamento de Sequência pelo menos uma vez",
+    icone: "❄️",
+    check: (s) => s.congelamentosUsados >= 1,
+  },
+  {
+    id: "dezenaPerfeita",
+    nome: "Dezena Perfeita",
+    desc: "Bateu a meta diária de pomodoros 10 dias seguidos",
+    icone: "🔥",
+    check: (s) => s.diasComMetaBatidaSeguidos >= 10,
+  },
+  {
+    id: "semSono",
+    nome: "Sem Sono",
+    desc: "Registrou 10 sessões de estudo de madrugada (antes das 7h)",
+    icone: "🦉",
+    check: (s) => s.sessoesDeMadrugadaContagem >= 10,
+  },
+  {
+    id: "bibliotecaPessoal",
+    nome: "Biblioteca Pessoal",
+    desc: "Cadastrou 10 matérias diferentes",
+    icone: "📖",
+    check: (s) => s.materiasCadastradasTotais >= 10,
+  },
+  {
+    id: "redondo",
+    nome: "Redondo",
+    desc: "Registrou exatamente 100 questões numa única sessão",
+    icone: "🎲",
+    check: (s) => s.registrouCemRedondo,
+  },
+  {
+    id: "umPassoDeCadaVez",
+    nome: "Um Passo de Cada Vez",
+    desc: "Concluiu 50 tópicos de estudo, somando todas as matérias",
+    icone: "🧗",
+    check: (s) => s.topicosConcluidosTotais >= 50,
+  },
+  {
+    id: "fimDeSemanaDedicado",
+    nome: "Fim de Semana Dedicado",
+    desc: "Estudou em pelo menos 8 sábados ou domingos diferentes",
+    icone: "🏖️",
+    check: (s) => s.diasDeFimDeSemanaComEstudo >= 8,
+  },
+];
+
+// Todas as conquistas do jogo (visíveis + fantasma) — usado pra
 // desbloqueio/persistência, independente de qual página está visível.
-const TODAS_CONQUISTAS = CONQUISTAS.concat(CONQUISTAS_PAGINA2);
+const CONQUISTAS_VISIVEIS = CONQUISTAS.concat(CONQUISTAS_PAGINA2);
+const TODAS_CONQUISTAS = CONQUISTAS_VISIVEIS.concat(CONQUISTAS_PAGINA3);
 
 // Escolhe, entre as conquistas ainda bloqueadas, a que está mais perto de
 // ser desbloqueada (maior % de progresso metrica/alvo). Empate é
 // desempatado pelo menor alvo, pra priorizar a "mais fácil" de bater.
-// Devolve null se não houver nenhuma bloqueada (todas as 40 já feitas) ou
+// Só considera as conquistas "visíveis" (páginas 1 e 2) — as fantasma
+// nunca entram aqui, senão o widget entregaria a condição secreta.
+// Devolve null se não houver nenhuma bloqueada (todas já feitas) ou
 // se a lista de bloqueadas ainda não puder ser calculada.
 function obterProximaConquista(stats, idsDesbloqueadas) {
   let melhor = null;
   let melhorProgresso = -1;
 
-  TODAS_CONQUISTAS.forEach((c) => {
+  CONQUISTAS_VISIVEIS.forEach((c) => {
     if (idsDesbloqueadas.includes(c.id)) return;
     if (typeof c.metrica !== "function" || !c.alvo) return;
 
@@ -14964,11 +15258,13 @@ function mostrarPaginaConquistas(pagina) {
 
   const btn1 = document.getElementById("conquistas-pag1-btn");
   const btn2 = document.getElementById("conquistas-pag2-btn");
+  const btn3 = document.getElementById("conquistas-pag3-btn");
   if (btn1) btn1.classList.toggle("ativa", pagina === 1);
   if (btn2) btn2.classList.toggle("ativa", pagina === 2);
+  if (btn3) btn3.classList.toggle("ativa", pagina === 3);
 
   const indicador = document.getElementById("conquistas-pag-indicador");
-  if (indicador) indicador.innerText = `Página ${pagina} de 2`;
+  if (indicador) indicador.innerText = `Página ${pagina} de 3`;
 }
 
 // Desenha o grid de conquistas da página atualmente selecionada, usando o
@@ -14977,18 +15273,34 @@ function renderizarGridConquistas() {
   const gridConquistas = document.getElementById("grid-conquistas");
   if (!gridConquistas) return;
 
-  const listaDaPagina =
-    paginaConquistasAtual === 2 ? CONQUISTAS_PAGINA2 : CONQUISTAS;
+  let listaDaPagina = CONQUISTAS;
+  if (paginaConquistasAtual === 2) listaDaPagina = CONQUISTAS_PAGINA2;
+  if (paginaConquistasAtual === 3) listaDaPagina = CONQUISTAS_PAGINA3;
+
+  const ehPaginaFantasma = paginaConquistasAtual === 3;
 
   gridConquistas.innerHTML = listaDaPagina
     .map((c) => {
       const desbloqueada = ultimasConquistasDesbloqueadas.includes(c.id);
+
+      // Conquistas fantasma escondem nome/descrição/ícone reais até serem
+      // desbloqueadas — é o que faz delas um segredo, e não só mais uma
+      // meta na lista.
+      const icone = ehPaginaFantasma && !desbloqueada ? "❓" : c.icone;
+      const nome =
+        ehPaginaFantasma && !desbloqueada ? "???" : escapeHtml(c.nome);
+      const desc =
+        ehPaginaFantasma && !desbloqueada
+          ? "Conquista secreta — descubra jogando como desbloquear."
+          : escapeHtml(c.desc);
+      const classeFantasma = ehPaginaFantasma ? "fantasma" : "";
+
       return `
-        <div class="conquista-card ${desbloqueada ? "desbloqueada" : "bloqueada"}">
-          <div class="conquista-icone">${c.icone}</div>
+        <div class="conquista-card ${desbloqueada ? "desbloqueada" : "bloqueada"} ${classeFantasma}">
+          <div class="conquista-icone">${icone}</div>
           <div>
-            <div class="conquista-nome">${escapeHtml(c.nome)}</div>
-            <div class="conquista-desc">${escapeHtml(c.desc)}</div>
+            <div class="conquista-nome">${nome}</div>
+            <div class="conquista-desc">${desc}</div>
           </div>
         </div>
       `;
@@ -15721,6 +16033,35 @@ document.addEventListener("keydown", (event) => {
       sairDoModoFoco();
     }
   }
+});
+
+// --- EASTER EGG: LOGO CLICADO RÁPIDO DEMAIS ---
+// Clicar repetidamente no "⚡ ESTUDE+" lá no topo é o tipo de coisa que
+// quem tá mexendo no app por curiosidade acaba tentando sozinho — sem
+// precisar decorar nenhum código. 10 cliques em menos de 3 segundos
+// desbloqueiam o segredo (o contador zera se demorar demais entre um
+// clique e outro).
+let contadorCliquesLogo = 0;
+let timestampUltimoCliqueLogo = 0;
+
+function registrarCliqueLogoEasterEgg() {
+  const agora = Date.now();
+  if (agora - timestampUltimoCliqueLogo > 3000) {
+    contadorCliquesLogo = 0;
+  }
+  timestampUltimoCliqueLogo = agora;
+  contadorCliquesLogo++;
+
+  if (contadorCliquesLogo >= 10) {
+    contadorCliquesLogo = 0;
+    marcarEasterEgg("sobrecarga");
+    renderizarGamificacao();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const logo = document.querySelector(".app-header-main");
+  if (logo) logo.addEventListener("click", registrarCliqueLogoEasterEgg);
 });
 
 // ============================================================

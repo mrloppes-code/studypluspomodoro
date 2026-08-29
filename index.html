@@ -6401,7 +6401,7 @@ Licitações e Contratos"
               <span
                 id="conquistas-pag-indicador"
                 class="conquistas-pag-indicador"
-                >Página 1 de 2</span
+                >Página 1 de 3</span
               >
             </div>
             <div id="grid-conquistas" class="grid-conquistas"></div>
@@ -6412,7 +6412,7 @@ Licitações e Contratos"
                 class="conquistas-pag-btn ativa"
                 onclick="mostrarPaginaConquistas(1)"
               >
-                ◀ Sequência &amp; Estudo
+                Sequência &amp; Estudo
               </button>
               <button
                 type="button"
@@ -6420,7 +6420,16 @@ Licitações e Contratos"
                 class="conquistas-pag-btn"
                 onclick="mostrarPaginaConquistas(2)"
               >
-                Questões &amp; Provas ▶
+                Questões &amp; Provas
+              </button>
+              <button
+                type="button"
+                id="conquistas-pag3-btn"
+                class="conquistas-pag-btn conquistas-pag-btn-fantasma"
+                onclick="mostrarPaginaConquistas(3)"
+                title="Conquistas secretas — descubra as condições jogando"
+              >
+                👻 Segredos
               </button>
             </div>
           </div>
@@ -6777,7 +6786,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=3"></script>
-    <script src="js/script.js?v=78"></script>
+    <script src="js/script.js?v=81"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
