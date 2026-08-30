@@ -13015,29 +13015,26 @@ function renderizarEvolucaoQuestoes() {
   }
   card.style.display = "block";
 
-  // --- Stats do histórico inteiro (não filtradas por período) ---
-  // Inclui tanto questões avulsas quanto simulados completos, já que
-  // ambos agora contam no quantitativo de questões respondidas.
-  const totalGeral =
-    registrosQuestoes.reduce((s, r) => s + (r.total || 0), 0) +
-    registrosSimulados.reduce((s, r) => s + (r.total || 0), 0);
-  const acertosGeral =
-    registrosQuestoes.reduce((s, r) => s + (r.acertos || 0), 0) +
-    registrosSimulados.reduce((s, r) => s + (r.acertos || 0), 0);
-  const errosGeral = totalGeral - acertosGeral;
-  const pctAcertoGeral =
-    totalGeral > 0 ? Math.round((acertosGeral / totalGeral) * 100) : 0;
+  // --- Estatísticas dos 3 cards (Questões Respondidas / Erros / % de
+  // Acerto): usam o MESMO período selecionado no toggle acima, e não mais
+  // o histórico inteiro — senão o número exibido não batia com o rótulo
+  // "7 dias" (ficava sempre igual ao total geral, típico bug de "mostrar
+  // tudo só porque a query esqueceu de filtrar pelo período").
+  const buckets = gerarBucketsQuestoesEvolucao(questoesEvolucaoPeriodoAtual);
+  const totalPeriodo = buckets.reduce((s, b) => s + b.total, 0);
+  const acertosPeriodo = buckets.reduce((s, b) => s + b.acertos, 0);
+  const errosPeriodo = totalPeriodo - acertosPeriodo;
+  const pctAcertoPeriodo =
+    totalPeriodo > 0 ? Math.round((acertosPeriodo / totalPeriodo) * 100) : 0;
 
   const statTotal = document.getElementById("questoes-evolucao-stat-total");
   const statErros = document.getElementById("questoes-evolucao-stat-erros");
   const statPct = document.getElementById("questoes-evolucao-stat-pct");
-  if (statTotal) statTotal.innerText = totalGeral.toLocaleString("pt-BR");
-  if (statErros) statErros.innerText = errosGeral.toLocaleString("pt-BR");
-  if (statPct) statPct.innerText = `${pctAcertoGeral}%`;
+  if (statTotal) statTotal.innerText = totalPeriodo.toLocaleString("pt-BR");
+  if (statErros) statErros.innerText = errosPeriodo.toLocaleString("pt-BR");
+  if (statPct) statPct.innerText = `${pctAcertoPeriodo}%`;
 
-  // --- Gráfico de barras empilhadas do período selecionado ---
-  const buckets = gerarBucketsQuestoesEvolucao(questoesEvolucaoPeriodoAtual);
-
+  // --- Gráfico de barras empilhadas do mesmo período ---
   if (graficoQuestoesEvolucao) {
     graficoQuestoesEvolucao.destroy();
     graficoQuestoesEvolucao = null;
