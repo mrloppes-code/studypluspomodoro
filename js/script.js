@@ -9119,6 +9119,33 @@ function renderizarSeletorProvas() {
   const filtro = obterMetaFiltroAtiva();
   const hoje = new Date();
 
+  // Ordena as provas da mais próxima pra mais distante, sempre que essa
+  // função roda (ou seja, toda vez que uma prova é cadastrada, editada ou
+  // excluída — renderizarTodoOPainel() chama isso em cascata). Provas sem
+  // data cadastrada ficam por último (não dá pra saber a distância); entre
+  // as com data, as futuras vêm antes das que já passaram, e dentro de
+  // cada grupo a ordem é por proximidade de hoje.
+  const metasOrdenadas = [...metas].sort((a, b) => {
+    const diasA = a.dataLimite
+      ? Math.ceil((new Date(a.dataLimite + "T23:59:59") - hoje) / 86400000)
+      : null;
+    const diasB = b.dataLimite
+      ? Math.ceil((new Date(b.dataLimite + "T23:59:59") - hoje) / 86400000)
+      : null;
+
+    if (diasA === null && diasB === null) return 0;
+    if (diasA === null) return 1;
+    if (diasB === null) return -1;
+
+    const aJaPassou = diasA < 0;
+    const bJaPassou = diasB < 0;
+    if (aJaPassou !== bJaPassou) return aJaPassou ? 1 : -1;
+
+    // Ambas já passaram: a mais recente primeiro. Ambas futuras/hoje: a
+    // mais próxima primeiro. Em ambos os casos, é a mesma subtração.
+    return diasA - diasB;
+  });
+
   const cardTodas = `
     <button
       type="button"
@@ -9133,7 +9160,7 @@ function renderizarSeletorProvas() {
     </button>
   `;
 
-  const cardsProvas = metas
+  const cardsProvas = metasOrdenadas
     .map((meta) => {
       const nomeEscapadoJs = String(meta.objetivoNome).replace(/'/g, "\\'");
       const ativa = filtro === meta.objetivoNome;
@@ -9193,45 +9220,62 @@ function renderizarSeletorProvas() {
 
   lista.innerHTML = cardTodas + cardsProvas;
 
-  atualizarSetaSeletorProvas();
+  atualizarSetasSeletorProvas();
 }
 
-// Mostra/esconde o botão de seta do seletor de provas: só faz sentido
-// exibi-lo quando as provas realmente não cabem todas na largura
-// disponível (senão não tem pra onde rolar/avançar).
-function atualizarSetaSeletorProvas() {
+// Mostra/esconde os botões de seta do seletor de provas: só faz sentido
+// exibi-los quando as provas realmente não cabem todas na largura
+// disponível (senão não tem pra onde rolar). Cada seta some sozinha
+// quando chega na ponta correspondente (não tem "voltar" no início nem
+// "avançar" no fim) — mais previsível que fazer as duas ficarem sempre
+// visíveis e voltar em loop.
+function atualizarSetasSeletorProvas() {
   const lista = document.getElementById("seletor-provas-lista");
-  const seta = document.getElementById("seletor-provas-seta");
-  if (!lista || !seta) return;
+  const setaAnterior = document.getElementById("seletor-provas-seta-anterior");
+  const setaProxima = document.getElementById("seletor-provas-seta");
+  if (!lista || !setaAnterior || !setaProxima) return;
 
   // Espera o próximo frame pra garantir que o layout já foi calculado
   // (innerHTML acabou de ser trocado).
   requestAnimationFrame(() => {
-    const temOverflow = lista.scrollWidth > lista.clientWidth + 2;
-    seta.style.display = temOverflow ? "flex" : "none";
+    const maxScroll = lista.scrollWidth - lista.clientWidth;
+    const temOverflow = maxScroll > 4;
+    setaAnterior.style.display =
+      temOverflow && lista.scrollLeft > 4 ? "flex" : "none";
+    setaProxima.style.display =
+      temOverflow && lista.scrollLeft < maxScroll - 4 ? "flex" : "none";
   });
 }
 
-// Avança a lista de provas por um "passo" (perto da largura visível).
-// Ao chegar no fim, o próximo clique volta pro início — assim um único
-// botão dá pra percorrer todas as provas cadastradas em loop.
+// Avança/volta a lista de provas por um "passo" (perto da largura
+// visível). Como agora tem seta pros dois lados, nenhuma delas precisa
+// fazer loop — ao chegar numa ponta, ela simplesmente some (ver
+// atualizarSetasSeletorProvas).
 function avancarSeletorProvas() {
   const lista = document.getElementById("seletor-provas-lista");
   if (!lista) return;
-
-  const maxScroll = lista.scrollWidth - lista.clientWidth;
-  if (lista.scrollLeft >= maxScroll - 4) {
-    lista.scrollTo({ left: 0, behavior: "smooth" });
-  } else {
-    lista.scrollBy({ left: lista.clientWidth * 0.8, behavior: "smooth" });
-  }
+  lista.scrollBy({ left: lista.clientWidth * 0.8, behavior: "smooth" });
 }
+
+function voltarSeletorProvas() {
+  const lista = document.getElementById("seletor-provas-lista");
+  if (!lista) return;
+  lista.scrollBy({ left: -lista.clientWidth * 0.8, behavior: "smooth" });
+}
+
+// O clique nas setas já reavalia sozinho (scroll dispara o listener
+// abaixo), mas rolagem manual por toque/trackpad também precisa manter os
+// dois botões em sincronia com a posição atual.
+document.addEventListener("DOMContentLoaded", () => {
+  const lista = document.getElementById("seletor-provas-lista");
+  if (lista) lista.addEventListener("scroll", atualizarSetasSeletorProvas);
+});
 
 // Se a janela for redimensionada (ex: virar o celular, ou redimensionar
 // a janela no desktop), reavalia se a seta ainda é necessária.
 window.addEventListener("resize", () => {
   if (typeof metas !== "undefined" && metas.length > 0) {
-    atualizarSetaSeletorProvas();
+    atualizarSetasSeletorProvas();
   }
 });
 

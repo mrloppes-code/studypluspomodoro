@@ -432,7 +432,14 @@ body {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  /* Antes era 12px só de "gap": com o badge de Sequência (que tem
+     box-shadow com 15px de blur) ficando na linha de cima por causa do
+     order:-1 do .topo-info-container, a sombra vazava por cima e cobria
+     visualmente a borda superior do card "Prova em foco" logo abaixo.
+     row-gap maior dá espaço de sobra pra sombra se dissipar antes de
+     chegar na borda do próximo card; column-gap continua o mesmo. */
+  row-gap: 24px;
+  column-gap: 12px;
 }
 .topo-info-container {
   margin: 0;
