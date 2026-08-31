@@ -6,6 +6,7 @@
 // resolve com true/false conforme o botão clicado — ambas devem ser usadas
 // com "await" no lugar de alert(...)/confirm(...).
 let _resolverModalAviso = null;
+let _modalAvisoModoPrompt = false;
 
 function _fecharModalAvisoInterno(resultado) {
   const modal = document.getElementById("modal-aviso-generico");
@@ -18,11 +19,28 @@ function _fecharModalAvisoInterno(resultado) {
 }
 
 function _confirmarModalAviso() {
-  _fecharModalAvisoInterno(true);
+  if (_modalAvisoModoPrompt) {
+    const input = document.getElementById("modal-aviso-input");
+    _fecharModalAvisoInterno(input ? input.value.trim() : "");
+  } else {
+    _fecharModalAvisoInterno(true);
+  }
 }
 
 function _cancelarModalAviso() {
-  _fecharModalAvisoInterno(false);
+  _fecharModalAvisoInterno(_modalAvisoModoPrompt ? null : false);
+}
+
+// Enter no campo de texto confirma (igual ao prompt() nativo); Escape
+// cancela — sem isso, quem tá acostumado com o atalho ficaria preso.
+function _teclaModalAvisoInput(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    _confirmarModalAviso();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    _cancelarModalAviso();
+  }
 }
 
 // Clicar no fundo escurecido fora da caixa do modal equivale a cancelar.
@@ -32,32 +50,62 @@ function fecharModalAvisoSeClicouFora(event) {
   }
 }
 
-function _prepararModalAviso(mensagem, opcoes, modoConfirmacao) {
+function _prepararModalAviso(
+  mensagem,
+  opcoes,
+  modoConfirmacao,
+  modoPrompt = false,
+) {
   const modal = document.getElementById("modal-aviso-generico");
   if (!modal) return null;
 
+  _modalAvisoModoPrompt = modoPrompt;
+
   document.getElementById("modal-aviso-icone").textContent =
-    opcoes.icone || (modoConfirmacao ? "❓" : "ℹ️");
+    opcoes.icone || (modoPrompt ? "✏️" : modoConfirmacao ? "❓" : "ℹ️");
   document.getElementById("modal-aviso-titulo").textContent =
-    opcoes.titulo || (modoConfirmacao ? "Confirmar ação" : "Aviso");
+    opcoes.titulo ||
+    (modoPrompt ? "Editar" : modoConfirmacao ? "Confirmar ação" : "Aviso");
   document.getElementById("modal-aviso-mensagem").textContent =
     String(mensagem);
+
+  const inputEl = document.getElementById("modal-aviso-input");
+  if (inputEl) {
+    inputEl.style.display = modoPrompt ? "" : "none";
+    if (modoPrompt) {
+      inputEl.value = opcoes.valorInicial || "";
+      inputEl.placeholder = opcoes.placeholder || "";
+    }
+  }
 
   const btnCancelar = document.getElementById("modal-aviso-btn-cancelar");
   const btnConfirmar = document.getElementById("modal-aviso-btn-confirmar");
   const botoesContainer = document.querySelector(".modal-aviso-botoes");
 
-  btnCancelar.style.display = modoConfirmacao ? "" : "none";
+  const temCancelar = modoConfirmacao || modoPrompt;
+  btnCancelar.style.display = temCancelar ? "" : "none";
   if (botoesContainer) {
-    botoesContainer.classList.toggle("somente-ok", !modoConfirmacao);
+    botoesContainer.classList.toggle("somente-ok", !temCancelar);
   }
   btnCancelar.textContent = opcoes.textoCancelar || "Cancelar";
-  btnConfirmar.textContent = modoConfirmacao
-    ? opcoes.textoConfirmar || "Confirmar"
-    : "OK";
+  btnConfirmar.textContent = modoPrompt
+    ? opcoes.textoConfirmar || "Salvar"
+    : modoConfirmacao
+      ? opcoes.textoConfirmar || "Confirmar"
+      : "OK";
   btnConfirmar.classList.toggle("btn-aviso-perigo", !!opcoes.perigo);
 
   modal.style.display = "flex";
+
+  if (modoPrompt && inputEl) {
+    // Foca e seleciona o texto já preenchido, igual ao prompt() nativo —
+    // dá pra já começar digitando por cima sem precisar apagar antes.
+    requestAnimationFrame(() => {
+      inputEl.focus();
+      inputEl.select();
+    });
+  }
+
   return modal;
 }
 
@@ -80,6 +128,27 @@ function mostrarConfirmacao(mensagem, opcoes = {}) {
     const modal = _prepararModalAviso(mensagem, opcoes, true);
     if (!modal) {
       resolve(false);
+      return;
+    }
+    _resolverModalAviso = resolve;
+  });
+}
+
+// Substitui window.prompt(mensagem, valorInicial). Resolve com o texto
+// digitado (já sem espaços nas pontas) ou null se a pessoa cancelar —
+// mesmo contrato do prompt() nativo, só que dentro do modal do app em vez
+// de um popup do sistema operacional. Ex:
+// const novoNome = await mostrarPrompt("Editar tarefa:", tarefa.texto);
+function mostrarPrompt(mensagem, valorInicial = "", opcoes = {}) {
+  return new Promise((resolve) => {
+    const modal = _prepararModalAviso(
+      mensagem,
+      { ...opcoes, valorInicial },
+      true,
+      true,
+    );
+    if (!modal) {
+      resolve(null);
       return;
     }
     _resolverModalAviso = resolve;
@@ -8980,7 +9049,7 @@ function atualizarDropdowns() {
     const valorAtualPomo = selectPomo.value;
     selectPomo.innerHTML = '<option value="">Estudo Geral</option>';
     obterMateriasOrdenadasPorPeso().forEach((m) => {
-      selectPomo.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
+      selectPomo.innerHTML += `<option value="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</option>`;
     });
     if ([...selectPomo.options].some((o) => o.value === valorAtualPomo)) {
       selectPomo.value = valorAtualPomo;
@@ -12866,10 +12935,10 @@ function alternarTarefaConcluida(id) {
   }
 }
 
-function editarTarefa(id) {
+async function editarTarefa(id) {
   const tarefa = tarefas.find((t) => t.id === id);
   if (!tarefa) return;
-  const novoTexto = prompt("Editar tarefa:", tarefa.texto);
+  const novoTexto = await mostrarPrompt("Editar tarefa:", tarefa.texto);
   if (novoTexto !== null && novoTexto.trim() !== "") {
     tarefa.texto = novoTexto.trim();
     salvarTarefas();

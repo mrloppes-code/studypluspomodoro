@@ -1201,6 +1201,10 @@ h2 {
   line-height: 1.5;
   white-space: pre-line;
 }
+.modal-aviso-input {
+  margin: -8px 0 20px 0;
+  text-align: left;
+}
 .modal-aviso-botoes {
   display: flex;
   gap: 10px;

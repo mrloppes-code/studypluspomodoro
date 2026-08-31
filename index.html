@@ -6766,6 +6766,13 @@ Licitações e Contratos"
           Confirmar ação
         </h2>
         <p class="modal-aviso-mensagem" id="modal-aviso-mensagem"></p>
+        <input
+          type="text"
+          id="modal-aviso-input"
+          class="modal-aviso-input"
+          style="display: none"
+          onkeydown="_teclaModalAvisoInput(event)"
+        />
         <div class="modal-aviso-botoes">
           <button
             type="button"
@@ -6796,7 +6803,7 @@ Licitações e Contratos"
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="js/auth-sync.js?v=8"></script>
     <script src="js/salas.js?v=3"></script>
-    <script src="js/script.js?v=83"></script>
+    <script src="js/script.js?v=85"></script>
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
